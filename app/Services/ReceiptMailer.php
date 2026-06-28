@@ -118,9 +118,8 @@ class ReceiptMailer
                 'banner'  => 'Your refund has been processed successfully.',
             ],
             'new'     => [
-                'icon'    => '🏋️',
                 'label'   => 'Subscription Details / تفاصيل اشتراكك',
-                'subject' => "🏋️ Welcome! Your Receipt #{$receiptId}",
+                'subject' => "Welcome! Your Receipt #{$receiptId}",
                 'accent'  => '#00b4d8',
                 'banner'  => 'Thank you for subscribing! Here are your details.',
             ],
@@ -337,7 +336,10 @@ HTML;
             <td style="background:#0d1821;border-top:1px solid #1a2e42;
                         padding:18px 32px;text-align:center;">
               <p style="margin:0;font-size:12px;color:#5a7a96;">
-                شكراً لك 🙏 Thank you for choosing us
+                <div>
+                  <p style="color: white; font-weight: bold;">Thank you for choosing us</p>
+                  <p style="color: white; font-weight: bold;">شكراً لك</p>
+                </div>
               </p>
             </td>
           </tr>

@@ -292,22 +292,24 @@ public function searchAll(array $filters = []): array {
 
     // ── Create ────────────────────────────────────────────────────────────────
 
-    public function create(array $data): int {
-        $stmt = $this->db->prepare("
-            INSERT INTO receipts
-                (client_id, creator_id, captain_id, branch_id,
-                 first_session, last_session, renewal_session,
-                 created_at, renewal_type, receipt_status,
-                 exercise_time, plan_id, level, pdf_path)
-            VALUES
-                (:client_id, :creator_id, :captain_id, :branch_id,
-                 :first_session, :last_session, :renewal_session,
-                 CURDATE(), :renewal_type, :receipt_status,
-                 :exercise_time, :plan_id, :level, :pdf_path)
-        ");
-        $stmt->execute($this->bind($data));
-        return (int) $this->db->lastInsertId();
-    }
+
+public function create(array $data): int {
+    $stmt = $this->db->prepare("
+        INSERT INTO receipts
+            (client_id, creator_id, captain_id, branch_id,
+             first_session, last_session, renewal_session,
+             created_at, renewal_type, receipt_status,
+             exercise_time, plan_id, level, pdf_path)
+        VALUES
+            (:client_id, :creator_id, :captain_id, :branch_id,
+             :first_session, :last_session, :renewal_session,
+             NOW(), :renewal_type, :receipt_status,
+             :exercise_time, :plan_id, :level, :pdf_path)
+    ");
+    $stmt->execute($this->bind($data));
+    return (int) $this->db->lastInsertId();
+}
+
 
     // ── Update ────────────────────────────────────────────────────────────────
 

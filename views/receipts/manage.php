@@ -164,6 +164,7 @@ body {
 /* ── Shared section / form styles ── */
 .page-header {
     display: flex; align-items: center; justify-content: space-between;
+    flex-direction: row;
     margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
 }
 .page-header h2 { font-size: 20px; font-weight: 700; }

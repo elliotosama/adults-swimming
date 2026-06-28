@@ -80,7 +80,6 @@ $routes = [
     ['POST',  '/login',                fn() => $auth->handleLogin()],
     ['GET',  '/logout',               fn() => $auth->handleLogout()],
     // end login
-    ['GET',  '/register',                fn() => $auth->showRegister()],
 
 
 

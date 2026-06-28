@@ -511,13 +511,13 @@ private function checkRenewalEligibility(int $clientId, string $newFirstSession 
     // buildReceiptRef
     // ════════════════════════════════════════════════════════════════════════
 
-    private function buildReceiptRef(int $rawId, string $createdAt = ''): string {
-        $dt    = $createdAt ? new DateTime($createdAt) : new DateTime();
-        $yy    = $dt->format('y');
-        $mm    = $dt->format('m');
-        $seq   = str_pad((string)$rawId, 4, '0', STR_PAD_LEFT);
-        return $yy . $mm . $seq;
-    }
+private function buildReceiptRef(int $rawId, string $createdAt = ''): string {
+    $dt  = $createdAt ? new DateTime($createdAt) : new DateTime();
+    $yy  = $dt->format('y');
+    $mm  = $dt->format('m');
+    $seq = str_pad((string) $rawId, 4, '0', STR_PAD_LEFT);
+    return $yy . $mm . $seq;
+}
 
     // ════════════════════════════════════════════════════════════════════════
     // INDEX

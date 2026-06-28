@@ -305,10 +305,6 @@ if (isset($_SESSION['user'])) {
             <button type="submit" class="btn">دخول</button>
         </form>
 
-        <div class="card-footer">
-            ليس لديك حساب؟ <a href="/register">إنشاء حساب جديد</a>
-        </div>
-
     </div>
 </div>
 
