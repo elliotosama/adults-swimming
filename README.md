@@ -12,9 +12,17 @@
 
 
 
-- [ ] payment evidence does not appear
+- [x] payment evidence does not appear
 - [x] responsive design of all transactions functionalities
 - [x] responsive design in customer service and branch_manager dashboard and receipt index
 - [x] responsive design bug in receipts filters
 - [x] check confirmation after creation layout
 - [] when you create a receipt using branch_manager role and create the same receipt with customer_service role it accept the data
+---
+
+- [ ] readjust the head in manage page
+- [ ] in index show the last receipts
+- [ ]
+- [ ] receipt id
+- [ ] imojis 
+- [ ]
