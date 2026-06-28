@@ -238,4 +238,20 @@ class PriceController {
         $this->flash('flash_success', 'تم تعطيل السعر "' . htmlspecialchars($price['description']) . '" بنجاح.');
         $this->redirect('/admin/prices');
     }
+
+
+public function ajaxSearch(): void {
+    auth_require(['admin']);
+
+    header('Content-Type: application/json');
+
+    $filters = [
+        'search'     => trim($_GET['search']     ?? ''),
+        'country_id' => trim($_GET['country_id'] ?? ''),
+        'visible'    => $_GET['visible']          ?? '',
+    ];
+
+    echo json_encode($this->prices->findAll($filters));
+    exit;
+}
 }

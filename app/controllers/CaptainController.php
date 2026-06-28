@@ -277,4 +277,28 @@ class CaptainController {
         $this->flash('flash_success', 'تم إخفاء الكابتن "' . htmlspecialchars($captain['captain_name']) . '".');
         $this->redirect('/admin/captains');
     }
+
+    
+
+    public function ajaxSearch(): void {
+    auth_require(['admin', 'area_manager']);
+
+    header('Content-Type: application/json');
+
+    $user = auth_user();
+
+    $filters = [
+        'search'    => trim($_GET['search']    ?? ''),
+        'branch_id' => (int) ($_GET['branch_id'] ?? 0) ?: '',
+        'visible'   => $_GET['visibility'] ?? '',
+    ];
+
+    if ($user['role'] === 'area_manager') {
+        $filters['area_manager_id'] = $user['id'];
+    }
+
+    echo json_encode($this->captains->findAll($filters));
+    exit;
+}
+
 }

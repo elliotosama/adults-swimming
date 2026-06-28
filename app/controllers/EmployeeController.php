@@ -292,4 +292,21 @@ public function index(): void {
         $this->flash('flash_success', 'تم تعطيل المستخدم "' . htmlspecialchars($user['username']) . '" بنجاح.');
         $this->redirect('/admin/users');
     }
+
+
+
+public function ajaxSearch(): void {
+    auth_require(['admin']);
+
+    header('Content-Type: application/json');
+
+    $filters = [
+        'search'  => trim($_GET['search']  ?? ''),
+        'role'    => trim($_GET['role']    ?? ''),
+        'visible' => trim($_GET['visible'] ?? ''),
+    ];
+
+    echo json_encode($this->users->findAll($filters));
+    exit;
+}
 }

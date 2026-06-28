@@ -2,8 +2,6 @@
 require ROOT . '/views/includes/layout_top.php';
 ?>
 
-
-
 <!-- Custom Confirm Modal -->
 <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
     <div style="background:var(--color-background-primary,#fff);border-radius:16px;border:0.5px solid var(--color-border-tertiary);padding:2rem 2rem 1.5rem;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.18);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);">
@@ -22,7 +20,34 @@ require ROOT . '/views/includes/layout_top.php';
     from { opacity:0; transform:scale(.92) translateY(8px); }
     to   { opacity:1; transform:scale(1) translateY(0); }
 }
-#confirmModal.open { display:flex; }
+#confirmModal.open  { display:flex; }
+#priceTableWrap     { transition: opacity .15s ease; }
+
+.price-amount {
+    font-weight: 700;
+    font-size: .95rem;
+    color: var(--gold);
+    letter-spacing: .02em;
+}
+.sessions-badge {
+    background: #00b4d820;
+    color: var(--accent);
+    border: 1px solid #00b4d840;
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: .8rem;
+    font-weight: 600;
+}
+.desc-cell  { display: flex; align-items: center; gap: .75rem; }
+.desc-icon  {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--gold), var(--accent));
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0;
+}
+.desc-info          { display: flex; flex-direction: column; }
+.desc-info strong   { font-size: .9rem; }
+.desc-info span     { font-size: .78rem; color: var(--muted); }
 </style>
 
 <script>
@@ -52,40 +77,8 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 });
 </script>
 
-
-
-
-<style>
-    .price-amount {
-        font-weight: 700;
-        font-size: .95rem;
-        color: var(--gold);
-        letter-spacing: .02em;
-    }
-    .sessions-badge {
-        background: #00b4d820;
-        color: var(--accent);
-        border: 1px solid #00b4d840;
-        border-radius: 6px;
-        padding: 2px 10px;
-        font-size: .8rem;
-        font-weight: 600;
-    }
-    .desc-cell {
-        display: flex;
-        align-items: center;
-        gap: .75rem;
-    }
-    .desc-icon {
-        width: 34px; height: 34px; border-radius: 10px;
-        background: linear-gradient(135deg, var(--gold), var(--accent));
-        display: inline-flex; align-items: center; justify-content: center;
-        font-size: 1rem; flex-shrink: 0;
-    }
-    .desc-info { display: flex; flex-direction: column; }
-    .desc-info strong { font-size: .9rem; }
-    .desc-info span   { font-size: .78rem; color: var(--muted); }
-</style>
+<!-- Hidden CSRF for JS-rendered delete forms -->
+<input type="hidden" id="globalCsrfToken" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
 
 <div class="page-header">
     <div>
@@ -104,23 +97,25 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
     <?php unset($_SESSION['flash_error']); ?>
 <?php endif; ?>
 
-<!-- ══ Filter Bar ══════════════════════════════════════════════════════════ -->
-<form method="GET" action="<?= APP_URL ?>/admin/prices">
+<!-- Filter Bar -->
+<form id="filterForm" method="GET" action="<?= APP_URL ?>/admin/prices">
     <div class="filter-bar">
 
         <div class="form-group">
             <label class="form-label">🔍 البحث بالاسم</label>
             <input type="text"
+                   id="filterSearch"
                    name="search"
                    class="form-control"
                    placeholder="اسم الخطة..."
-                   value="<?= htmlspecialchars($filters['search'] ?? '') ?>">
+                   value="<?= htmlspecialchars($filters['search'] ?? '') ?>"
+                   autocomplete="off">
         </div>
 
         <div class="form-group">
             <label class="form-label">الدولة</label>
             <div class="form-select-wrap">
-                <select name="country_id" class="form-control">
+                <select id="filterCountry" name="country_id" class="form-control">
                     <option value="">جميع الدول</option>
                     <?php foreach ($countries as $c): ?>
                         <option value="<?= $c['id'] ?>"
@@ -135,7 +130,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
         <div class="form-group">
             <label class="form-label">الحالة</label>
             <div class="form-select-wrap">
-                <select name="visible" class="form-control">
+                <select id="filterVisible" name="visible" class="form-control">
                     <option value="">الكل</option>
                     <option value="1" <?= ($filters['visible'] ?? '') === '1' ? 'selected' : '' ?>>نشط ✅</option>
                     <option value="0" <?= ($filters['visible'] ?? '') === '0' ? 'selected' : '' ?>>معطّل ❌</option>
@@ -145,92 +140,254 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 
         <div class="filter-bar__actions">
             <button type="submit" class="btn btn-primary">تطبيق</button>
-            <a href="<?= APP_URL ?>/admin/prices" class="btn btn-secondary">مسح</a>
+            <a href="<?= APP_URL ?>/admin/prices" class="btn btn-secondary" id="clearFiltersBtn">مسح</a>
         </div>
 
     </div>
 </form>
-<!-- ══════════════════════════════════════════════════════════════════════════ -->
 
+<!-- Table -->
 <div class="card">
-    <?php if (empty($prices)): ?>
-        <div class="empty-state">
-            <div class="empty-icon">💰</div>
-            <p>لا توجد أسعار تطابق البحث.</p>
-        </div>
-    <?php else: ?>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>الوصف</th>
-                        <th>السعر</th>
-                        <th>الدولة</th>
-                        <th>عدد الحصص</th>
-                        <th>الحالة</th>
-                        <th>تاريخ الإضافة</th>
-                        <th>الإجراءات</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($prices as $p): ?>
+    <div id="priceTableWrap">
+        <?php if (empty($prices)): ?>
+            <div class="empty-state">
+                <div class="empty-icon">💰</div>
+                <p>لا توجد أسعار تطابق البحث.</p>
+            </div>
+        <?php else: ?>
+            <div class="table-wrap">
+                <table>
+                    <thead>
                         <tr>
-                            <td style="color:var(--muted);font-size:.82rem"><?= $p['id'] ?></td>
-                            <td>
-                                <div class="desc-cell">
-                                    <div class="desc-icon">🏷️</div>
-                                    <div class="desc-info">
-                                        <strong><?= htmlspecialchars($p['description'] ?? '—') ?></strong>
-                                        <span>آخر تحديث: <?= $p['updated_at'] ? htmlspecialchars($p['updated_at']) : '—' ?></span>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="price-amount">
-                                    <?= $p['price'] !== null ? number_format((float)$p['price'], 2) : '—' ?>
-                                </span>
-                            </td>
-                            <td style="color:var(--muted);font-size:.85rem">
-                                <?= htmlspecialchars($p['country_name'] ?? '—') ?>
-                            </td>
-                            <td>
-                                <?php if ($p['number_of_sessions']): ?>
-                                    <span class="sessions-badge"><?= (int)$p['number_of_sessions'] ?> الحصص</span>
-                                <?php else: ?>
-                                    <span style="color:var(--muted)">—</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if ($p['visible']): ?>
-                                    <span class="badge badge-success">نشط</span>
-                                <?php else: ?>
-                                    <span class="badge badge-danger">معطّل</span>
-                                <?php endif; ?>
-                            </td>
-                            <td style="color:var(--muted);font-size:.82rem">
-                                <?= $p['created_at'] ? htmlspecialchars($p['created_at']) : '—' ?>
-                            </td>
-                            <td>
-                                <div class="td-actions">
-                                    <a href="<?= APP_URL ?>/admin/price/show?id=<?= $p['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
-                                    <a href="<?= APP_URL ?>/admin/price/edit?id=<?= $p['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
-<form method="POST"
-      action="<?= APP_URL ?>/admin/price/delete?id=<?= $p['id'] ?>"
-      style="display:inline"
-      onsubmit="event.preventDefault(); showDeleteModal(this);">
-    <input type="hidden" name="csrf_token"
-           value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-    <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
-</form>
-                                </div>
-                            </td>
+                            <th>#</th>
+                            <th>الوصف</th>
+                            <th>السعر</th>
+                            <th>الدولة</th>
+                            <th>عدد الحصص</th>
+                            <th>الحالة</th>
+                            <th>تاريخ الإضافة</th>
+                            <th>الإجراءات</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($prices as $p): ?>
+                            <tr>
+                                <td style="color:var(--muted);font-size:.82rem"><?= $p['id'] ?></td>
+                                <td>
+                                    <div class="desc-cell">
+                                        <div class="desc-icon">🏷️</div>
+                                        <div class="desc-info">
+                                            <strong><?= htmlspecialchars($p['description'] ?? '—') ?></strong>
+                                            <span>آخر تحديث: <?= $p['updated_at'] ? htmlspecialchars($p['updated_at']) : '—' ?></span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="price-amount">
+                                        <?= $p['price'] !== null ? number_format((float)$p['price'], 2) : '—' ?>
+                                    </span>
+                                </td>
+                                <td style="color:var(--muted);font-size:.85rem">
+                                    <?= htmlspecialchars($p['country_name'] ?? '—') ?>
+                                </td>
+                                <td>
+                                    <?php if ($p['number_of_sessions']): ?>
+                                        <span class="sessions-badge"><?= (int)$p['number_of_sessions'] ?> الحصص</span>
+                                    <?php else: ?>
+                                        <span style="color:var(--muted)">—</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($p['visible']): ?>
+                                        <span class="badge badge-success">نشط</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-danger">معطّل</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="color:var(--muted);font-size:.82rem">
+                                    <?= $p['created_at'] ? htmlspecialchars($p['created_at']) : '—' ?>
+                                </td>
+                                <td>
+                                    <div class="td-actions">
+                                        <a href="<?= APP_URL ?>/admin/price/show?id=<?= $p['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
+                                        <a href="<?= APP_URL ?>/admin/price/edit?id=<?= $p['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
+                                        <form method="POST"
+                                              action="<?= APP_URL ?>/admin/price/delete?id=<?= $p['id'] ?>"
+                                              style="display:inline"
+                                              onsubmit="event.preventDefault(); showDeleteModal(this);">
+                                            <input type="hidden" name="csrf_token"
+                                                   value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div style="padding:.75rem 1.2rem;font-size:.8rem;color:var(--muted);border-top:1px solid var(--border)">
+                عرض <?= count($prices) ?> سعر
+            </div>
+        <?php endif; ?>
+    </div>
 </div>
+
+<script>
+(function () {
+    const AJAX_URL = '<?= APP_URL ?>/admin/prices/search';
+    const APP_URL  = '<?= APP_URL ?>';
+
+    const form           = document.getElementById('filterForm');
+    const wrap           = document.getElementById('priceTableWrap');
+    const searchInput    = document.getElementById('filterSearch');
+    const countrySelect  = document.getElementById('filterCountry');
+    const visibleSelect  = document.getElementById('filterVisible');
+    const clearBtn       = document.getElementById('clearFiltersBtn');
+
+    let debounceTimer = null;
+
+    // ── XSS guard ────────────────────────────────────────────────────────
+    function esc(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function fmtPrice(val) {
+        if (val === null || val === undefined || val === '') return '—';
+        return parseFloat(val).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // ── Action buttons ───────────────────────────────────────────────────
+    function actionButtons(p) {
+        const csrf = esc(document.getElementById('globalCsrfToken').value);
+        return `
+            <div class="td-actions">
+                <a href="${APP_URL}/admin/price/show?id=${p.id}" class="btn btn-sm btn-secondary">عرض</a>
+                <a href="${APP_URL}/admin/price/edit?id=${p.id}" class="btn btn-sm btn-warning">تعديل</a>
+                <form method="POST"
+                      action="${APP_URL}/admin/price/delete?id=${p.id}"
+                      style="display:inline"
+                      onsubmit="event.preventDefault(); showDeleteModal(this);">
+                    <input type="hidden" name="csrf_token" value="${csrf}">
+                    <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+                </form>
+            </div>`;
+    }
+
+    // ── Render prices array ──────────────────────────────────────────────
+    function renderTable(prices) {
+        if (!prices.length) {
+            wrap.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">💰</div>
+                    <p>لا توجد أسعار تطابق البحث.</p>
+                </div>`;
+            return;
+        }
+
+        const rows = prices.map(p => `
+            <tr>
+                <td style="color:var(--muted);font-size:.82rem">${esc(p.id)}</td>
+                <td>
+                    <div class="desc-cell">
+                        <div class="desc-icon">🏷️</div>
+                        <div class="desc-info">
+                            <strong>${esc(p.description || '—')}</strong>
+                            <span>آخر تحديث: ${esc(p.updated_at || '—')}</span>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="price-amount">${fmtPrice(p.price)}</span></td>
+                <td style="color:var(--muted);font-size:.85rem">${esc(p.country_name || '—')}</td>
+                <td>
+                    ${p.number_of_sessions
+                        ? `<span class="sessions-badge">${esc(p.number_of_sessions)} الحصص</span>`
+                        : `<span style="color:var(--muted)">—</span>`}
+                </td>
+                <td>
+                    ${p.visible == 1
+                        ? '<span class="badge badge-success">نشط</span>'
+                        : '<span class="badge badge-danger">معطّل</span>'}
+                </td>
+                <td style="color:var(--muted);font-size:.82rem">${esc(p.created_at || '—')}</td>
+                <td>${actionButtons(p)}</td>
+            </tr>`).join('');
+
+        wrap.innerHTML = `
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>الوصف</th>
+                            <th>السعر</th>
+                            <th>الدولة</th>
+                            <th>عدد الحصص</th>
+                            <th>الحالة</th>
+                            <th>تاريخ الإضافة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <div style="padding:.75rem 1.2rem;font-size:.8rem;color:var(--muted);border-top:1px solid var(--border)">
+                عرض ${prices.length} سعر
+            </div>`;
+    }
+
+    // ── Fetch ────────────────────────────────────────────────────────────
+    function fetchPrices() {
+        const params = new URLSearchParams({
+            search:     searchInput.value.trim(),
+            country_id: countrySelect.value,
+            visible:    visibleSelect.value,
+        });
+
+        wrap.style.opacity = '0.45';
+
+        fetch(`${AJAX_URL}?${params}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => {
+            if (!r.ok) throw new Error('Server error');
+            return r.json();
+        })
+        .then(data => {
+            renderTable(data);
+            wrap.style.opacity = '1';
+        })
+        .catch(() => {
+            wrap.style.opacity = '1';
+        });
+    }
+
+    // ── Events ───────────────────────────────────────────────────────────
+    searchInput.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(fetchPrices, 300);
+    });
+
+    countrySelect.addEventListener('change', fetchPrices);
+    visibleSelect.addEventListener('change', fetchPrices);
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fetchPrices();
+    });
+
+    clearBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        searchInput.value    = '';
+        countrySelect.value  = '';
+        visibleSelect.value  = '';
+        fetchPrices();
+    });
+})();
+</script>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>

@@ -46,13 +46,33 @@ public function findFiltered(array $filters = []): array {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-    public function findAll(): array {
-        $stmt = $this->db->query("
-            SELECT * FROM users
-            ORDER BY username ASC
-        ");
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+public function findAll(array $filters = []): array {
+    $where  = ['1=1'];
+    $params = [];
+
+    if (!empty($filters['search'])) {
+        $where[]           = '(username LIKE :search1 OR email LIKE :search2 OR phone LIKE :search3)';
+        $params[':search1'] = '%' . $filters['search'] . '%';
+        $params[':search2'] = '%' . $filters['search'] . '%';
+        $params[':search3'] = '%' . $filters['search'] . '%';
     }
+
+    if (!empty($filters['role'])) {
+        $where[]         = 'role = :role';
+        $params[':role'] = $filters['role'];
+    }
+
+    if (isset($filters['visible']) && $filters['visible'] !== '') {
+        $where[]            = 'visible = :visible';
+        $params[':visible'] = (int) $filters['visible'];
+    }
+
+    $sql  = 'SELECT * FROM users WHERE ' . implode(' AND ', $where) . ' ORDER BY username ASC';
+    $stmt = $this->db->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
     public function findById(int $id): array|false {
         $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");

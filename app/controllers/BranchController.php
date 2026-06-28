@@ -310,4 +310,34 @@ class BranchController {
         $this->flash('flash_success', 'Branch "' . htmlspecialchars($branch['branch_name']) . '" has been deactivated.');
         $this->redirect('/admin/branches');
     }
+    
+
+
+    // ════════════════════════════════════════════════════════════════════════
+// AJAX SEARCH  —  GET /admin/branches/search
+// Returns JSON array of branches for the filter bar
+// ════════════════════════════════════════════════════════════════════════
+
+public function ajaxSearch(): void {
+    auth_require(['admin', 'area_manager']);
+
+    header('Content-Type: application/json');
+
+    $user = auth_user();
+
+    $filters = [
+        'search'     => trim($_GET['search']     ?? ''),
+        'country_id' => trim($_GET['country_id'] ?? ''),
+        'visibility' => trim($_GET['visibility'] ?? ''),
+    ];
+
+    if ($user['role'] === 'area_manager') {
+        $filters['area_manager_id'] = $user['id'];
+    }
+
+    $branches = $this->branches->findAll($filters);
+
+    echo json_encode($branches);
+    exit;
+}
 }

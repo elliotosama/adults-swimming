@@ -21,6 +21,7 @@ require ROOT . '/views/includes/layout_top.php';
     to   { opacity:1; transform:scale(1) translateY(0); }
 }
 #confirmModal.open { display:flex; }
+#captainTableWrap  { transition: opacity .15s ease; }
 </style>
 
 <script>
@@ -55,40 +56,44 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
         <h1 class="page-title">🧑‍✈️ الكباتن</h1>
         <p class="breadcrumb">لوحة التحكم · الكباتن</p>
     </div>
-    <?php if($_SESSION['user']['role'] === 'admin') { ?>
+    <?php if ($_SESSION['user']['role'] === 'admin'): ?>
     <a href="<?= APP_URL ?>/admin/captains/create" class="btn btn-primary">
         + إضافة كابتن جديد
     </a>
-    <?php } ?>
+    <?php endif; ?>
 </div>
 
 <?php if (!empty($_SESSION['flash_success'])): ?>
     <div class="alert alert-success">✅ <?= htmlspecialchars($_SESSION['flash_success']) ?></div>
     <?php unset($_SESSION['flash_success']); ?>
 <?php endif; ?>
-
 <?php if (!empty($_SESSION['flash_error'])): ?>
     <div class="alert alert-error">⚠️ <?= $_SESSION['flash_error'] ?></div>
     <?php unset($_SESSION['flash_error']); ?>
 <?php endif; ?>
 
+<!-- Hidden CSRF token for JS-rendered delete forms -->
+<input type="hidden" id="globalCsrfToken" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+
 <!-- Filters -->
-<form method="GET" action="<?= APP_URL ?>/admin/captains">
+<form id="filterForm" method="GET" action="<?= APP_URL ?>/admin/captains">
     <div class="filter-bar">
 
         <div class="form-group">
             <label class="form-label">🔍 البحث</label>
             <input type="text"
+                   id="filterSearch"
                    name="search"
                    class="form-control"
                    placeholder="الاسم أو رقم الهاتف..."
-                   value="<?= htmlspecialchars($filters['search'] ?? '') ?>">
+                   value="<?= htmlspecialchars($filters['search'] ?? '') ?>"
+                   autocomplete="off">
         </div>
 
         <div class="form-group">
             <label class="form-label">الفرع</label>
             <div class="form-select-wrap">
-                <select name="branch_id" class="form-control">
+                <select id="filterBranch" name="branch_id" class="form-control">
                     <option value="">جميع الفروع</option>
                     <?php foreach ($branches as $b): ?>
                         <option value="<?= (int)$b['id'] ?>"
@@ -103,7 +108,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
         <div class="form-group">
             <label class="form-label">الحالة</label>
             <div class="form-select-wrap">
-                <select name="visibility" class="form-control">
+                <select id="filterVisibility" name="visibility" class="form-control">
                     <option value="">الكل</option>
                     <option value="visible" <?= ($filters['visible'] ?? '') === 'visible' ? 'selected' : '' ?>>نشط ✅</option>
                     <option value="hidden"  <?= ($filters['visible'] ?? '') === 'hidden'  ? 'selected' : '' ?>>معطّل ❌</option>
@@ -113,7 +118,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 
         <div class="filter-bar__actions">
             <button type="submit" class="btn btn-primary">تطبيق</button>
-            <a href="<?= APP_URL ?>/admin/captains" class="btn btn-secondary">مسح</a>
+            <a href="<?= APP_URL ?>/admin/captains" class="btn btn-secondary" id="clearFiltersBtn">مسح</a>
         </div>
 
     </div>
@@ -121,68 +126,218 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 
 <!-- Table -->
 <div class="card">
-    <?php if (empty($captains)): ?>
-        <div class="empty-state">
-            <div class="empty-icon">🧑‍✈️</div>
-            <p>لا يوجد كباتن تطابق البحث.</p>
-            <?php if (!empty($filters['search']) || !empty($filters['branch_id']) || !empty($filters['visible'])): ?>
-                <a href="<?= APP_URL ?>/admin/captains" class="btn btn-secondary" style="margin-top:1rem">إعادة ضبط الفلاتر</a>
-            <?php endif; ?>
-        </div>
-    <?php else: ?>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>اسم الكابتن</th>
-                        <th>رقم الهاتف</th>
-                        <th>الحالة</th>
-                        <th>الفروع</th>
-                        <th>تاريخ الإنشاء</th>
-                        <th>الإجراءات</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($captains as $c): ?>
+    <div id="captainTableWrap">
+        <?php if (empty($captains)): ?>
+            <div class="empty-state">
+                <div class="empty-icon">🧑‍✈️</div>
+                <p>لا يوجد كباتن تطابق البحث.</p>
+                <?php if (!empty($filters['search']) || !empty($filters['branch_id']) || !empty($filters['visible'])): ?>
+                    <a href="<?= APP_URL ?>/admin/captains" class="btn btn-secondary" style="margin-top:1rem">إعادة ضبط الفلاتر</a>
+                <?php endif; ?>
+            </div>
+        <?php else: ?>
+            <div class="table-wrap">
+                <table>
+                    <thead>
                         <tr>
-                            <td style="color:var(--muted);font-size:.82rem"><?= $c['id'] ?></td>
-                            <td><strong><?= htmlspecialchars($c['captain_name']) ?></strong></td>
-                            <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['phone_number'] ?? '—') ?></td>
-                            <td>
-                                <?php if ($c['visible']): ?>
-                                    <span class="badge badge-success">نشط</span>
-                                <?php else: ?>
-                                    <span class="badge badge-danger">معطّل</span>
-                                <?php endif; ?>
-                            </td>
-                            <td style="font-size:.82rem;color:var(--muted)">
-                                <?= $c['branch_names'] ? htmlspecialchars($c['branch_names']) : '—' ?>
-                            </td>
-                            <td style="color:var(--muted);font-size:.85rem"><?= htmlspecialchars($c['created_at'] ?? '—') ?></td>
-                            <td>
-                                <div class="td-actions">
-                                    <a href="<?= APP_URL ?>/admin/captains/show?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
-                                    <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
-<form method="POST"
-      action="<?= APP_URL ?>/admin/captains/delete?id=<?= $c['id'] ?>"
-      style="display:inline"
-      onsubmit="event.preventDefault(); showDeleteModal(this);">
-    <input type="hidden" name="csrf_token"
-           value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-    <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
-</form>
-                                </div>
-                            </td>
+                            <th>#</th>
+                            <th>اسم الكابتن</th>
+                            <th>رقم الهاتف</th>
+                            <th>الحالة</th>
+                            <th>الفروع</th>
+                            <th>تاريخ الإنشاء</th>
+                            <th>الإجراءات</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        <div style="padding:.75rem 1.2rem;font-size:.8rem;color:var(--muted);border-top:1px solid var(--border)">
-            عرض <?= count($captains) ?> كابتن
-        </div>
-    <?php endif; ?>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($captains as $c): ?>
+                            <tr>
+                                <td style="color:var(--muted);font-size:.82rem"><?= $c['id'] ?></td>
+                                <td><strong><?= htmlspecialchars($c['captain_name']) ?></strong></td>
+                                <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['phone_number'] ?? '—') ?></td>
+                                <td>
+                                    <?php if ($c['visible']): ?>
+                                        <span class="badge badge-success">نشط</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-danger">معطّل</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="font-size:.82rem;color:var(--muted)">
+                                    <?= $c['branch_names'] ? htmlspecialchars($c['branch_names']) : '—' ?>
+                                </td>
+                                <td style="color:var(--muted);font-size:.85rem"><?= htmlspecialchars($c['created_at'] ?? '—') ?></td>
+                                <td>
+                                    <div class="td-actions">
+                                        <a href="<?= APP_URL ?>/admin/captains/show?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
+                                        <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
+                                        <?php if ($_SESSION['user']['role'] === 'admin'): ?>
+                                        <form method="POST"
+                                              action="<?= APP_URL ?>/admin/captains/delete?id=<?= $c['id'] ?>"
+                                              style="display:inline"
+                                              onsubmit="event.preventDefault(); showDeleteModal(this);">
+                                            <input type="hidden" name="csrf_token"
+                                                   value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+                                        </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div style="padding:.75rem 1.2rem;font-size:.8rem;color:var(--muted);border-top:1px solid var(--border)">
+                عرض <?= count($captains) ?> كابتن
+            </div>
+        <?php endif; ?>
+    </div>
 </div>
+
+<script>
+(function () {
+    const AJAX_URL = '<?= APP_URL ?>/admin/captains/search';
+    const APP_URL  = '<?= APP_URL ?>';
+    const isAdmin  = <?= json_encode($_SESSION['user']['role'] === 'admin') ?>;
+
+    const form             = document.getElementById('filterForm');
+    const wrap             = document.getElementById('captainTableWrap');
+    const searchInput      = document.getElementById('filterSearch');
+    const branchSelect     = document.getElementById('filterBranch');
+    const visibilitySelect = document.getElementById('filterVisibility');
+    const clearBtn         = document.getElementById('clearFiltersBtn');
+
+    let debounceTimer = null;
+
+    // ── XSS guard ────────────────────────────────────────────────────────
+    function esc(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // ── Build action buttons ─────────────────────────────────────────────
+    function actionButtons(c) {
+        const csrf = esc(document.getElementById('globalCsrfToken').value);
+
+        const deleteBtn = isAdmin ? `
+            <form method="POST"
+                  action="${APP_URL}/admin/captains/delete?id=${c.id}"
+                  style="display:inline"
+                  onsubmit="event.preventDefault(); showDeleteModal(this);">
+                <input type="hidden" name="csrf_token" value="${csrf}">
+                <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+            </form>` : '';
+
+        return `
+            <div class="td-actions">
+                <a href="${APP_URL}/admin/captains/show?id=${c.id}" class="btn btn-sm btn-secondary">عرض</a>
+                <a href="${APP_URL}/admin/captains/edit?id=${c.id}" class="btn btn-sm btn-warning">تعديل</a>
+                ${deleteBtn}
+            </div>`;
+    }
+
+    // ── Render captains array into #captainTableWrap ─────────────────────
+    function renderTable(captains) {
+        if (!captains.length) {
+            wrap.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🧑‍✈️</div>
+                    <p>لا يوجد كباتن تطابق البحث.</p>
+                </div>`;
+            return;
+        }
+
+        const rows = captains.map(c => `
+            <tr>
+                <td style="color:var(--muted);font-size:.82rem">${esc(c.id)}</td>
+                <td><strong>${esc(c.captain_name)}</strong></td>
+                <td style="font-size:.85rem;color:var(--muted)">${esc(c.phone_number || '—')}</td>
+                <td>
+                    ${c.visible == 1
+                        ? '<span class="badge badge-success">نشط</span>'
+                        : '<span class="badge badge-danger">معطّل</span>'}
+                </td>
+                <td style="font-size:.82rem;color:var(--muted)">${esc(c.branch_names || '—')}</td>
+                <td style="color:var(--muted);font-size:.85rem">${esc(c.created_at || '—')}</td>
+                <td>${actionButtons(c)}</td>
+            </tr>`).join('');
+
+        wrap.innerHTML = `
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>اسم الكابتن</th>
+                            <th>رقم الهاتف</th>
+                            <th>الحالة</th>
+                            <th>الفروع</th>
+                            <th>تاريخ الإنشاء</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <div style="padding:.75rem 1.2rem;font-size:.8rem;color:var(--muted);border-top:1px solid var(--border)">
+                عرض ${captains.length} كابتن
+            </div>`;
+    }
+
+    // ── Fetch from AJAX endpoint ─────────────────────────────────────────
+    function fetchCaptains() {
+        const params = new URLSearchParams({
+            search:     searchInput.value.trim(),
+            branch_id:  branchSelect.value,
+            visibility: visibilitySelect.value,
+        });
+
+        wrap.style.opacity = '0.45';
+
+        fetch(`${AJAX_URL}?${params}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => {
+            if (!r.ok) throw new Error('Server error');
+            return r.json();
+        })
+        .then(data => {
+            renderTable(data);
+            wrap.style.opacity = '1';
+        })
+        .catch(() => {
+            wrap.style.opacity = '1';
+        });
+    }
+
+    // ── Live search — debounced 300 ms ───────────────────────────────────
+    searchInput.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(fetchCaptains, 300);
+    });
+
+    // ── Instant on select change ─────────────────────────────────────────
+    branchSelect.addEventListener('change', fetchCaptains);
+    visibilitySelect.addEventListener('change', fetchCaptains);
+
+    // ── Intercept form submit ────────────────────────────────────────────
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fetchCaptains();
+    });
+
+    // ── Clear button ─────────────────────────────────────────────────────
+    clearBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        searchInput.value      = '';
+        branchSelect.value     = '';
+        visibilitySelect.value = '';
+        fetchCaptains();
+    });
+})();
+</script>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>

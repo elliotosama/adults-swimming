@@ -104,7 +104,7 @@ $routes = [
     ['GET',  '/admin/user/edit',     fn ()    => $employee->edit()],
     ['POST', '/admin/user/edit',     fn ()    => $employee->update()],
     ['POST', '/admin/user/delete',   fn ()    => $employee->destroy()],
-
+    ['GET', '/admin/users/search', fn () => $employee->ajaxSearch()],
 
     // Branches
     ['GET',  '/admin/branches',        fn () => $branch->index()],
@@ -114,6 +114,7 @@ $routes = [
     ['GET',  '/admin/branch/edit',     fn () => $branch->edit()],
     ['POST', '/admin/branch/edit',     fn () => $branch->update()],
     ['POST', '/admin/branch/delete',   fn () => $branch->destroy()],
+    ['GET', '/admin/branches/search', fn() => $branch->ajaxSearch()],
 
     // Prices
     ['GET',  '/admin/prices',        fn () => $price->index()],
@@ -123,6 +124,7 @@ $routes = [
     ['GET',  '/admin/price/edit',     fn () => $price->edit()],
     ['POST', '/admin/price/edit',     fn () => $price->update()],
     ['POST', '/admin/price/delete',   fn () => $price->destroy()],
+    ['GET', '/admin/prices/search', fn () => $price->ajaxSearch()],
 
 
     ['GET',  '/receipts',        fn () => $receipt->index()],
@@ -164,6 +166,7 @@ $routes = [
     ['GET',  '/admin/captains/edit',     fn () => $captain->edit()],
     ['POST', '/admin/captains/edit',     fn () => $captain->update()],
     ['POST', '/admin/captains/delete',   fn () => $captain->destroy()],
+    ['GET', '/admin/captains/search', fn() => $captain->ajaxSearch()],
 
     // countries
     ['GET',  '/country',        fn () => $country->index()],

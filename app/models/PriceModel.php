@@ -11,15 +11,39 @@ class PriceModel {
 
     // ── All prices ────────────────────────────────────────────────────────────
 
-    public function findAll(): array {
-        $stmt = $this->db->query("
-            SELECT p.*, c.country AS country_name
-            FROM prices p
-            LEFT JOIN countries c ON c.id = p.country_id
-            ORDER BY p.created_at DESC
-        ");
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+public function findAll(array $filters = []): array {
+    $where  = ['1=1'];
+    $params = [];
+
+    if (!empty($filters['search'])) {
+        $where[]           = '(p.description LIKE :search1 OR c.country LIKE :search2)';
+        $params[':search1'] = '%' . $filters['search'] . '%';
+        $params[':search2'] = '%' . $filters['search'] . '%';
     }
+
+    if (!empty($filters['country_id'])) {
+        $where[]               = 'p.country_id = :country_id';
+        $params[':country_id'] = (int) $filters['country_id'];
+    }
+
+    if (isset($filters['visible']) && $filters['visible'] !== '') {
+        $where[]            = 'p.visible = :visible';
+        $params[':visible'] = (int) $filters['visible'];
+    }
+
+    $sql = '
+        SELECT p.*, c.country AS country_name
+        FROM prices p
+        LEFT JOIN countries c ON c.id = p.country_id
+        WHERE ' . implode(' AND ', $where) . '
+        ORDER BY p.created_at DESC
+    ';
+
+    $stmt = $this->db->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
     // ── Filtered prices ───────────────────────────────────────────────────────
 
