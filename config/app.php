@@ -2,7 +2,7 @@
 // config/app.php
 
 define('APP_NAME',    'Swimming Academy');
-define('APP_URL',     'http://localhost:8000');   // ← change to your domain (no trailing slash)
+define('APP_URL',     'http://92.205.25.104');   // ← change to your domain (no trailing slash)
 define('APP_ENV',     'development');        // 'production' in live
 
 // Session

@@ -24,7 +24,7 @@ function evidenceUrl(string $raw): string {
         return $raw;
     }
     $filename = basename($raw);
-    return APP_URL . '/uploads/transactions/' . $filename;
+    return APP_URL . '/uploads/evidence/' . $filename;
 }
 ?>
 

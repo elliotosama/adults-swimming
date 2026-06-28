@@ -125,7 +125,14 @@ body { font-size: 16px; }
 .dash-card-header a:hover { background: #00b4d812; border-color: #00b4d830; }
 
 /* ── Tables ─────────────────────────────────────────────────── */
-.dash-card table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.dash-card table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .92rem;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
 .dash-card table th {
     padding: .65rem 1.2rem;
     text-align: right;
