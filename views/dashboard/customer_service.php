@@ -39,7 +39,11 @@ require ROOT . '/views/includes/layout_top.php';
     border-bottom: 1px solid var(--border);
     padding: 0 1.4rem;
     gap: .25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
+.tab-bar::-webkit-scrollbar { display: none; }
 .tab-btn {
     padding: .65rem 1rem;
     font-size: .9rem;
@@ -52,6 +56,7 @@ require ROOT . '/views/includes/layout_top.php';
     cursor: pointer;
     transition: color .15s, border-color .15s;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 .tab-btn.active { color: var(--primary, #00b4d8); border-bottom-color: var(--primary, #00b4d8); }
 .tab-pane { display: none; }
@@ -189,6 +194,7 @@ require ROOT . '/views/includes/layout_top.php';
     <!-- Tab: Created -->
     <div id="tab-created" class="tab-pane active">
         <?php if (!empty($myReceipts)): ?>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
         <table>
             <thead>
                 <tr>
@@ -234,12 +240,14 @@ require ROOT . '/views/includes/layout_top.php';
             <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
         <?php else: ?><div class="dash-empty">لم تُنشئ أي إيصالات بعد</div><?php endif; ?>
     </div>
 
     <!-- Tab: Edited -->
     <div id="tab-edited" class="tab-pane">
         <?php if (!empty($myEdits)): ?>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
         <table>
             <thead>
                 <tr>
@@ -268,6 +276,7 @@ require ROOT . '/views/includes/layout_top.php';
             <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
         <?php else: ?><div class="dash-empty">لم تُعدّل أي إيصالات لم تُنشئها</div><?php endif; ?>
     </div>
 </div>

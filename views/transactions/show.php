@@ -14,7 +14,7 @@ $typeMap = [
         <h1 class="page-title">💳 معاملة #<?= $transaction['id'] ?></h1>
         <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
     </div>
-    <div style="display:flex;gap:.5rem">
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
         <a href="<?= APP_URL ?>/transaction/edit?id=<?= $transaction['id'] ?>" class="btn btn-warning">تعديل</a>
         <a href="<?= APP_URL ?>/transactions" class="btn btn-secondary">← رجوع</a>
     </div>
@@ -25,7 +25,7 @@ $typeMap = [
     <?php unset($_SESSION['flash_success']); ?>
 <?php endif; ?>
 
-<div class="card">
+<div class="card" style="padding: 14px;">
     <h2 style="font-size:1rem;font-weight:600;margin-bottom:1rem;color:var(--text)">تفاصيل المعاملة</h2>
 
     <div class="detail-grid">
@@ -80,7 +80,7 @@ $typeMap = [
         <?php endif; ?>
     </div>
 
-    <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:.75rem">
+    <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:.75rem;flex-wrap:wrap">
         <a href="<?= APP_URL ?>/transaction/edit?id=<?= $transaction['id'] ?>" class="btn btn-warning">تعديل</a>
         <form method="POST" action="<?= APP_URL ?>/transaction/delete?id=<?= $transaction['id'] ?>"
               onsubmit="return confirm('هل أنت متأكد من حذف هذه المعاملة؟')">

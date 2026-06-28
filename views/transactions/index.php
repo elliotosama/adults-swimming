@@ -82,9 +82,9 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 
 <!-- ══ Filter Form ══════════════════════════════════════════════════════════ -->
 <div class="card" style="margin-bottom:1rem">
-    <form method="GET" action="" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end; padding:10px;">
+    <form method="GET" action="" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;padding:.75rem;">
 
-        <div>
+        <div style="flex:1;min-width:130px">
             <label style="display:block;font-size:.82rem;color:var(--muted);margin-bottom:.25rem">
                 رقم الإيصال
             </label>
@@ -94,11 +94,11 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
                 value="<?= htmlspecialchars($_GET['receipt_id'] ?? '') ?>"
                 class="form-input"
                 placeholder="مثال: 142"
-                style="width:140px"
+                style="width:100%"
             >
         </div>
 
-        <div>
+        <div style="flex:1;min-width:160px">
             <label style="display:block;font-size:.82rem;color:var(--muted);margin-bottom:.25rem">
                 رقم هاتف العميل
             </label>
@@ -108,15 +108,17 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
                 value="<?= htmlspecialchars($_GET['client_phone'] ?? '') ?>"
                 class="form-input"
                 placeholder="مثال: 0501234567"
-                style="width:180px"
+                style="width:100%"
             >
         </div>
 
-        <button type="submit" class="btn btn-primary">🔍 بحث</button>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-self:flex-end">
+            <button type="submit" class="btn btn-primary">🔍 بحث</button>
 
-        <?php if (!empty($_GET['receipt_id']) || !empty($_GET['client_phone'])): ?>
-            <a href="<?= APP_URL ?>/transactions" class="btn btn-secondary">✕ مسح الفلتر</a>
-        <?php endif; ?>
+            <?php if (!empty($_GET['receipt_id']) || !empty($_GET['client_phone'])): ?>
+                <a href="<?= APP_URL ?>/transactions" class="btn btn-secondary">✕ مسح الفلتر</a>
+            <?php endif; ?>
+        </div>
 
     </form>
 </div>
@@ -211,12 +213,12 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 </div>
 
 <?php if ($totalPages > 1): ?>
-    <div class="pagination-wrap">
+    <div class="pagination-wrap" style="margin-top: 24px">
         <span class="pagination-info">
             عرض صفحة <?= $page ?> من <?= $totalPages ?>
             &nbsp;·&nbsp; إجمالي <?= number_format($total) ?> معاملة
         </span>
-        <div class="pagination">
+        <div class="pagination" style="margin-top: 10px;">
 
             <?php if ($page > 1): ?>
                 <a href="<?= paginationUrl($page - 1) ?>" class="btn btn-sm btn-secondary">« السابق</a>

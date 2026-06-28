@@ -145,7 +145,7 @@ $isAdmin   = $isAdmin ?? false;
    LIVE SEARCH SPINNER
 ══════════════════════════════════════════════════════════════════ */
 .search-wrap { position: relative; }
-.search-wrap input { padding-right: 2rem; }
+.search-wrap input { padding-left: 2rem; }
 .search-spinner {
     display: none;
     width: 14px; height: 14px;
@@ -154,7 +154,7 @@ $isAdmin   = $isAdmin ?? false;
     border-radius: 50%;
     animation: spin .6s linear infinite;
     position: absolute;
-    right: .6rem; top: 50%;
+    left: .6rem; top: 50%;
     transform: translateY(-50%);
     pointer-events: none;
 }
@@ -262,7 +262,7 @@ $isAdmin   = $isAdmin ?? false;
 .pag-info { font-size: .84rem; font-weight: 600; color: var(--muted); text-align: center; }
 
 /* ══════════════════════════════════════════════════════════════════
-   TABLE — bolder, bigger, whiter
+   TABLE
 ══════════════════════════════════════════════════════════════════ */
 .table-wrap {
     overflow-x: auto;
@@ -295,7 +295,6 @@ table td.wrap-cell {
     white-space: normal;
     min-width: 130px;
 }
-/* keep per-cell overrides but enforce white base */
 table td strong { color: #fff; font-weight: 800; }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -315,7 +314,6 @@ table td strong { color: #fff; font-weight: 800; }
     white-space: nowrap;
 }
 
-/* TD actions */
 .td-actions {
     display: flex;
     gap: .35rem;
@@ -327,30 +325,14 @@ table td strong { color: #fff; font-weight: 800; }
    RESPONSIVE — TABLET (≤ 900px)
 ══════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
-    .page-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: .65rem;
-    }
-    .page-header-actions {
-        width: 100%;
-    }
-    .page-header-actions .btn {
-        flex: 1 1 auto;
-        text-align: center;
-        justify-content: center;
-    }
-
-    .filter-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
+    .page-header { flex-direction: column; align-items: flex-start; gap: .65rem; }
+    .page-header-actions { width: 100%; }
+    .page-header-actions .btn { flex: 1 1 auto; text-align: center; justify-content: center; }
+    .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .receipt-count-number { font-size: 2.1rem; }
-
     table th { font-size: .8rem; padding: .55rem .65rem; }
     table td { font-size: .92rem; padding: .55rem .65rem; }
     table td.wrap-cell { min-width: 110px; }
-
     .td-actions { flex-direction: column; align-items: stretch; }
     .td-actions .btn { width: 100%; text-align: center; justify-content: center; }
 }
@@ -360,74 +342,33 @@ table td strong { color: #fff; font-weight: 800; }
 ══════════════════════════════════════════════════════════════════ */
 @media (max-width: 600px) {
     .filter-panel { padding: .9rem 1rem; }
-
-    .filter-grid {
-        grid-template-columns: 1fr;
-        gap: .65rem;
-    }
-    /* span-2 items collapse to full width */
-    .filter-group[style*="span 2"] { grid-column: span 1; }
-
+    .filter-grid { grid-template-columns: 1fr; gap: .65rem; }
+    .filter-group[style*="span 2"] { grid-column: span 1 !important; }
     .filter-group label { font-size: .78rem; }
-    .filter-group input,
-    .filter-group select { font-size: .88rem; }
-
-    .tag-check-group  { flex-wrap: wrap; gap: .35rem; }
+    .filter-group input, .filter-group select { font-size: .88rem; }
+    .tag-check-group { flex-wrap: wrap; gap: .35rem; }
     .branch-chip-scroll { max-height: none; overflow-y: visible; }
     .tag-check { font-size: .8rem; padding: .28rem .65rem; }
-
-    .filter-actions {
-        flex-direction: column;
-        gap: .45rem;
-    }
+    .filter-actions { flex-direction: column; gap: .45rem; }
     .filter-actions .btn { width: 100%; text-align: center; }
-
     .receipt-count-number { font-size: 1.9rem; }
     .receipt-count-label  { font-size: .9rem; }
-
-    /* Table: always scroll, never shrink columns */
-    table { min-width: 980px; }
+    table { min-width: 1100px; }
     table th { font-size: .76rem; padding: .5rem .55rem; }
     table td { font-size: .88rem; padding: .5rem .55rem; }
-
-    .td-actions {
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: .25rem;
-        min-width: 200px;
-    }
-    .td-actions .btn {
-        width: auto;
-        padding: .28rem .55rem;
-        font-size: .75rem;
-    }
-
-    .pagination a,
-    .pagination span {
-        min-width: 1.8rem;
-        height: 1.8rem;
-        font-size: .8rem;
-        padding: 0 .4rem;
-    }
+    .td-actions { flex-direction: row; flex-wrap: wrap; gap: .25rem; min-width: 200px; }
+    .td-actions .btn { width: auto; padding: .28rem .55rem; font-size: .75rem; }
+    .pagination a, .pagination span { min-width: 1.8rem; height: 1.8rem; font-size: .8rem; padding: 0 .4rem; }
     .pag-info { font-size: .78rem; }
-
-    #confirmModal > div {
-        width: 95% !important;
-        padding: 1.5rem 1.1rem 1.1rem !important;
-    }
+    #confirmModal > div { width: 95% !important; padding: 1.5rem 1.1rem 1.1rem !important; }
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   RESPONSIVE — VERY SMALL (≤ 400px)
-══════════════════════════════════════════════════════════════════ */
 @media (max-width: 400px) {
     .page-title { font-size: 1.2rem; }
     .receipt-count-number { font-size: 1.65rem; }
-
-    table { min-width: 920px; }
+    table { min-width: 1020px; }
     table th { font-size: .72rem; padding: .45rem .48rem; }
     table td { font-size: .82rem; padding: .45rem .48rem; }
-
     .badge-refund  { font-size: .72rem; padding: .15rem .42rem; }
     .badge-updated { font-size: .7rem; padding: .12rem .38rem; }
 }
@@ -455,13 +396,13 @@ table td strong { color: #fff; font-weight: 800; }
     <?php unset($_SESSION['flash_error']); ?>
 <?php endif; ?>
 
-<!-- ── Result count ───────────────────────────────────────────────────── -->
+<!-- ── Result count ── -->
 <div class="receipt-count-block">
     <span class="receipt-count-number" id="resultCountBig"><?= number_format($total) ?></span>
     <span class="receipt-count-label">إيصال</span>
 </div>
 
-<!-- ── Filter Panel ───────────────────────────────────────────────────── -->
+<!-- ── Filter Panel ── -->
 <div class="filter-panel">
     <form method="GET" action="<?= APP_URL ?>/receipts" id="filterForm">
         <input type="hidden" name="page" value="1">
@@ -597,7 +538,6 @@ table td strong { color: #fff; font-weight: 800; }
                         </option>
                     <?php endforeach; ?>
                 </select>
-
                 <label id="creatorOnlyWrap"
                        style="display:<?= !empty($filters['creator_id']) ? 'flex' : 'none' ?>;
                               align-items:center;gap:.4rem;margin-top:.5rem;cursor:pointer">
@@ -674,12 +614,12 @@ table td strong { color: #fff; font-weight: 800; }
             <table>
                 <thead>
                     <tr>
-                        <th>رقم الإيصال</th>
                         <th>نوع التجديد</th>
                         <th>رقم العميل</th>
                         <th>اسم العميل</th>
                         <th>العمر</th>
                         <th>الهاتف</th>
+                        <th>أيام التمرين</th>
                         <th>وقت التمرين</th>
                         <th>المستوى</th>
                         <th>الكابتن</th>
@@ -687,36 +627,22 @@ table td strong { color: #fff; font-weight: 800; }
                         <th>المدفوع</th>
                         <th>أول تمرين</th>
                         <th>آخر تمرين</th>
+                        <th>رقم الإيصال</th>
                         <?php if ($isAdmin): ?>
                         <th>المنشئ</th>
                         <?php endif; ?>
-                        <th>الحالة</th>
-                        <th>مُسترد</th>
-                        <th>التعديلات</th>
                         <th>الإجراءات</th>
                     </tr>
                 </thead>
                 <tbody id="receiptsBody">
-                    <?php
-                    $statusMap = [
-                        'completed'     => ['badge-success', 'مكتمل'],
-                        'not_completed' => ['badge-danger',  'غير مكتمل'],
-                        'pending'       => ['badge-warning', 'معلّق'],
-                    ];
-                    foreach ($receipts as $r):
-                        [$cls, $statusLabel] = $statusMap[$r['receipt_status']] ?? ['badge-secondary', $r['receipt_status']];
-                        $hasActivity = ($r['audit_count'] > 0 || $r['transaction_count'] > 0);
-                        $hasRefund   = ($r['has_refund'] != '0');
-                    ?>
+                    <?php foreach ($receipts as $r): ?>
                         <tr>
-                            <td style="color:#fff;font-size:1rem;font-weight:800">
-                                <?= htmlspecialchars($r['receipt_ref'] ?? $r['id']) ?>
-                            </td>
                             <td><?= htmlspecialchars($r['renewal_type'] ?? '—') ?></td>
                             <td><?= $r['client_id'] ?? '—' ?></td>
                             <td class="wrap-cell"><strong><?= htmlspecialchars($r['client_name'] ?? '—') ?></strong></td>
                             <td style="text-align:center"><?= htmlspecialchars($r['client_age'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($r['client_phone'] ?? '—') ?></td>
+                            <td><?= htmlspecialchars($r['exercise_days'] ?? '—') ?></td>
                             <td><?= htmlspecialchars(formatAmPm($r['exercise_time'] ?? '')) ?></td>
                             <td style="text-align:center"><?= htmlspecialchars($r['level'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($r['captain_name'] ?? '—') ?></td>
@@ -724,28 +650,12 @@ table td strong { color: #fff; font-weight: 800; }
                             <td style="color:#4ade80;font-weight:800"><?= number_format((float)($r['total_paid'] ?? 0)) ?></td>
                             <td><?= htmlspecialchars($r['first_session'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($r['last_session'] ?? '—') ?></td>
+                            <td style="color:#fff;font-size:1rem;font-weight:800">
+                                <?= htmlspecialchars($r['receipt_ref'] ?? $r['id']) ?>
+                            </td>
                             <?php if ($isAdmin): ?>
                             <td><?= htmlspecialchars($r['creator_name'] ?? '—') ?></td>
                             <?php endif; ?>
-                            <td><span class="badge <?= $cls ?>"><?= $statusLabel ?></span></td>
-                            <td>
-                                <?php if ($hasRefund): ?>
-                                    <span class="badge-refund">🔴 مُسترد</span>
-                                <?php else: ?>
-                                    <span style="color:rgba(255,255,255,.3);font-size:.85rem">—</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if ($r['audit_count'] > 0): ?>
-                                    <span class="badge-updated" title="تعديلات">✏️ <?= $r['audit_count'] ?></span>
-                                <?php endif; ?>
-                                <?php if ($r['transaction_count'] > 0): ?>
-                                    <span class="badge-updated" title="معاملات">💳 <?= $r['transaction_count'] ?></span>
-                                <?php endif; ?>
-                                <?php if (!$hasActivity): ?>
-                                    <span style="color:rgba(255,255,255,.3);font-size:.85rem">—</span>
-                                <?php endif; ?>
-                            </td>
                             <td>
                                 <div class="td-actions">
                                     <a href="<?= APP_URL ?>/receipt/show?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
@@ -829,12 +739,6 @@ table td strong { color: #fff; font-weight: 800; }
     let liveTotalNow = <?= (int) $total ?>;
     let liveLastPage = <?= (int) $lastPage ?>;
 
-    const statusMap = {
-        completed:     ['badge-success', 'مكتمل'],
-        not_completed: ['badge-danger',  'غير مكتمل'],
-        pending:       ['badge-warning', 'معلّق'],
-    };
-
     function esc(str) {
         if (str == null) return '—';
         return String(str)
@@ -861,30 +765,16 @@ table td strong { color: #fff; font-weight: 800; }
     }
 
     function buildRow(r) {
-        const [cls, statusLabel] = statusMap[r.receipt_status] ?? ['badge-secondary', esc(r.receipt_status)];
-        const hasActivity = Number(r.audit_count) > 0 || Number(r.transaction_count) > 0;
-        const hasRefund   = parseFloat(r.total_refunded ?? 0) > 0;
-
-        const activityHtml = [
-            Number(r.audit_count)       > 0 ? `<span class="badge-updated" title="تعديلات">✏️ ${esc(r.audit_count)}</span>`       : '',
-            Number(r.transaction_count) > 0 ? `<span class="badge-updated" title="معاملات">💳 ${esc(r.transaction_count)}</span>` : '',
-            !hasActivity                    ? `<span style="color:rgba(255,255,255,.3);font-size:.85rem">—</span>`                 : '',
-        ].join('');
-
-        const refundCell = hasRefund
-            ? `<span class="badge-refund">🔴 مُسترد</span>`
-            : `<span style="color:rgba(255,255,255,.3);font-size:.85rem">—</span>`;
-
         const creatorCell = IS_ADMIN ? `<td>${esc(r.creator_name)}</td>` : '';
         const receiptRef  = r.receipt_ref ? esc(r.receipt_ref) : esc(r.id);
 
         return `<tr>
-            <td style="color:#fff;font-size:1rem;font-weight:800">${receiptRef}</td>
             <td>${esc(r.renewal_type)}</td>
             <td>${esc(r.client_id)}</td>
             <td class="wrap-cell"><strong>${esc(r.client_name)}</strong></td>
             <td style="text-align:center">${esc(r.client_age)}</td>
             <td>${esc(r.client_phone)}</td>
+            <td>${esc(r.exercise_days)}</td>
             <td>${fmtTime(r.exercise_time)}</td>
             <td style="text-align:center">${esc(r.level)}</td>
             <td>${esc(r.captain_name)}</td>
@@ -892,10 +782,8 @@ table td strong { color: #fff; font-weight: 800; }
             <td style="color:#4ade80;font-weight:800">${fmt(r.total_paid)}</td>
             <td>${esc(r.first_session)}</td>
             <td>${esc(r.last_session)}</td>
+            <td style="color:#fff;font-size:1rem;font-weight:800">${receiptRef}</td>
             ${creatorCell}
-            <td><span class="badge ${cls}">${statusLabel}</span></td>
-            <td>${refundCell}</td>
-            <td>${activityHtml}</td>
             <td>
                 <div class="td-actions">
                     <a href="${BASE_URL}/receipt/show?id=${esc(r.id)}" class="btn btn-sm btn-secondary">عرض</a>
@@ -1034,12 +922,22 @@ table td strong { color: #fff; font-weight: 800; }
                 wrap.id        = 'tableWrap';
                 wrap.innerHTML = `<table>
                     <thead><tr>
-                        <th>رقم الإيصال</th><th>نوع التجديد</th><th>رقم العميل</th>
-                        <th>اسم العميل</th><th>العمر</th><th>الهاتف</th>
-                        <th>وقت التمرين</th><th>المستوى</th><th>الكابتن</th>
-                        <th>سعر الخطة</th><th>المدفوع</th><th>أول تمرين</th>
-                        <th>آخر تمرين</th>${creatorTh}
-                        <th>الحالة</th><th>مُسترد</th><th>التعديلات</th><th>الإجراءات</th>
+                        <th>نوع التجديد</th>
+                        <th>رقم العميل</th>
+                        <th>اسم العميل</th>
+                        <th>العمر</th>
+                        <th>الهاتف</th>
+                        <th>أيام التمرين</th>
+                        <th>وقت التمرين</th>
+                        <th>المستوى</th>
+                        <th>الكابتن</th>
+                        <th>سعر الخطة</th>
+                        <th>المدفوع</th>
+                        <th>أول تمرين</th>
+                        <th>آخر تمرين</th>
+                        <th>رقم الإيصال</th>
+                        ${creatorTh}
+                        <th>الإجراءات</th>
                     </tr></thead>
                     <tbody id="receiptsBody"></tbody>
                 </table>`;
@@ -1158,7 +1056,6 @@ table td strong { color: #fff; font-weight: 800; }
             });
         });
 
-    // Modal helpers (global scope)
     window.showDeleteModal = function(form) {
         _pendingForm = form;
         const modal = document.getElementById('confirmModal');

@@ -28,7 +28,7 @@ $action    = $isEdit
     </div>
 <?php endif; ?>
 
-<div class="card" style="padding: 30px">
+<div class="card" style="padding: clamp(1rem, 4vw, 1.875rem)">
     <form method="POST" action="<?= $action ?>" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
 
