@@ -61,7 +61,7 @@ require ROOT . '/views/includes/layout_top.php';
 <!-- ══ PAGE HEADER ══════════════════════════════════════════════════════ -->
 <div class="page-header">
     <div>
-        <h1 class="page-title">📋 لوحتي</h1>
+        <h1 class="page-title">📋 لوحه تحكم</h1>
         <p class="breadcrumb">مرحباً، <?= htmlspecialchars($_SESSION['username'] ?? '') ?> · <?= date('l، d F Y') ?></p>
     </div>
     <div style="display:flex;gap:.7rem;flex-wrap:wrap">

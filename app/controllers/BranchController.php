@@ -47,11 +47,6 @@ class BranchController {
         if (empty($data['country_id']))
             $errors[] = 'Country is required.';
 
-        if ($data['working_time_from'] !== '' && $data['working_time_to'] !== '') {
-            if ($data['working_time_from'] >= $data['working_time_to'])
-                $errors[] = 'Working time "from" must be earlier than "to".';
-        }
-
         return $errors;
     }
 

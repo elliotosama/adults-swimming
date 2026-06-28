@@ -18,22 +18,94 @@ $statusMap = [
 ];
 [$sCls, $sLabel] = $statusMap[$receipt['receipt_status']] ?? ['badge-secondary', $receipt['receipt_status']];
 
-// ── Evidence URL builder ──────────────────────────────────────────────────
-// Files are stored at: /var/www/swimming-academy/public/uploads/transactions/<filename>
-// Public URL:          APP_URL/uploads/transactions/<filename>
 function evidenceUrl(string $raw): string {
     if (empty($raw)) return '';
-    // Already a full URL — return as-is
     if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) {
         return $raw;
     }
-    // Strip any leading slashes / path prefix so we only keep the filename
     $filename = basename($raw);
     return APP_URL . '/uploads/transactions/' . $filename;
 }
 ?>
 
 <style>
+/* ── Page header ─────────────────────────────────────────────────────────── */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-bottom: 1.5rem;
+}
+.page-header-actions {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+/* ── Detail grid ─────────────────────────────────────────────────────────── */
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+}
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+.detail-label {
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    font-weight: 600;
+}
+.detail-value {
+    font-size: .92rem;
+    color: var(--text);
+}
+
+/* ── Section header ──────────────────────────────────────────────────────── */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: 1rem;
+}
+.section-header h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+}
+.section-header-meta {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    flex-wrap: wrap;
+}
+.section-header-meta span {
+    font-size: .9rem;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* ── Table wrapper: horizontal scroll on small screens ───────────────────── */
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.table-wrap table {
+    min-width: 640px; /* prevents columns from collapsing too narrow */
+    width: 100%;
+}
+
+/* ── Evidence cell ───────────────────────────────────────────────────────── */
 .evidence-cell {
     display: flex;
     align-items: center;
@@ -62,6 +134,107 @@ function evidenceUrl(string $raw): string {
     font-size: .75rem !important;
     line-height: 1.2 !important;
 }
+
+/* ── Row actions ─────────────────────────────────────────────────────────── */
+.td-actions {
+    display: flex;
+    gap: .35rem;
+    flex-wrap: wrap;
+}
+
+/* ── Audit log table: narrower min so it fits sooner ────────────────────── */
+.audit-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.audit-table-wrap table {
+    min-width: 520px;
+    width: 100%;
+}
+
+/* ── Mobile card view for transactions (≤ 600px) ────────────────────────── */
+@media (max-width: 600px) {
+    /* Hide the transactions table, show cards instead */
+    .tx-table-wrap { display: none; }
+    .tx-cards      { display: flex; flex-direction: column; gap: .75rem; }
+
+    .tx-card {
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 10px;
+        padding: .85rem 1rem;
+        background: var(--surface, #fff);
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+    }
+    .tx-card-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: .5rem;
+        font-size: .87rem;
+    }
+    .tx-card-label {
+        color: var(--muted);
+        font-size: .75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        flex-shrink: 0;
+    }
+    .tx-card-value {
+        color: var(--text);
+        text-align: left;
+        word-break: break-word;
+    }
+    .tx-card-actions {
+        display: flex;
+        gap: .4rem;
+        padding-top: .35rem;
+        border-top: 1px solid var(--border, #e2e8f0);
+        flex-wrap: wrap;
+    }
+
+    /* Audit: also hide table, show simple stacked list */
+    .audit-table-wrap { display: none; }
+    .audit-cards      { display: flex; flex-direction: column; gap: .65rem; }
+    .audit-card {
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 8px;
+        padding: .75rem .9rem;
+        font-size: .84rem;
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+    }
+    .audit-card-field {
+        font-weight: 700;
+        color: var(--text);
+    }
+    .audit-card-change {
+        display: flex;
+        gap: .4rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .audit-card-meta {
+        font-size: .78rem;
+        color: var(--muted);
+    }
+}
+
+/* ── On larger screens hide the card fallbacks ───────────────────────────── */
+@media (min-width: 601px) {
+    .tx-cards   { display: none; }
+    .audit-cards { display: none; }
+}
+
+/* ── Small phone tweaks ──────────────────────────────────────────────────── */
+@media (max-width: 400px) {
+    .detail-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
 </style>
 
 <div class="page-header">
@@ -69,7 +242,7 @@ function evidenceUrl(string $raw): string {
         <h1 class="page-title">🧾 إيصال #<?= $receipt['id'] ?></h1>
         <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
     </div>
-    <div style="display:flex;gap:.5rem">
+    <div class="page-header-actions">
         <a href="<?= APP_URL ?>/receipt/edit?id=<?= $receipt['id'] ?>" class="btn btn-warning">تعديل</a>
         <a href="<?= APP_URL ?>/receipts" class="btn btn-secondary">← رجوع</a>
     </div>
@@ -79,14 +252,13 @@ function evidenceUrl(string $raw): string {
     <div class="alert alert-success">✅ <?= htmlspecialchars($_SESSION['flash_success']) ?></div>
     <?php unset($_SESSION['flash_success']); ?>
 <?php endif; ?>
-
 <?php if (!empty($_SESSION['flash_error'])): ?>
     <div class="alert alert-error">⚠️ <?= $_SESSION['flash_error'] ?></div>
     <?php unset($_SESSION['flash_error']); ?>
 <?php endif; ?>
 
-<!-- ─── بطاقة تفاصيل الإيصال ─────────────────────────────────────────── -->
-<div class="card" style="margin-bottom:1.5rem">
+<!-- ─── تفاصيل الإيصال ────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:1.5rem; padding: 14px;">
     <h2 style="font-size:1rem;font-weight:600;margin-bottom:1rem;color:var(--text)">تفاصيل الإيصال</h2>
 
     <div class="detail-grid">
@@ -157,19 +329,12 @@ function evidenceUrl(string $raw): string {
 </div>
 
 <!-- ─── المعاملات المالية ──────────────────────────────────────────────── -->
-<div class="card" style="margin-bottom:1.5rem">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-        <h2 style="font-size:1rem;font-weight:600;color:var(--text)">
-            💳 المعاملات المالية
-        </h2>
-        <div style="display:flex;align-items:center;gap:1rem">
-            <span style="font-size:.9rem;color:var(--muted)">
-                إجمالي المدفوع:
-                <strong style="color:var(--text)"><?= number_format($totalPaid, 2) ?></strong>
-            </span>
-            <a href="<?= APP_URL ?>/transaction/create?receipt_id=<?= $receipt['id'] ?>" class="btn btn-sm btn-primary">
-                + إضافة معاملة
-            </a>
+<div class="card" style="margin-bottom:1.5rem; padding: 14px;">
+    <div class="section-header">
+        <h2>💳 المعاملات المالية</h2>
+        <div class="section-header-meta">
+            <span>إجمالي المدفوع: <strong style="color:var(--text)"><?= number_format($totalPaid, 2) ?></strong></span>
+            <a href="<?= APP_URL ?>/transaction/create?receipt_id=<?= $receipt['id'] ?>" class="btn btn-sm btn-primary">+ إضافة معاملة</a>
         </div>
     </div>
 
@@ -178,7 +343,9 @@ function evidenceUrl(string $raw): string {
             <p style="color:var(--muted)">لا توجد معاملات مالية لهذا الإيصال بعد.</p>
         </div>
     <?php else: ?>
-        <div class="table-wrap">
+
+        <!-- Desktop table (hidden on mobile via CSS) -->
+        <div class="table-wrap tx-table-wrap">
             <table>
                 <thead>
                     <tr>
@@ -202,8 +369,6 @@ function evidenceUrl(string $raw): string {
                             'discount' => ['badge-warning', 'خصم'],
                         ];
                         [$tCls, $tLabel] = $typeMap[$t['type']] ?? ['badge-secondary', $t['type']];
-
-                        // Resolve raw value from whichever column name is used
                         $rawEvidence = $t['attachment'] ?? $t['transaction_evidence'] ?? $t['evidence'] ?? null;
                         $evidenceUrl = $rawEvidence ? evidenceUrl($rawEvidence) : '';
                         $ext         = $rawEvidence ? strtolower(pathinfo($rawEvidence, PATHINFO_EXTENSION)) : '';
@@ -231,20 +396,15 @@ function evidenceUrl(string $raw): string {
                                                      onerror="this.closest('.evidence-thumb-wrap').innerHTML='<span style=\'font-size:.7rem;color:var(--muted);padding:.2rem\'>خطأ</span>'">
                                             </a>
                                         <?php else: ?>
-                                            <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="btn btn-sm btn-secondary">
-                                                📄 PDF
-                                            </a>
+                                            <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="btn btn-sm btn-secondary">📄 PDF</a>
                                         <?php endif; ?>
                                         <?php if ($isAdmin): ?>
                                             <form method="POST"
                                                   action="<?= APP_URL ?>/transaction/remove-evidence?id=<?= $t['id'] ?>"
                                                   style="display:inline"
                                                   onsubmit="return confirm('هل أنت متأكد من حذف هذه الصورة؟')">
-                                                <input type="hidden" name="csrf_token"
-                                                       value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                                <button type="submit" class="btn btn-sm btn-danger evidence-remove-btn" title="حذف الصورة">
-                                                    🗑
-                                                </button>
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                                                <button type="submit" class="btn btn-sm btn-danger evidence-remove-btn" title="حذف الصورة">🗑</button>
                                             </form>
                                         <?php endif; ?>
                                     </div>
@@ -258,8 +418,7 @@ function evidenceUrl(string $raw): string {
                                     <form method="POST" action="<?= APP_URL ?>/transaction/delete?id=<?= $t['id'] ?>"
                                           style="display:inline"
                                           onsubmit="return confirm('هل أنت متأكد من حذف هذه المعاملة؟')">
-                                        <input type="hidden" name="csrf_token"
-                                               value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                                         <button type="submit" class="btn btn-sm btn-danger">حذف</button>
                                     </form>
                                 </div>
@@ -269,11 +428,87 @@ function evidenceUrl(string $raw): string {
                 </tbody>
             </table>
         </div>
+
+        <!-- Mobile cards (hidden on desktop via CSS) -->
+        <div class="tx-cards">
+            <?php foreach ($transactions as $t): ?>
+                <?php
+                $typeMap = [
+                    'payment'  => ['badge-success', 'دفعة'],
+                    'refund'   => ['badge-danger',  'استرداد'],
+                    'discount' => ['badge-warning', 'خصم'],
+                ];
+                [$tCls, $tLabel] = $typeMap[$t['type']] ?? ['badge-secondary', $t['type']];
+                $rawEvidence = $t['attachment'] ?? $t['transaction_evidence'] ?? $t['evidence'] ?? null;
+                $evidenceUrl = $rawEvidence ? evidenceUrl($rawEvidence) : '';
+                $ext         = $rawEvidence ? strtolower(pathinfo($rawEvidence, PATHINFO_EXTENSION)) : '';
+                $isPdf       = ($ext === 'pdf');
+                $isAdmin     = (auth_user()['role'] === 'admin');
+                ?>
+                <div class="tx-card">
+                    <div class="tx-card-row">
+                        <span class="tx-card-label">#<?= $t['id'] ?> &nbsp; <span class="badge <?= $tCls ?>"><?= $tLabel ?></span></span>
+                        <strong class="tx-card-value"><?= number_format($t['amount'], 2) ?></strong>
+                    </div>
+                    <div class="tx-card-row">
+                        <span class="tx-card-label">طريقة الدفع</span>
+                        <span class="tx-card-value"><?= htmlspecialchars($t['payment_method'] ?? '—') ?></span>
+                    </div>
+                    <div class="tx-card-row">
+                        <span class="tx-card-label">المنشئ</span>
+                        <span class="tx-card-value"><?= htmlspecialchars($t['creator_name'] ?? '—') ?></span>
+                    </div>
+                    <div class="tx-card-row">
+                        <span class="tx-card-label">التاريخ</span>
+                        <span class="tx-card-value" style="color:var(--muted);font-size:.8rem"><?= htmlspecialchars($t['created_at'] ?? '—') ?></span>
+                    </div>
+                    <?php if (!empty($t['notes'])): ?>
+                    <div class="tx-card-row">
+                        <span class="tx-card-label">ملاحظات</span>
+                        <span class="tx-card-value" style="color:var(--muted)"><?= htmlspecialchars($t['notes']) ?></span>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (!empty($evidenceUrl)): ?>
+                    <div class="tx-card-row">
+                        <span class="tx-card-label">الإثبات</span>
+                        <span class="tx-card-value">
+                            <?php if (!$isPdf): ?>
+                                <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="evidence-thumb-wrap" style="width:44px;height:44px">
+                                    <img src="<?= htmlspecialchars($evidenceUrl) ?>" class="evidence-thumb" alt="إثبات الدفع">
+                                </a>
+                            <?php else: ?>
+                                <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="btn btn-sm btn-secondary">📄 PDF</a>
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                    <?php endif; ?>
+                    <div class="tx-card-actions">
+                        <a href="<?= APP_URL ?>/transaction/edit?id=<?= $t['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
+                        <form method="POST" action="<?= APP_URL ?>/transaction/delete?id=<?= $t['id'] ?>"
+                              style="display:inline"
+                              onsubmit="return confirm('هل أنت متأكد من حذف هذه المعاملة؟')">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                            <button type="submit" class="btn btn-sm btn-danger">حذف</button>
+                        </form>
+                        <?php if ($isAdmin && !empty($evidenceUrl)): ?>
+                            <form method="POST"
+                                  action="<?= APP_URL ?>/transaction/remove-evidence?id=<?= $t['id'] ?>"
+                                  style="display:inline"
+                                  onsubmit="return confirm('هل أنت متأكد من حذف هذه الصورة؟')">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                                <button type="submit" class="btn btn-sm btn-danger evidence-remove-btn">🗑 حذف الإثبات</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
     <?php endif; ?>
 </div>
 
 <!-- ─── سجل التدقيق ───────────────────────────────────────────────────── -->
-<div class="card">
+<div class="card" style="padding: 14px;">
     <h2 style="font-size:1rem;font-weight:600;margin-bottom:1rem;color:var(--text)">📋 سجل التعديلات</h2>
 
     <?php if (empty($auditLogs)): ?>
@@ -281,7 +516,9 @@ function evidenceUrl(string $raw): string {
             <p style="color:var(--muted)">لا يوجد سجل تعديلات لهذا الإيصال بعد.</p>
         </div>
     <?php else: ?>
-        <div class="table-wrap">
+
+        <!-- Desktop audit table -->
+        <div class="audit-table-wrap">
             <table>
                 <thead>
                     <tr>
@@ -307,31 +544,29 @@ function evidenceUrl(string $raw): string {
                 </tbody>
             </table>
         </div>
+
+        <!-- Mobile audit cards -->
+        <div class="audit-cards">
+            <?php foreach ($auditLogs as $log): ?>
+                <div class="audit-card">
+                    <div class="audit-card-field">
+                        <code style="font-size:.8rem"><?= htmlspecialchars($log['field_name']) ?></code>
+                    </div>
+                    <div class="audit-card-change">
+                        <span style="color:var(--error)"><?= htmlspecialchars($log['old_value'] ?? '—') ?></span>
+                        <span style="color:var(--muted)">←</span>
+                        <span style="color:var(--success)"><?= htmlspecialchars($log['new_value'] ?? '—') ?></span>
+                    </div>
+                    <div class="audit-card-meta">
+                        <?= htmlspecialchars($log['changer_name'] ?? '—') ?>
+                        &nbsp;·&nbsp; <?= htmlspecialchars($log['role']) ?>
+                        &nbsp;·&nbsp; <?= htmlspecialchars($log['changed_at']) ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
     <?php endif; ?>
 </div>
-
-<style>
-.detail-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 1rem;
-}
-.detail-item {
-    display: flex;
-    flex-direction: column;
-    gap: .25rem;
-}
-.detail-label {
-    font-size: .75rem;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    color: var(--muted);
-    font-weight: 600;
-}
-.detail-value {
-    font-size: .92rem;
-    color: var(--text);
-}
-</style>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>

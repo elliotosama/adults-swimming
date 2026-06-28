@@ -47,7 +47,6 @@ $totalRefunded = (float) $txData['total_refunded'];
 $netPaid       = $totalPaidCalc - $totalRefunded;
 $remainingCalc = max(0, $planPrice - $netPaid);
 
-$amount    = number_format($netPaid, 0);
 $remaining = number_format($remainingCalc, 0);
 $type = $_GET['type'] ?? 'new';
 
@@ -494,18 +493,12 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
             <div class="preview-section-title">💳 الدفع / Payment</div>
             <div class="preview-grid">
                 <div class="preview-item">
-                    <label>إجمالي المدفوع / Gross Paid</label>
+                    <label>سعر الخطة / Plan Price</label>
+                    <span class="accent"><?= number_format($planPrice, 0) ?></span>
+                </div>
+                <div class="preview-item">
+                    <label>إجمالي المدفوع / Total Paid</label>
                     <span class="success"><?= number_format($totalPaidCalc, 0) ?></span>
-                </div>
-                <?php if ($totalRefunded > 0): ?>
-                <div class="preview-item">
-                    <label>المُسترَد / Refunded</label>
-                    <span class="danger">−<?= number_format($totalRefunded, 0) ?></span>
-                </div>
-                <?php endif; ?>
-                <div class="preview-item">
-                    <label>صافي المدفوع / Net Paid</label>
-                    <span class="<?= $netPaid > 0 ? 'success' : 'danger' ?>"><?= $amount ?></span>
                 </div>
                 <div class="preview-item">
                     <label>المتبقي / Remaining</label>

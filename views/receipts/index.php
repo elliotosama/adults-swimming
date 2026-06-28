@@ -8,24 +8,20 @@ function paginationUrl(int $p): string {
     return APP_URL . '/receipts?' . http_build_query($q);
 }
 
-
 function exportUrl(): string {
     $params = $_GET;
     unset($params['page']);
-
     if (empty($params) && !empty($_SESSION['receipt_filters'])) {
         $params = $_SESSION['receipt_filters'];
     }
-
     $query = http_build_query($params);
     return APP_URL . '/receipt/export' . ($query ? '?' . $query : '');
 }
 
-// ── AM/PM formatter ───────────────────────────────────────────────────────
 function formatAmPm(string $time): string {
     if (empty($time)) return '—';
     try {
-        return (new DateTime($time))->format('g:i A'); // e.g. "9:30 AM"
+        return (new DateTime($time))->format('g:i A');
     } catch (\Exception $e) {
         return $time;
     }
@@ -54,42 +50,15 @@ $isAdmin   = $isAdmin ?? false;
     to   { opacity:1; transform:scale(1) translateY(0); }
 }
 #confirmModal.open { display:flex; }
-</style>
 
-<script>
-let _pendingForm = null;
-
-function showDeleteModal(form) {
-    _pendingForm = form;
-    const modal = document.getElementById('confirmModal');
-    modal.classList.add('open');
-    modal.style.display = 'flex';
-}
-
-function closeModal() {
-    const modal = document.getElementById('confirmModal');
-    modal.classList.remove('open');
-    modal.style.display = 'none';
-    _pendingForm = null;
-}
-
-document.getElementById('confirmBtn').addEventListener('click', function () {
-    if (_pendingForm) _pendingForm.submit();
-    closeModal();
-});
-
-document.getElementById('confirmModal').addEventListener('click', function (e) {
-    if (e.target === this) closeModal();
-});
-</script>
-
-<style>
-/* ── Result count ──────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   RESULT COUNT
+══════════════════════════════════════════════════════════════════ */
 .receipt-count-block {
     display: flex;
     align-items: baseline;
     gap: .5rem;
-    margin-bottom: .5rem;
+    margin-bottom: .75rem;
 }
 .receipt-count-number {
     font-size: 2.6rem;
@@ -101,41 +70,151 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 .receipt-count-label {
     font-size: 1rem;
     color: var(--muted);
-    font-weight: 500;
+    font-weight: 600;
 }
 
-/* ── Filter panel ──────────────────────────────────────────── */
-.filter-panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem 1.5rem;margin-bottom:.6rem;z-index:1}
-.filter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem 1rem}
-.filter-group{z-index:1;display:flex;flex-direction:column;gap:.3rem}
-.filter-group label{z-index:1;font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.filter-group input,.filter-group select{padding:.42rem .65rem;border:1px solid var(--border);border-radius:6px;font-size:.88rem;background:var(--bg);color:var(--text);width:100%}
-.filter-group select[multiple]{height:90px}
-.filter-actions{display:flex;gap:.6rem;align-items:center;margin-top:.9rem;flex-wrap:wrap}
-.badge-updated{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;font-size:.72rem;padding:.15rem .45rem;border-radius:999px;margin-right:.3rem}
+/* ══════════════════════════════════════════════════════════════════
+   PAGE HEADER
+══════════════════════════════════════════════════════════════════ */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+}
+.page-header-actions {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
 
-/* ── Live search ───────────────────────────────────────────── */
-.search-wrap{position:relative}
-.search-wrap input{padding-right:2rem}
-.search-spinner{display:none;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;position:absolute;right:.6rem;top:50%;transform:translateY(-50%);pointer-events:none}
-@keyframes spin{to{transform:translateY(-50%) rotate(360deg)}}
+/* ══════════════════════════════════════════════════════════════════
+   FILTER PANEL
+══════════════════════════════════════════════════════════════════ */
+.filter-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: .6rem;
+    z-index: 1;
+}
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: .75rem 1rem;
+}
+.filter-group {
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+}
+.filter-group label {
+    font-size: .82rem;
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.filter-group input,
+.filter-group select {
+    padding: .48rem .7rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: .92rem;
+    font-weight: 600;
+    background: var(--bg);
+    color: var(--text);
+    width: 100%;
+}
+.filter-group select[multiple] { height: 90px; }
 
-/* ── Tag-checkbox groups (branch & status) ─────────────────── */
-.tag-check-group{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;padding:.35rem 0}
-.tag-check{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .7rem;border:1px solid var(--border);border-radius:999px;font-size:.82rem;cursor:pointer;user-select:none;transition:background .15s,border-color .15s,color .15s;background:var(--bg);color:var(--text)}
-.tag-check:hover{border-color:var(--primary);color:var(--primary)}
-.tag-check.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
-.tag-check input[type="checkbox"]{display:none}
-.tag-clear{border:none;background:transparent;color:var(--muted);font-size:.78rem;cursor:pointer;padding:.2rem .4rem;border-radius:4px;transition:color .15s}
-.tag-clear:hover{color:#e53e3e}
+.filter-actions {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    margin-top: .9rem;
+    flex-wrap: wrap;
+}
 
-.pagination{display:flex;gap:.35rem;align-items:center;justify-content:center;padding:1rem 0}
-.pagination a,.pagination span{display:inline-flex;align-items:center;justify-content:center;min-width:2rem;height:2rem;padding:0 .55rem;border-radius:6px;font-size:.85rem;border:1px solid var(--border);text-decoration:none;color:var(--text)}
-.pagination a:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
-.pagination .active{background:var(--primary);color:#fff;border-color:var(--primary);font-weight:700}
-.pagination .disabled{opacity:.4;pointer-events:none}
-.pag-info{font-size:.82rem;color:var(--muted);text-align:center}
+/* ══════════════════════════════════════════════════════════════════
+   LIVE SEARCH SPINNER
+══════════════════════════════════════════════════════════════════ */
+.search-wrap { position: relative; }
+.search-wrap input { padding-right: 2rem; }
+.search-spinner {
+    display: none;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    position: absolute;
+    right: .6rem; top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
 
+/* ══════════════════════════════════════════════════════════════════
+   TAG-CHECKBOX GROUPS
+══════════════════════════════════════════════════════════════════ */
+.tag-check-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    align-items: center;
+    padding: .35rem 0;
+}
+.tag-check {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .32rem .75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: .84rem;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s, border-color .15s, color .15s;
+    background: var(--bg);
+    color: var(--text);
+}
+.tag-check:hover { border-color: var(--primary); color: var(--primary); }
+.tag-check.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.tag-check input[type="checkbox"] { display: none; }
+
+.tag-clear {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: .78rem;
+    cursor: pointer;
+    padding: .2rem .4rem;
+    border-radius: 4px;
+    transition: color .15s;
+}
+.tag-clear:hover { color: #e53e3e; }
+
+.badge-updated {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+    font-size: .75rem;
+    font-weight: 700;
+    padding: .15rem .45rem;
+    border-radius: 999px;
+    margin-right: .3rem;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BRANCH CHIP SCROLL
+══════════════════════════════════════════════════════════════════ */
 .branch-chip-scroll {
     display: flex;
     flex-wrap: wrap;
@@ -147,20 +226,81 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
     scrollbar-color: var(--border) transparent;
 }
 .branch-chip-scroll .tag-check {
-    font-size: .75rem;
-    padding: .2rem .55rem;
+    font-size: .78rem;
+    padding: .22rem .58rem;
     white-space: nowrap;
 }
 
-/* ── Table tweaks ──────────────────────────────────────────── */
-.table-wrap { overflow-x: scroll; width: 100%; }
-.card { width: 100%; max-width: 100%; }
-table { width: 100%; table-layout: auto; }
-table th { white-space: nowrap; font-size: .8rem; }
-table td { white-space: nowrap; color: #fff; font-size: .95rem; font-weight: 500; }
-table td.wrap-cell { white-space: normal; min-width: 120px; }
+/* ══════════════════════════════════════════════════════════════════
+   PAGINATION
+══════════════════════════════════════════════════════════════════ */
+.pagination {
+    display: flex;
+    gap: .35rem;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 0;
+    flex-wrap: wrap;
+}
+.pagination a, .pagination span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 .55rem;
+    border-radius: 6px;
+    font-size: .88rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+}
+.pagination a:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.pagination .active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+.pagination .disabled { opacity: .4; pointer-events: none; }
+.pag-info { font-size: .84rem; font-weight: 600; color: var(--muted); text-align: center; }
 
-/* ── Refund flag badge ─────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   TABLE — bolder, bigger, whiter
+══════════════════════════════════════════════════════════════════ */
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+}
+.card { width: 100%; max-width: 100%; }
+
+table {
+    width: 100%;
+    table-layout: auto;
+    border-collapse: collapse;
+}
+table th {
+    white-space: nowrap;
+    font-size: .85rem;
+    font-weight: 800;
+    color: #fff;
+    padding: .65rem .75rem;
+    letter-spacing: .02em;
+}
+table td {
+    white-space: nowrap;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: .6rem .75rem;
+}
+table td.wrap-cell {
+    white-space: normal;
+    min-width: 130px;
+}
+/* keep per-cell overrides but enforce white base */
+table td strong { color: #fff; font-weight: 800; }
+
+/* ══════════════════════════════════════════════════════════════════
+   REFUND BADGE
+══════════════════════════════════════════════════════════════════ */
 .badge-refund {
     display: inline-flex;
     align-items: center;
@@ -168,34 +308,34 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
     background: #fff0f0;
     color: #c0392b;
     border: 1px solid #f5c6c6;
-    font-size: .75rem;
-    font-weight: 700;
-    padding: .18rem .5rem;
+    font-size: .78rem;
+    font-weight: 800;
+    padding: .2rem .55rem;
     border-radius: 999px;
     white-space: nowrap;
 }
 
+/* TD actions */
+.td-actions {
+    display: flex;
+    gap: .35rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
 
-
-/* ════════════════════════════════════════════════════════════════
-   RECEIPTS INDEX — RESPONSIVE PATCH
-════════════════════════════════════════════════════════════════ */
-
-/* ── Tablet (≤900px) ── */
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE — TABLET (≤ 900px)
+══════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
-
     .page-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: .75rem;
+        gap: .65rem;
     }
-    .page-header > div:last-child {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .5rem;
+    .page-header-actions {
         width: 100%;
     }
-    .page-header > div:last-child .btn {
+    .page-header-actions .btn {
         flex: 1 1 auto;
         text-align: center;
         justify-content: center;
@@ -204,117 +344,93 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
     .filter-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .filter-group[style*="span 2"] {
-        grid-column: span 2;
-    }
 
-    .receipt-count-number { font-size: 2rem; }
+    .receipt-count-number { font-size: 2.1rem; }
 
-    .table-wrap {
-        -webkit-overflow-scrolling: touch;
-        overflow-x: auto;
-    }
-    table th { font-size: .75rem; padding: .5rem .6rem; }
-    table td { font-size: .82rem; padding: .5rem .6rem; }
-    table td.wrap-cell { min-width: 100px; }
+    table th { font-size: .8rem; padding: .55rem .65rem; }
+    table td { font-size: .92rem; padding: .55rem .65rem; }
+    table td.wrap-cell { min-width: 110px; }
 
-    .td-actions {
-        display: flex;
-        flex-direction: column;
-        gap: .3rem;
-        align-items: flex-start;
-    }
+    .td-actions { flex-direction: column; align-items: stretch; }
     .td-actions .btn { width: 100%; text-align: center; justify-content: center; }
-
-    .pagination { flex-wrap: wrap; gap: .25rem; }
 }
 
-/* ── Mobile (≤600px) ── */
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤ 600px)
+══════════════════════════════════════════════════════════════════ */
 @media (max-width: 600px) {
+    .filter-panel { padding: .9rem 1rem; }
 
     .filter-grid {
         grid-template-columns: 1fr;
+        gap: .65rem;
     }
-    .filter-group[style*="span 2"] {
-        grid-column: span 1;
-    }
+    /* span-2 items collapse to full width */
+    .filter-group[style*="span 2"] { grid-column: span 1; }
 
-    .filter-panel { padding: 1rem; }
+    .filter-group label { font-size: .78rem; }
+    .filter-group input,
+    .filter-group select { font-size: .88rem; }
 
-    .filter-group:first-child { grid-column: 1; }
-
-    .tag-check-group  { flex-wrap: wrap; }
-    .branch-chip-scroll { max-height: none; overflow-y: visible; flex-wrap: wrap; }
-    .tag-check        { font-size: .78rem; padding: .25rem .6rem; }
+    .tag-check-group  { flex-wrap: wrap; gap: .35rem; }
+    .branch-chip-scroll { max-height: none; overflow-y: visible; }
+    .tag-check { font-size: .8rem; padding: .28rem .65rem; }
 
     .filter-actions {
         flex-direction: column;
-        gap: .5rem;
+        gap: .45rem;
     }
     .filter-actions .btn { width: 100%; text-align: center; }
 
-    .receipt-count-number { font-size: 1.75rem; }
-    .receipt-count-label  { font-size: .88rem; }
-    .receipt-count-block  { margin-bottom: .75rem; }
+    .receipt-count-number { font-size: 1.9rem; }
+    .receipt-count-label  { font-size: .9rem; }
 
-    .table-wrap {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    table {
-        table-layout: auto;
-        min-width: 900px;
-    }
-    table th { font-size: .72rem; padding: .45rem .5rem; white-space: nowrap; }
-    table td { font-size: .78rem; padding: .45rem .5rem; white-space: nowrap; }
+    /* Table: always scroll, never shrink columns */
+    table { min-width: 980px; }
+    table th { font-size: .76rem; padding: .5rem .55rem; }
+    table td { font-size: .88rem; padding: .5rem .55rem; }
 
     .td-actions {
         flex-direction: row;
         flex-wrap: wrap;
         gap: .25rem;
-        min-width: 180px;
+        min-width: 200px;
     }
     .td-actions .btn {
         width: auto;
-        padding: .25rem .5rem;
-        font-size: .72rem;
+        padding: .28rem .55rem;
+        font-size: .75rem;
     }
 
     .pagination a,
     .pagination span {
-        min-width: 1.75rem;
-        height: 1.75rem;
-        font-size: .78rem;
+        min-width: 1.8rem;
+        height: 1.8rem;
+        font-size: .8rem;
         padding: 0 .4rem;
     }
-    .pag-info { font-size: .75rem; }
+    .pag-info { font-size: .78rem; }
 
     #confirmModal > div {
         width: 95% !important;
-        padding: 1.5rem 1.25rem 1.25rem !important;
+        padding: 1.5rem 1.1rem 1.1rem !important;
     }
 }
 
-/* ── Very small (≤400px) ── */
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE — VERY SMALL (≤ 400px)
+══════════════════════════════════════════════════════════════════ */
 @media (max-width: 400px) {
-
     .page-title { font-size: 1.2rem; }
+    .receipt-count-number { font-size: 1.65rem; }
 
-    .badge-refund { font-size: .7rem; padding: .15rem .4rem; }
-    .badge-updated { font-size: .68rem; padding: .1rem .35rem; }
+    table { min-width: 920px; }
+    table th { font-size: .72rem; padding: .45rem .48rem; }
+    table td { font-size: .82rem; padding: .45rem .48rem; }
 
-    table { min-width: 860px; }
-
-    .filter-group label {
-        font-size: .72rem;
-    }
-    .filter-group input,
-    .filter-group select {
-        font-size: .82rem;
-        padding: .38rem .55rem;
-    }
+    .badge-refund  { font-size: .72rem; padding: .15rem .42rem; }
+    .badge-updated { font-size: .7rem; padding: .12rem .38rem; }
 }
-
 </style>
 
 <div class="page-header">
@@ -322,7 +438,7 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         <h1 class="page-title">🧾 الإيصالات</h1>
         <p class="breadcrumb">لوحة التحكم · الإيصالات</p>
     </div>
-    <div style="display:flex;gap:.6rem">
+    <div class="page-header-actions">
         <?php if ($isAdmin): ?>
         <a href="<?= exportUrl() ?>" class="btn btn-secondary">⬇️ تصدير Excel</a>
         <a href="<?= APP_URL ?>/receipt/create" class="btn btn-primary">+ إضافة إيصال جديد</a>
@@ -339,20 +455,19 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
     <?php unset($_SESSION['flash_error']); ?>
 <?php endif; ?>
 
-<!-- ── Big bold result count ─────────────────────────────────────────────── -->
+<!-- ── Result count ───────────────────────────────────────────────────── -->
 <div class="receipt-count-block">
     <span class="receipt-count-number" id="resultCountBig"><?= number_format($total) ?></span>
     <span class="receipt-count-label">إيصال</span>
 </div>
 
-<!-- ── Filter Panel ──────────────────────────────────────────────────── -->
+<!-- ── Filter Panel ───────────────────────────────────────────────────── -->
 <div class="filter-panel">
     <form method="GET" action="<?= APP_URL ?>/receipts" id="filterForm">
         <input type="hidden" name="page" value="1">
 
         <div class="filter-grid">
 
-            <!-- Search -->
             <?php if ($canFilter('search')): ?>
             <div class="filter-group" style="grid-column:span 2">
                 <label>🔍 بحث (اسم / هاتف / رقم العميل)</label>
@@ -365,7 +480,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </div>
             <?php endif; ?>
 
-            <!-- First session range -->
             <?php if ($canFilter('first_session')): ?>
             <div class="filter-group">
                 <label>أول تمرين — من</label>
@@ -379,7 +493,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </div>
             <?php endif; ?>
 
-            <!-- Last session range -->
             <?php if ($canFilter('last_session')): ?>
             <div class="filter-group">
                 <label>آخر تمرين — من</label>
@@ -393,7 +506,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </div>
             <?php endif; ?>
 
-            <!-- Created at range -->
             <?php if ($canFilter('created')): ?>
             <div class="filter-group">
                 <label>تاريخ الإنشاء — من</label>
@@ -407,7 +519,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </div>
             <?php endif; ?>
 
-            <!-- Status tag-checkboxes -->
             <?php if ($canFilter('statuses')): ?>
             <?php
             $allStatuses = ['completed' => 'مكتمل', 'not_completed' => 'غير مكتمل'];
@@ -429,7 +540,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </div>
             <?php endif; ?>
 
-            <!-- Renewal type tag-checkboxes -->
             <?php if ($canFilter('renewal_types')): ?>
             <?php
             $allRenewalTypes = [
@@ -455,7 +565,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </div>
             <?php endif; ?>
 
-            <!-- Branch tag-checkboxes -->
             <?php if ($canFilter('branch')): ?>
             <?php $selBranches = array_map('intval', (array) ($filters['branch_ids'] ?? [])); ?>
             <div class="filter-group">
@@ -476,7 +585,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </div>
             <?php endif; ?>
 
-            <!-- Creator filter + created-only checkbox -->
             <?php if ($canFilter('creator')): ?>
             <div class="filter-group">
                 <label>المنشئ</label>
@@ -499,9 +607,9 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
                            value="1"
                            <?= !empty($filters['creator_created_only']) ? 'checked' : '' ?>
                            style="width:auto">
-                    <span style="font-size:.82rem;color:var(--muted)">
+                    <span style="font-size:.84rem;font-weight:600;color:var(--muted)">
                         الإيصالات المنشأة فقط
-                        <small style="display:block;font-size:.73rem;font-weight:400;margin-top:.1rem">
+                        <small style="display:block;font-size:.74rem;font-weight:400;margin-top:.1rem">
                             بدون تحديد: يشمل التعديلات والمعاملات أيضاً
                         </small>
                     </span>
@@ -509,7 +617,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </div>
             <?php endif; ?>
 
-            <!-- Has updates toggle -->
             <?php if ($canFilter('has_updates')): ?>
             <div class="filter-group">
                 <label>فقط المحدَّثة أو بها معاملات</label>
@@ -517,9 +624,9 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
                     <input type="checkbox" name="has_updates" value="1"
                            <?= !empty($filters['has_updates']) ? 'checked' : '' ?>
                            style="width:auto">
-                    <span style="font-size:.88rem">
+                    <span style="font-size:.9rem;font-weight:600">
                         تفعيل
-                        <small style="color:var(--muted);display:block;font-size:.75rem;font-weight:400">
+                        <small style="color:var(--muted);display:block;font-size:.76rem;font-weight:400">
                             يُظهر فقط الإيصالات التي تم تعديلها أو لديها مدفوعات
                         </small>
                     </span>
@@ -527,7 +634,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </div>
             <?php endif; ?>
 
-            <!-- Has refund toggle -->
             <?php if ($canFilter('has_refund')): ?>
             <div class="filter-group">
                 <label>الإيصالات المستردّة</label>
@@ -535,9 +641,9 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
                     <input type="checkbox" name="has_refund" value="1"
                            <?= !empty($filters['has_refund']) ? 'checked' : '' ?>
                            style="width:auto">
-                    <span style="font-size:.88rem">
+                    <span style="font-size:.9rem;font-weight:600">
                         تفعيل
-                        <small style="color:var(--muted);display:block;font-size:.75rem;font-weight:400">
+                        <small style="color:var(--muted);display:block;font-size:.76rem;font-weight:400">
                             يُظهر فقط الإيصالات التي تم استرداد مبلغ منها
                         </small>
                     </span>
@@ -556,7 +662,7 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
 
 <!-- ════════════════════════════════════════════════════════════════════
      TABLE
-     ════════════════════════════════════════════════════════════════════ -->
+════════════════════════════════════════════════════════════════════ -->
 <div class="card" id="tableCard">
     <?php if (empty($receipts)): ?>
         <div class="empty-state" id="emptyState">
@@ -599,58 +705,36 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
                     ];
                     foreach ($receipts as $r):
                         [$cls, $statusLabel] = $statusMap[$r['receipt_status']] ?? ['badge-secondary', $r['receipt_status']];
-                        $hasActivity  = ($r['audit_count'] > 0 || $r['transaction_count'] > 0);
+                        $hasActivity = ($r['audit_count'] > 0 || $r['transaction_count'] > 0);
+                        $hasRefund   = ($r['has_refund'] != '0');
                     ?>
                         <tr>
-                            <!-- 1 رقم الإيصال -->
-                            <td style="color:#fff;font-size:.95rem;font-weight:600">
+                            <td style="color:#fff;font-size:1rem;font-weight:800">
                                 <?= htmlspecialchars($r['receipt_ref'] ?? $r['id']) ?>
                             </td>
-                            <!-- 2 نوع التجديد -->
                             <td><?= htmlspecialchars($r['renewal_type'] ?? '—') ?></td>
-                            <!-- 3 رقم العميل -->
                             <td><?= $r['client_id'] ?? '—' ?></td>
-                            <!-- 4 اسم العميل -->
                             <td class="wrap-cell"><strong><?= htmlspecialchars($r['client_name'] ?? '—') ?></strong></td>
-                            <!-- 5 العمر -->
                             <td style="text-align:center"><?= htmlspecialchars($r['client_age'] ?? '—') ?></td>
-                            <!-- 6 الهاتف -->
                             <td><?= htmlspecialchars($r['client_phone'] ?? '—') ?></td>
-                            <!-- 7 وقت التمرين — AM/PM -->
                             <td><?= htmlspecialchars(formatAmPm($r['exercise_time'] ?? '')) ?></td>
-                            <!-- 8 المستوى -->
                             <td style="text-align:center"><?= htmlspecialchars($r['level'] ?? '—') ?></td>
-                            <!-- 9 الكابتن -->
                             <td><?= htmlspecialchars($r['captain_name'] ?? '—') ?></td>
-                            <!-- 10 سعر الخطة -->
-                            <td style="font-weight:700"><?= number_format((float)($r['plan_price'] ?? 0)) ?></td>
-                            <!-- 11 المدفوع -->
-                            <td style="color:#4ade80;font-weight:700"><?= number_format((float)($r['total_paid'] ?? 0)) ?></td>
-                            <!-- 12 أول تمرين -->
+                            <td style="font-weight:800;color:#fff"><?= number_format((float)($r['plan_price'] ?? 0)) ?></td>
+                            <td style="color:#4ade80;font-weight:800"><?= number_format((float)($r['total_paid'] ?? 0)) ?></td>
                             <td><?= htmlspecialchars($r['first_session'] ?? '—') ?></td>
-                            <!-- 13 آخر تمرين -->
                             <td><?= htmlspecialchars($r['last_session'] ?? '—') ?></td>
-                            <!-- 14 المنشئ (admin only) -->
                             <?php if ($isAdmin): ?>
                             <td><?= htmlspecialchars($r['creator_name'] ?? '—') ?></td>
                             <?php endif; ?>
-                            <!-- 15 الحالة -->
                             <td><span class="badge <?= $cls ?>"><?= $statusLabel ?></span></td>
-                            <!-- 16 مُسترد -->
                             <td>
-                                <?php if($r['has_refund'] == '0') {
-                                    $hasRefund = false;
-                                } else {
-                                    $hasRefund = true;
-                                }
-                                ?>
                                 <?php if ($hasRefund): ?>
                                     <span class="badge-refund">🔴 مُسترد</span>
                                 <?php else: ?>
-                                    <span style="color:rgba(255,255,255,.35);font-size:.8rem">-</span>
+                                    <span style="color:rgba(255,255,255,.3);font-size:.85rem">—</span>
                                 <?php endif; ?>
                             </td>
-                            <!-- 17 التعديلات -->
                             <td>
                                 <?php if ($r['audit_count'] > 0): ?>
                                     <span class="badge-updated" title="تعديلات">✏️ <?= $r['audit_count'] ?></span>
@@ -659,10 +743,9 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
                                     <span class="badge-updated" title="معاملات">💳 <?= $r['transaction_count'] ?></span>
                                 <?php endif; ?>
                                 <?php if (!$hasActivity): ?>
-                                    <span style="color:rgba(255,255,255,.35);font-size:.8rem">—</span>
+                                    <span style="color:rgba(255,255,255,.3);font-size:.85rem">—</span>
                                 <?php endif; ?>
                             </td>
-                            <!-- 18 الإجراءات -->
                             <td>
                                 <div class="td-actions">
                                     <a href="<?= APP_URL ?>/receipt/show?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
@@ -684,13 +767,11 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             </table>
         </div>
 
-        <!-- ── Pagination ────────────────────────────────────────────── -->
         <?php if ($lastPage > 1): ?>
             <p class="pag-info" id="pagInfo">
                 عرض <?= ($page - 1) * $perPage + 1 ?>–<?= min($page * $perPage, $total) ?> من <?= number_format($total) ?>
             </p>
             <nav class="pagination" id="pagNav" aria-label="pagination">
-
                 <?php if ($page > 1): ?>
                     <a href="<?= paginationUrl($page - 1) ?>">‹ السابق</a>
                 <?php else: ?>
@@ -701,9 +782,7 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
                 $window = 2;
                 $shown  = [];
                 for ($i = 1; $i <= $lastPage; $i++) {
-                    if ($i === 1 || $i === $lastPage || abs($i - $page) <= $window) {
-                        $shown[] = $i;
-                    }
+                    if ($i === 1 || $i === $lastPage || abs($i - $page) <= $window) $shown[] = $i;
                 }
                 $prev = null;
                 foreach ($shown as $p):
@@ -723,7 +802,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
                 <?php else: ?>
                     <span class="disabled">التالي ›</span>
                 <?php endif; ?>
-
             </nav>
         <?php endif; ?>
 
@@ -732,7 +810,7 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
 
 <!-- ════════════════════════════════════════════════════════════════════
      LIVE SEARCH / DYNAMIC TABLE
-     ════════════════════════════════════════════════════════════════════ -->
+════════════════════════════════════════════════════════════════════ -->
 <script>
 (function () {
     const input     = document.getElementById('liveSearch');
@@ -751,7 +829,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
     let liveTotalNow = <?= (int) $total ?>;
     let liveLastPage = <?= (int) $lastPage ?>;
 
-    // ── Helpers ──────────────────────────────────────────────────────────
     const statusMap = {
         completed:     ['badge-success', 'مكتمل'],
         not_completed: ['badge-danger',  'غير مكتمل'],
@@ -761,10 +838,8 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
     function esc(str) {
         if (str == null) return '—';
         return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
     }
 
@@ -793,21 +868,18 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         const activityHtml = [
             Number(r.audit_count)       > 0 ? `<span class="badge-updated" title="تعديلات">✏️ ${esc(r.audit_count)}</span>`       : '',
             Number(r.transaction_count) > 0 ? `<span class="badge-updated" title="معاملات">💳 ${esc(r.transaction_count)}</span>` : '',
-            !hasActivity                    ? `<span style="color:rgba(255,255,255,.35);font-size:.8rem">—</span>`                 : '',
+            !hasActivity                    ? `<span style="color:rgba(255,255,255,.3);font-size:.85rem">—</span>`                 : '',
         ].join('');
 
         const refundCell = hasRefund
             ? `<span class="badge-refund">🔴 مُسترد</span>`
-            : `<span style="color:rgba(255,255,255,.35);font-size:.8rem">—</span>`;
+            : `<span style="color:rgba(255,255,255,.3);font-size:.85rem">—</span>`;
 
-        const creatorCell = IS_ADMIN
-            ? `<td>${esc(r.creator_name)}</td>`
-            : '';
-
-        const receiptRef = r.receipt_ref ? esc(r.receipt_ref) : esc(r.id);
+        const creatorCell = IS_ADMIN ? `<td>${esc(r.creator_name)}</td>` : '';
+        const receiptRef  = r.receipt_ref ? esc(r.receipt_ref) : esc(r.id);
 
         return `<tr>
-            <td style="color:#fff;font-size:.95rem;font-weight:600">${receiptRef}</td>
+            <td style="color:#fff;font-size:1rem;font-weight:800">${receiptRef}</td>
             <td>${esc(r.renewal_type)}</td>
             <td>${esc(r.client_id)}</td>
             <td class="wrap-cell"><strong>${esc(r.client_name)}</strong></td>
@@ -816,8 +888,8 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             <td>${fmtTime(r.exercise_time)}</td>
             <td style="text-align:center">${esc(r.level)}</td>
             <td>${esc(r.captain_name)}</td>
-            <td style="font-weight:700">${fmt(r.plan_price)}</td>
-            <td style="color:#4ade80;font-weight:700">${fmt(r.total_paid)}</td>
+            <td style="font-weight:800;color:#fff">${fmt(r.plan_price)}</td>
+            <td style="color:#4ade80;font-weight:800">${fmt(r.total_paid)}</td>
             <td>${esc(r.first_session)}</td>
             <td>${esc(r.last_session)}</td>
             ${creatorCell}
@@ -839,7 +911,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         </tr>`;
     }
 
-    // ── Collect filter params from form ───────────────────────────────────
     function currentParams(page = 1) {
         const form   = document.getElementById('filterForm');
         const data   = new FormData(form);
@@ -851,11 +922,9 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         return params;
     }
 
-    // ── Pagination renderer ───────────────────────────────────────────────
     function buildPagination(page, lastPage, total, perPage) {
         document.getElementById('livePagInfo')?.remove();
         document.getElementById('livePagNav')?.remove();
-
         if (lastPage <= 1) return;
 
         const from = (page - 1) * perPage + 1;
@@ -884,7 +953,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         };
 
         nav.appendChild(btn('‹ السابق', page - 1, page <= 1));
-
         const window_ = 2;
         const shown   = [];
         for (let i = 1; i <= lastPage; i++) {
@@ -900,12 +968,10 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             nav.appendChild(btn(String(p), p, false, p === page));
             prev = p;
         }
-
         nav.appendChild(btn('التالي ›', page + 1, page >= lastPage));
         tableCard.appendChild(nav);
     }
 
-    // ── Show / hide empty state ───────────────────────────────────────────
     function showEmpty() {
         const tw = document.getElementById('tableWrap');
         if (tw) tw.style.display = 'none';
@@ -913,7 +979,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         document.getElementById('livePagNav')?.remove();
         document.getElementById('pagNav')  && (document.getElementById('pagNav').style.display  = 'none');
         document.getElementById('pagInfo') && (document.getElementById('pagInfo').style.display = 'none');
-
         if (!document.getElementById('liveEmpty')) {
             const div = document.createElement('div');
             div.className = 'empty-state';
@@ -931,7 +996,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         document.getElementById('pagInfo') && (document.getElementById('pagInfo').style.display = 'none');
     }
 
-    // ── Main fetch ────────────────────────────────────────────────────────
     let timer = null;
     let ctrl  = null;
 
@@ -970,24 +1034,12 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
                 wrap.id        = 'tableWrap';
                 wrap.innerHTML = `<table>
                     <thead><tr>
-                        <th>رقم الإيصال</th>
-                        <th>نوع التجديد</th>
-                        <th>رقم العميل</th>
-                        <th>اسم العميل</th>
-                        <th>العمر</th>
-                        <th>الهاتف</th>
-                        <th>وقت التمرين</th>
-                        <th>المستوى</th>
-                        <th>الكابتن</th>
-                        <th>سعر الخطة</th>
-                        <th>المدفوع</th>
-                        <th>أول تمرين</th>
-                        <th>آخر تمرين</th>
-                        ${creatorTh}
-                        <th>الحالة</th>
-                        <th>مُسترد</th>
-                        <th>التعديلات</th>
-                        <th>الإجراءات</th>
+                        <th>رقم الإيصال</th><th>نوع التجديد</th><th>رقم العميل</th>
+                        <th>اسم العميل</th><th>العمر</th><th>الهاتف</th>
+                        <th>وقت التمرين</th><th>المستوى</th><th>الكابتن</th>
+                        <th>سعر الخطة</th><th>المدفوع</th><th>أول تمرين</th>
+                        <th>آخر تمرين</th>${creatorTh}
+                        <th>الحالة</th><th>مُسترد</th><th>التعديلات</th><th>الإجراءات</th>
                     </tr></thead>
                     <tbody id="receiptsBody"></tbody>
                 </table>`;
@@ -1005,21 +1057,16 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         }
     }
 
-    // ── Restore form fields from URL params ───────────────────────────────
     function restoreFormFromUrl(urlParams) {
         const form = document.getElementById('filterForm');
         if (!form) return;
-
         const searchInput = document.getElementById('liveSearch');
         if (searchInput) searchInput.value = urlParams.get('search') ?? '';
-
         form.querySelectorAll('input[type="date"]').forEach(el => {
             el.value = urlParams.get(el.name) ?? '';
         });
-
         form.querySelectorAll('select').forEach(el => {
             el.value = urlParams.get(el.name) ?? '';
-
             if (el.id === 'creatorSelect') {
                 const wrap = document.getElementById('creatorOnlyWrap');
                 const cb   = document.getElementById('creatorOnlyCb');
@@ -1029,12 +1076,10 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
                 }
             }
         });
-
         form.querySelectorAll('input[type="checkbox"]').forEach(el => {
             if (el.closest('.tag-check-group')) return;
             el.checked = urlParams.has(el.name);
         });
-
         form.querySelectorAll('.tag-check-group').forEach(group => {
             const clearBtn = group.querySelector('.tag-clear');
             group.querySelectorAll('input[type="checkbox"]').forEach(cb => {
@@ -1049,7 +1094,6 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         });
     }
 
-    // ── Browser back / forward ────────────────────────────────────────────
     window.addEventListener('popstate', function (e) {
         const urlParams    = new URLSearchParams(window.location.search);
         const restoredPage = e.state?.page ?? parseInt(urlParams.get('page') ?? '1', 10);
@@ -1057,43 +1101,34 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         doSearch(restoredPage);
     });
 
-    // ── Creator select: show/hide created-only checkbox ───────────────────
     const creatorSelect = document.getElementById('creatorSelect');
     const creatorWrap   = document.getElementById('creatorOnlyWrap');
     const creatorCb     = document.getElementById('creatorOnlyCb');
-
     if (creatorSelect && creatorWrap && creatorCb) {
         creatorSelect.addEventListener('change', function () {
             const hasValue = this.value !== '';
             creatorWrap.style.display = hasValue ? 'flex' : 'none';
-            if (!hasValue) {
-                creatorCb.checked = false;
-            }
+            if (!hasValue) creatorCb.checked = false;
             creatorCb.dispatchEvent(new Event('change', { bubbles: true }));
         });
     }
 
-    // ── Tag-checkbox interactivity ────────────────────────────────────────
     document.querySelectorAll('.tag-check').forEach(label => {
         label.addEventListener('click', () => {
             const cb       = label.querySelector('input[type="checkbox"]');
             const group    = label.closest('.tag-check-group');
             const clearBtn = group?.querySelector('.tag-clear');
-
             cb.checked = !cb.checked;
             label.classList.toggle('active', cb.checked);
-
             if (clearBtn) {
                 const anyChecked = [...group.querySelectorAll('input[type="checkbox"]')].some(i => i.checked);
                 clearBtn.style.display = anyChecked ? '' : 'none';
             }
-
             clearTimeout(timer);
             timer = setTimeout(() => doSearch(1), 150);
         });
     });
 
-    // ── Clear-all buttons ─────────────────────────────────────────────────
     document.querySelectorAll('.tag-clear').forEach(btn => {
         btn.addEventListener('click', () => {
             const group = document.getElementById(btn.dataset.group);
@@ -1108,13 +1143,11 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
         });
     });
 
-    // ── Text search: 300ms debounce ───────────────────────────────────────
     input.addEventListener('input', () => {
         clearTimeout(timer);
         timer = setTimeout(() => doSearch(1), 300);
     });
 
-    // ── Dates, dropdowns, plain checkboxes: 150ms debounce ───────────────
     document.getElementById('filterForm')
         ?.querySelectorAll('select, input[type="date"], input[type="checkbox"]')
         .forEach(el => {
@@ -1125,7 +1158,30 @@ table td.wrap-cell { white-space: normal; min-width: 120px; }
             });
         });
 
+    // Modal helpers (global scope)
+    window.showDeleteModal = function(form) {
+        _pendingForm = form;
+        const modal = document.getElementById('confirmModal');
+        modal.classList.add('open');
+        modal.style.display = 'flex';
+    };
+    window.closeModal = function() {
+        const modal = document.getElementById('confirmModal');
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+        _pendingForm = null;
+    };
+
 })();
+
+let _pendingForm = null;
+document.getElementById('confirmBtn').addEventListener('click', function () {
+    if (_pendingForm) _pendingForm.submit();
+    closeModal();
+});
+document.getElementById('confirmModal').addEventListener('click', function (e) {
+    if (e.target === this) closeModal();
+});
 </script>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>

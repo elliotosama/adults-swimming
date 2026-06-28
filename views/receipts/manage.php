@@ -19,6 +19,7 @@
  *   $clientErrors   array         (validation errors)
  */
 
+
 require ROOT . '/views/includes/layout_top.php';
 
 // ── shared defaults ───────────────────────────────────────────
@@ -102,6 +103,9 @@ $preSelectedType = !empty($submittedType) ? $submittedType : '';
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
     font-family: 'Tajawal', sans-serif;
 }
 .receipt-page { max-width: 980px; margin: 0 auto; padding: 32px 20px 60px; }
@@ -461,7 +465,9 @@ select.form-control {
     }
     .tab-btn .tab-icon { font-size: 16px; }
     .tab-badge { font-size: 9px; padding: 1px 6px; }
-    .tab-btn > span:not(.tab-badge) { display: none; }
+
+.tab-btn > span:not(.tab-badge) { display: none; }
+    .tab-btn .tab-icon { display: none; }
 
     .section-body { padding: 16px; }
     .section-header { padding: 12px 16px; }
@@ -488,8 +494,9 @@ select.form-control {
 
     .tab-bar { padding: 4px; gap: 3px; }
     .tab-btn { padding: 9px 2px; font-size: 9px; }
-    .tab-btn .tab-icon { font-size: 18px; }
-    .tab-badge { display: none; }
+    .tab-btn .tab-icon { display: none; }
+.tab-btn > span:not(.tab-icon):not(.tab-badge) { display: block; font-size: 10px; }
+    
 
     .form-section { border-radius: 12px; margin-bottom: 14px; }
     .section-body { padding: 14px; }
@@ -566,31 +573,26 @@ select.form-control {
     <button class="tab-btn" id="tab-btn-new"
             onclick="switchTab('new')" role="tab">
       ➕
-      <span>إيصال جديد</span>
       <span class="tab-badge tab-badge-new">جديد</span>
     </button>
     <button class="tab-btn" id="tab-btn-renew"
             onclick="switchTab('renew')" role="tab">
       🔄
-      <span>تجديد</span>
       <span class="tab-badge tab-badge-renew">تجديد</span>
     </button>
     <button class="tab-btn" id="tab-btn-payment"
             onclick="switchTab('payment')" role="tab">
       💳
-      <span>إضافة دفعة</span>
       <span class="tab-badge tab-badge-payment">دفعة</span>
     </button>
     <button class="tab-btn" id="tab-btn-refund"
             onclick="switchTab('refund')" role="tab">
       ↩️
-      <span>استرداد</span>
       <span class="tab-badge tab-badge-refund">استرداد</span>
     </button>
     <button class="tab-btn" id="tab-btn-client"
             onclick="switchTab('client')" role="tab">
       👤
-      <span>عميل جديد</span>
       <span class="tab-badge tab-badge-client">عميل</span>
     </button>
   </div>
@@ -1554,6 +1556,18 @@ const PHONE_RULES = {
 // ════════════════════════════════════════════════════════════════
 //  Tab switching
 // ════════════════════════════════════════════════════════════════
+
+function to12h(time24) {
+    if (!time24) return '';
+    const [hStr, mStr] = time24.split(':');
+    let h = parseInt(hStr, 10);
+    const m   = mStr ?? '00';
+    const period = h >= 12 ? 'م' : 'ص';
+    h = h % 12 || 12;
+    return `${h}:${m} ${period}`;
+}
+
+
 function switchTab(id) {
     ['new','renew','payment','refund','client'].forEach(t => {
         document.getElementById('tab-btn-'  + t).classList.toggle('active', t === id);
@@ -1672,8 +1686,8 @@ function newValidateTime() {
     el.classList.remove('visible'); if (!t) return;
     const meta = branchMeta(getBranchId('new')); if (!meta?.working_time_from) return;
     if (t < meta.working_time_from || t > meta.working_time_to) {
-        document.getElementById('new-time-error-msg').textContent = `يجب أن يكون بين ${meta.working_time_from} و ${meta.working_time_to}`;
-        el.classList.add('visible');
+        document.getElementById('new-time-error-msg').textContent = `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
+      el.classList.add('visible');
     }
 }
 function newToggleEvidence() {
@@ -1750,8 +1764,8 @@ function renValidateTime() {
     el.classList.remove('visible'); if (!t) return;
     const meta = branchMeta(getBranchId('ren')); if (!meta?.working_time_from) return;
     if (t < meta.working_time_from || t > meta.working_time_to) {
-        document.getElementById('ren-time-error-msg').textContent = `يجب أن يكون بين ${meta.working_time_from} و ${meta.working_time_to}`;
-        el.classList.add('visible');
+        document.getElementById('ren-time-error-msg').textContent = `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
+      el.classList.add('visible');
     }
 }
 function renToggleEvidence() {

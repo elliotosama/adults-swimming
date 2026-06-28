@@ -9,12 +9,6 @@ class ReceiptPdfGenerator {
 
     /**
      * Generate and stream a receipt PDF to the browser.
-     *
-     * @param array  $receipt       All receipt fields from findById() + plan_price
-     * @param float  $totalPaid     Net paid amount (gross payments − refunds)
-     * @param float  $remaining     Amount still owed
-     * @param string $paymentMethod Payment method key (cash / instapay / …)
-     * @param string $lang          'ar' (default) or 'en'
      */
     public static function generate(
         array  $receipt,
@@ -33,9 +27,6 @@ class ReceiptPdfGenerator {
 
     /**
      * Save PDF to disk and return the filename.
-     * Used by store() to persist pdf_path on the receipt row.
-     *
-     * @param string $lang 'ar' (default) or 'en'
      */
     public static function save(
         array  $receipt,
@@ -69,11 +60,11 @@ class ReceiptPdfGenerator {
 
         $mpdf = new Mpdf([
             'mode'          => 'utf-8',
-            'format'        => [148, 110],
-            'margin_top'    => 10,
-            'margin_bottom' => 0,
-            'margin_left'   => 0,
-            'margin_right'  => 0,
+            'format'        => [148, 175],   // tight height — just enough for content
+            'margin_top'    => 8,
+            'margin_bottom' => 3,
+            'margin_left'   => 10,
+            'margin_right'  => 10,
             'direction'     => $isRtl ? 'rtl' : 'ltr',
             'tempDir'       => sys_get_temp_dir() . '/mpdf',
         ]);
@@ -81,7 +72,6 @@ class ReceiptPdfGenerator {
         if ($isRtl) {
             $mpdf->SetDirectionality('rtl');
         }
-
 
         $mpdf->autoScriptToLang = true;
         $mpdf->autoLangToFont   = true;
@@ -111,8 +101,10 @@ class ReceiptPdfGenerator {
         $firstSess   = htmlspecialchars($receipt['first_session']   ?? '—');
         $lastSess    = htmlspecialchars($receipt['last_session']    ?? '—');
         $renewalSess = htmlspecialchars($receipt['renewal_session'] ?? '—');
-        $rawExTime   = $receipt['exercise_time'] ?? '';
-        $exTime      = '';
+        $age         = htmlspecialchars((string)($receipt['age']    ?? '—'));
+
+        $rawExTime = $receipt['exercise_time'] ?? '';
+        $exTime    = '';
         if ($rawExTime && $rawExTime !== '—') {
             try {
                 $exTime = (new DateTime($rawExTime))->format('g:i A');
@@ -121,13 +113,12 @@ class ReceiptPdfGenerator {
             }
         }
         $exTime      = htmlspecialchars($exTime ?: '—');
-        $level       = htmlspecialchars((string)($receipt['level'] ?? '—'));
-        $createdAt   = htmlspecialchars($receipt['created_at']      ?? '—');
-        $creatorName = htmlspecialchars($receipt['creator_name']    ?? '—');
+        $createdAt   = htmlspecialchars($receipt['created_at']   ?? '—');
+        $creatorName = htmlspecialchars($receipt['creator_name'] ?? '—');
 
         $paymentMethodLabels = $isEn
             ? ['cash' => 'Cash', 'instapay' => 'InstaPay', 'vodafone_cash' => 'Vodafone Cash', 'bank_transfer' => 'Bank Transfer']
-            : ['cash' => 'نقداً',  'instapay' => 'InstaPay', 'vodafone_cash' => 'Vodafone Cash', 'bank_transfer' => 'تحويل بنكي'];
+            : ['cash' => 'نقداً',  'instapay' => 'instapay', 'vodafone_cash' => 'Vodafone Cash', 'bank_transfer' => 'تحويل بنكي'];
         $payLabel = htmlspecialchars($paymentMethodLabels[$paymentMethod] ?? $paymentMethod);
 
         $totalPaidFmt = number_format($totalPaid, 0);
@@ -140,29 +131,30 @@ class ReceiptPdfGenerator {
             $logoData = base64_encode(file_get_contents($logoPath));
             $logoMime = mime_content_type($logoPath);
             $logoSrc  = 'data:' . $logoMime . ';base64,' . $logoData;
-            $logoImg  = '<img src="' . $logoSrc . '" class="logo">';
+            $logoImg  = '<img src="' . $logoSrc . '" style="width:55px;height:55px;object-fit:contain;">';
         }
 
         // ── Labels (Arabic vs English) ───────────────────────────
         $L = $isEn ? [
             'dir'            => 'ltr',
             'htmlLang'       => 'en',
-            'receiptTitle'   => 'Receipt',
+            'receiptTitle'   => 'Cash Receipt',
             'receiptNo'      => 'Receipt No.',
+            'memberNo'       => 'Member No.',
             'clientName'     => 'Client Name',
+            'age'            => 'Age',
             'mobile'         => 'Mobile',
             'trainingTime'   => 'Training Time',
             'firstSession'   => 'First Session',
             'renewalDate'    => 'Renewal Date',
             'lastSession'    => 'Last Session',
-            'level'          => 'Level',
-            'planType'       => 'Subscription Plan',
+            'planType'       => 'Subscription',
             'branch'         => 'Branch',
-            'captain'        => 'Captain',
             'amountPaid'     => 'Amount Paid',
+            'captain'        => 'Captain',
             'paymentMethod'  => 'Payment Method',
-            'remaining'      => 'Remaining',
             'receivedBy'     => 'Received By',
+            'remaining'      => 'Remaining',
             'createdAt'      => 'Date',
             'importantTitle' => 'Important Notes:',
             'refundPolicy'   => 'Refund Policy:',
@@ -173,25 +165,26 @@ class ReceiptPdfGenerator {
         ] : [
             'dir'            => 'rtl',
             'htmlLang'       => 'ar',
-            'receiptTitle'   => 'إيصال',
-            'receiptNo'      => 'رقم الإيصال',
+            'receiptTitle'   => 'إيصال استلام نقدية',
+            'receiptNo'      => 'رقم الايصال',
+            'memberNo'       => 'رقم العضوية',
             'clientName'     => 'اسم العميل',
+            'age'            => 'السن',
             'mobile'         => 'رقم الموبايل',
             'trainingTime'   => 'ميعاد التمرين',
             'firstSession'   => 'الحصة الأولى',
             'renewalDate'    => 'تاريخ التجديد',
             'lastSession'    => 'الحصة الأخيرة',
-            'level'          => 'المستوى',
             'planType'       => 'نوع الاشتراك',
             'branch'         => 'الفرع',
-            'captain'        => 'الكابتن',
             'amountPaid'     => 'المبلغ المدفوع',
+            'captain'        => 'الكابتن',
             'paymentMethod'  => 'طريقة الدفع',
-            'remaining'      => 'المتبقي',
             'receivedBy'     => 'المستلم',
+            'remaining'      => 'المتبقي',
             'createdAt'      => 'تاريخ الإنشاء',
             'importantTitle' => 'تعليمات هامة:',
-            'refundPolicy'   => 'سياسة الاسترجاع:',
+            'refundPolicy'   => 'سياسة الإسترجاع:',
             'rule1'          => 'يتم خصم 30% من قيمة الاشتراك من بعد الحصة الأولى',
             'rule2'          => 'يتم خصم 50% من قيمة الاشتراك من بعد الحصة الثانية',
             'rule3'          => 'يتم التعويض عن الغياب بحد أقصى حصة وذلك فقط للمدة المتبقية في الاشتراك',
@@ -200,6 +193,9 @@ class ReceiptPdfGenerator {
 
         $dir      = $L['dir'];
         $htmlLang = $L['htmlLang'];
+
+        // membership number falls back to id if not present
+        $memberNo = htmlspecialchars($receipt['member_number'] ?? $receipt['id'] ?? '—');
 
         return <<<HTML
 <!DOCTYPE html>
@@ -217,43 +213,50 @@ class ReceiptPdfGenerator {
     background: #fff;
   }
 
-  .page { width: 100%; padding: 8px 10px 0; }
-
-
-  .header {
-    margin-top: -60px;
+  /* ── Header: logo always physical left via ltr table ── */
+  .header-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4px;
   }
-
-  .header-logo {
-    width: 100px;
-    height: 100px;
-    margin-left: 10px;
-  }
-
   .academy-name {
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 10px;
-    color: #3e21a8ff;
+    font-size: 13px;
+    font-weight: 900;
+    color: #1a3a8f;
+    margin-top: 4px;
   }
 
-
-  .receipt-data {
-    font-size: 16px;
-  margin-left: 170px;
-  margin-bottom: 10px;
-  margin-top: 10px;
+  /* ── Centered title block ── */
+  .title-block {
+    text-align: center;
+    margin: 6px 0 2px;
+  }
+  .receipt-title {
+    font-size: 18px;
+    font-weight: 900;
+    color: #1a1a2e;
+  }
+  .receipt-number {
+    font-size: 12px;
+    font-weight: 700;
+    color: #c0392b;
+    margin-top: 2px;
   }
 
+  /* ── Divider ── */
+  .divider {
+    border: none;
+    border-top: 1.5px solid #1a3a6b;
+    margin: 7px 0;
+  }
 
-  /* ── Info table ── */
+  /* ── Info grid table (two side-by-side label/value pairs per row) ── */
   .info-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 10px;
   }
   .info-table td {
-    padding: 5px 8px;
+    padding: 4px 6px;
     font-size: 11px;
     vertical-align: middle;
     border-bottom: 1px solid #e8ecf0;
@@ -261,111 +264,126 @@ class ReceiptPdfGenerator {
   .info-table tr:last-child td { border-bottom: none; }
 
   .label-cell {
-    color: #555;
-    font-weight: 600;
-    width: 28%;
+    color: #333;
+    font-weight: 700;
+    width: 22%;
     white-space: nowrap;
   }
   .value-cell {
     color: #1a1a2e;
-    font-weight: 700;
-    width: 22%;
+    font-weight: 900;
+    width: 28%;
   }
 
-  .row-highlight { background: #f0f4ff; }
-  .row-amount    { background: #fff8e1; }
-  .row-remaining { background: #ffeaea; }
+  /* ── Full-width row for long values (plan name) ── */
+  .value-cell-full {
+    color: #1a1a2e;
+    font-weight: 900;
+  }
 
-  /* ── Divider ── */
-  .divider {
-    border: none;
-    border-top: 1.5px solid #1a3a6b;
-    margin: 10px 0;
+  /* ── Highlighted rows ── */
+  .row-amount td {
+    background: #fff8e1;
+  }
+  .row-remaining td {
+    background: #ffeaea;
   }
 
   /* ── Footer ── */
   .footer {
     background: #f8f9fc;
     border: 1px solid #dde2ee;
-    border-radius: 6px;
-    padding: 10px 14px;
-    margin-top: 10px;
+    border-radius: 5px;
+    padding: 8px 12px;
+    margin-top: 8px;
   }
   .footer-title {
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 900;
     color: #c0392b;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
   .footer-subtitle {
     font-size: 11px;
     font-weight: 700;
     color: #1a3a6b;
-    margin-bottom: 4px;
-  }
-  .footer li {
-    font-size: 13.5px;
-    color: #444;
     margin-bottom: 3px;
-    list-style: none;
-    padding-right: 8px;
   }
-  .footer li::before { content: "- "; }
-  ul { margin-right: -45px; }
+  .footer ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .footer ul li {
+    font-size: 10.5px;
+    color: #444;
+    margin-bottom: 2px;
+    padding-right: 6px;
+  }
+  .footer ul li::before { content: "- "; }
 </style>
 </head>
 <body>
-<div class="page">
 
+  <!-- Header: logo above academy name, block stacked, always left -->
+  <table class="header-table" dir="ltr">
+    <tr>
+      <td style="text-align:left;vertical-align:top;">
+        {$logoImg}
+        <div class="academy-name">{$L['academyName']}</div>
+      </td>
+    </tr>
+  </table>
 
-  <div class="header">
-    <div class="header-logo">{$logoImg}</div>
-    <div class="academy-name">{$L['academyName']}</div>
-  </div>
-  <div class="receipt-data">
+  <!-- Centered title -->
+  <div class="title-block">
     <div class="receipt-title">{$L['receiptTitle']}</div>
     <div class="receipt-number">{$L['receiptNo']}: {$id}</div>
   </div>
 
-  <!-- Main info grid -->
+  <hr class="divider">
+
+  <!-- Data grid: two label+value pairs per row, matching PDF layout -->
   <table class="info-table">
-    <tr class="row-highlight">
-      <td class="label-cell">{$L['clientName']}:</td>
-      <td class="value-cell" colspan="3">{$clientName}</td>
-    </tr>
     <tr>
-      <td class="label-cell">{$L['mobile']}:</td>
-      <td class="value-cell">{$phone}</td>
+      <td class="label-cell">{$L['memberNo']}:</td>
+      <td class="value-cell">{$memberNo}</td>
       <td class="label-cell">{$L['trainingTime']}:</td>
       <td class="value-cell">{$exTime}</td>
     </tr>
     <tr>
+      <td class="label-cell">{$L['clientName']}:</td>
+      <td class="value-cell">{$clientName}</td>
       <td class="label-cell">{$L['firstSession']}:</td>
       <td class="value-cell">{$firstSess}</td>
+    </tr>
+    <tr>
+      <td class="label-cell">{$L['age']}:</td>
+      <td class="value-cell">{$age}</td>
       <td class="label-cell">{$L['renewalDate']}:</td>
       <td class="value-cell">{$renewalSess}</td>
     </tr>
     <tr>
+      <td class="label-cell">{$L['mobile']}:</td>
+      <td class="value-cell">{$phone}</td>
       <td class="label-cell">{$L['lastSession']}:</td>
       <td class="value-cell">{$lastSess}</td>
-      <td class="label-cell">{$L['level']}:</td>
-      <td class="value-cell">{$level}</td>
     </tr>
     <tr>
       <td class="label-cell">{$L['planType']}:</td>
-      <td class="value-cell" colspan="3">{$planName}</td>
-    </tr>
-    <tr>
-      <td class="label-cell">{$L['branch']}:</td>
-      <td class="value-cell">{$branchName}</td>
-      <td class="label-cell">{$L['captain']}:</td>
-      <td class="value-cell">{$captainName}</td>
+      <td class="value-cell-full" colspan="3">{$planName}</td>
     </tr>
     <tr class="row-amount">
       <td class="label-cell">{$L['amountPaid']}:</td>
       <td class="value-cell">{$totalPaidFmt}</td>
+      <td class="label-cell">{$L['branch']}:</td>
+      <td class="value-cell">{$branchName}</td>
+    </tr>
+    <tr>
       <td class="label-cell">{$L['paymentMethod']}:</td>
       <td class="value-cell">{$payLabel}</td>
+      <td class="label-cell">{$L['captain']}:</td>
+      <td class="value-cell">{$captainName}</td>
     </tr>
     <tr class="row-remaining">
       <td class="label-cell">{$L['remaining']}:</td>
@@ -392,7 +410,6 @@ class ReceiptPdfGenerator {
     </ul>
   </div>
 
-</div>
 </body>
 </html>
 HTML;

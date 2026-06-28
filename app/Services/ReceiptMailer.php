@@ -12,7 +12,7 @@ class ReceiptMailer
     private const SMTP_USERNAME   = 'osama.ramadan.esmail@gmail.com';
     private const SMTP_PASSWORD   = 'ctktploi lsoogueu'; // your app password (no spaces)
     private const FROM_EMAIL      = 'osama.ramadan.esmail@gmail.com';
-    private const FROM_NAME       = 'Swimming academy';
+    private const FROM_NAME       = 'Adults Swimming academy';
 
     /**
      * Send a receipt summary email to the client.

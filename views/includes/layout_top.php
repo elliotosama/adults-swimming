@@ -30,7 +30,9 @@
             min-height: 100%;
             font-family: 'Tajawal', sans-serif;
             background: var(--bg);
-            color: var(--text);
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
             direction: rtl;
         }
 
@@ -44,17 +46,8 @@
             pointer-events: none;
         }
         .wave { position: fixed; bottom: 0; left: 0; right: 0; height: 220px; z-index: 0; overflow: hidden; pointer-events: none; }
-        .wave svg { width: 200%; animation: wave-move 8s linear infinite; }
-        .wave.wave2 svg { animation: wave-move 12s linear infinite reverse; opacity: .5; }
-        @keyframes wave-move { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .bubbles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-        .bubble {
-            position: absolute; bottom: -60px; border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%, #00b4d840, #00b4d810);
-            border: 1px solid #00b4d830;
-            animation: rise linear infinite;
-        }
-        @keyframes rise { 0% { transform: translateY(0) scale(1); opacity: .7; } 100% { transform: translateY(-110vh) scale(1.3); opacity: 0; } }
+        .wave svg { width: 100%; }
+        .wave.wave2 svg { opacity: .5; }
 
         /* ── Top nav ── */
         .topnav {
@@ -121,7 +114,7 @@
             animation: card-in .6s cubic-bezier(.22,1,.36,1) both;
             overflow: hidden;
         }
-        @keyframes card-in { from { opacity: 0; transform: translateY(20px) scale(.98); } to { opacity: 1; transform: none; } }
+        @keyframes card-in { from { opacity: 1; } to { opacity: 1; } }
 
         /* ── Alerts ── */
         .alert {
@@ -377,10 +370,8 @@
         <path fill="#00b4d80a" d="M0,100 C400,40 800,160 1200,100 C1320,80 1400,110 1440,100 L1440,220 L0,220Z"/>
     </svg>
 </div>
-<div class="bubbles" id="bubbles"></div>
 
 <nav class="topnav">
-    <!-- RTL: brand on right, links in middle, toggle on left for mobile -->
     <a class="nav-brand" href="<?= APP_URL ?>">
         <?php echo htmlspecialchars($_SESSION['user']['full_name']) ?>
     </a>
@@ -403,23 +394,6 @@
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="القائمة" aria-expanded="false">&#9776;</button>
 </nav>
-
-<script>
-    // Bubble generator
-    (function() {
-        const container = document.getElementById('bubbles');
-        if (!container) return;
-        for (let i = 0; i < 12; i++) {
-            const b = document.createElement('div');
-            b.className = 'bubble';
-            const size = 8 + Math.random() * 24;
-            b.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;animation-duration:${6+Math.random()*10}s;animation-delay:${Math.random()*8}s`;
-            container.appendChild(b);
-        }
-    })();
-
-
-</script>
 
 <!-- /.page opens here — closed in layout_bottom.php -->
 <div class="page <?= htmlspecialchars($pageClass ?? '') ?>">
