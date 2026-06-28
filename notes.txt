@@ -1,0 +1,28 @@
+
+
+last update ----------------
+
+  /uploads/image.png 404 not found
+
+easy {
+  disable client data in renew receipt and payment but age can be edited
+  area_manager check updates filters
+  space between receipts in index and make it in arabic => this problem because action buttons
+  update receipt pdf as previous
+}
+
+hard {
+  any role can upload another evidance
+  check all transactions functionality
+}
+
+
+
+
+is_active captains pop up not confirm => Done
+in employees اداري => Done 
+pop up in 24 hours in create receipt => Done
+change whatsapp message => need to be a hyber link and should include the tld
+pdf when i refund استرداد => Done
+add client in manage => Done
+@email.com => validation in employees

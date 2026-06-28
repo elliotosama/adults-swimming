@@ -1,0 +1,80 @@
+</div><!-- /.page -->
+<script>
+    // Bubbles
+    const container = document.getElementById('bubbles');
+    for (let i = 0; i < 14; i++) {
+        const b = document.createElement('div');
+        b.className = 'bubble';
+        const size = 6 + Math.random() * 22;
+        b.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;animation-duration:${7+Math.random()*14}s;animation-delay:${Math.random()*12}s;`;
+        container.appendChild(b);
+    }
+
+    // Mobile nav toggle
+    const toggle = document.getElementById('navToggle');
+    const links  = document.querySelector('.nav-links');
+    toggle.addEventListener('click', () => {
+        const open = links.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', open);
+    });
+    document.addEventListener('click', e => {
+        if (!toggle.contains(e.target) && !links.contains(e.target))
+            links.classList.remove('open');
+    });
+
+    // Active nav link
+    (function() {
+        const path = location.pathname;
+        document.querySelectorAll('.nav-link').forEach(a => {
+            if (a.getAttribute('href') && path.startsWith(a.getAttribute('href'))) {
+                a.classList.add('active');
+            }
+        });
+    })();
+
+    // Send email form (only exists on pages that include it)
+    document.getElementById('send-email-form')
+        ?.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const form = this;
+        const button = document.getElementById('send-email-btn');
+        const buttonText = document.getElementById('email-btn-text');
+        const messageBox = document.getElementById('email-message');
+        // loading state
+        button.disabled = true;
+        buttonText.textContent = 'جاري الإرسال...';
+        messageBox.innerHTML = '';
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form)
+            });
+            const data = await response.json();
+            if (data.success) {
+                messageBox.innerHTML = `
+                    <div class="success-banner">
+                        ✅ تم إرسال البريد الإلكتروني بنجاح.
+                    </div>
+                `;
+            } else {
+                messageBox.innerHTML = `
+                    <div class="error-banner">
+                        ⚠️ ${data.message}
+                    </div>
+                `;
+            }
+        } catch (error) {
+            messageBox.innerHTML = `
+                <div class="error-banner">
+                    ⚠️ حدث خطأ أثناء إرسال البريد الإلكتروني.
+                </div>
+            `;
+            console.error(error);
+        } finally {
+            button.disabled = false;
+            buttonText.textContent = 'إرسال بريد إلكتروني / Send Email';
+        }
+    });
+</script>
+</body>
+</html>
