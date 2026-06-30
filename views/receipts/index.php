@@ -2,6 +2,7 @@
 $pageClass = 'page--full';
 require ROOT . '/views/includes/layout_top.php';
 
+
 function paginationUrl(int $p): string {
     $q         = $_GET;
     $q['page'] = $p;
@@ -764,40 +765,52 @@ table td strong { color: #fff; font-weight: 800; }
         return `${h12}:${String(m).padStart(2, '0')} ${period}`;
     }
 
-    function buildRow(r) {
-        const creatorCell = IS_ADMIN ? `<td>${esc(r.creator_name)}</td>` : '';
-        const receiptRef  = r.receipt_ref ? esc(r.receipt_ref) : esc(r.id);
+function renewalTypeLabel(type) {
+    const map = {
+        'new':              'جديد',
+        'current_renewal':  'تجديد حالي',
+        'previous_renewal': 'تجديد سابق',
+    };
+    const key = (type || '').toString().trim().toLowerCase();
+    console.log(type)
+    console.log(key)
+    return map[key] || esc(type);
+}
 
-        return `<tr>
-            <td>${esc(r.renewal_type)}</td>
-            <td>${esc(r.client_id)}</td>
-            <td class="wrap-cell"><strong>${esc(r.client_name)}</strong></td>
-            <td style="text-align:center">${esc(r.client_age)}</td>
-            <td>${esc(r.client_phone)}</td>
-            <td>${esc(r.exercise_days)}</td>
-            <td>${fmtTime(r.exercise_time)}</td>
-            <td style="text-align:center">${esc(r.level)}</td>
-            <td>${esc(r.captain_name)}</td>
-            <td style="font-weight:800;color:#fff">${fmt(r.plan_price)}</td>
-            <td style="color:#4ade80;font-weight:800">${fmt(r.total_paid)}</td>
-            <td>${esc(r.first_session)}</td>
-            <td>${esc(r.last_session)}</td>
-            <td style="color:#fff;font-size:1rem;font-weight:800">${receiptRef}</td>
-            ${creatorCell}
-            <td>
-                <div class="td-actions">
-                    <a href="${BASE_URL}/receipt/show?id=${esc(r.id)}" class="btn btn-sm btn-secondary">عرض</a>
-                    <a href="${BASE_URL}/receipt/preview?id=${esc(r.id)}" class="btn btn-sm btn-secondary">تفاصيل</a>
-                    <a href="${BASE_URL}/receipt/edit?id=${esc(r.id)}" class="btn btn-sm btn-warning">تعديل</a>
-                    <form method="POST" action="${BASE_URL}/receipt/delete?id=${esc(r.id)}" style="display:inline"
-                          onsubmit="event.preventDefault(); showDeleteModal(this);">
-                        <input type="hidden" name="csrf_token" value="${esc(CSRF_TOKEN)}">
-                        <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
-                    </form>
-                </div>
-            </td>
-        </tr>`;
-    }
+function buildRow(r) {
+    const creatorCell = IS_ADMIN ? `<td>${esc(r.creator_name)}</td>` : '';
+    const receiptRef  = r.receipt_ref ? esc(r.receipt_ref) : esc(r.id);
+
+    return `<tr>
+        <td>${renewalTypeLabel(r.renewal_type)}</td>
+        <td>${esc(r.client_id)}</td>
+        <td class="wrap-cell"><strong>${esc(r.client_name)}</strong></td>
+        <td style="text-align:center">${esc(r.client_age)}</td>
+        <td>${esc(r.client_phone)}</td>
+        <td>${esc(r.exercise_days)}</td>
+        <td>${fmtTime(r.exercise_time)}</td>
+        <td style="text-align:center">${esc(r.level)}</td>
+        <td>${esc(r.captain_name)}</td>
+        <td style="font-weight:800;color:#fff">${fmt(r.plan_price)}</td>
+        <td style="color:#4ade80;font-weight:800">${fmt(r.total_paid)}</td>
+        <td>${esc(r.first_session)}</td>
+        <td>${esc(r.last_session)}</td>
+        <td style="color:#fff;font-size:1rem;font-weight:800">${receiptRef}</td>
+        ${creatorCell}
+        <td>
+            <div class="td-actions">
+                <a href="${BASE_URL}/receipt/show?id=${esc(r.id)}" class="btn btn-sm btn-secondary">عرض</a>
+                <a href="${BASE_URL}/receipt/preview?id=${esc(r.id)}" class="btn btn-sm btn-secondary">تفاصيل</a>
+                <a href="${BASE_URL}/receipt/edit?id=${esc(r.id)}" class="btn btn-sm btn-warning">تعديل</a>
+                <form method="POST" action="${BASE_URL}/receipt/delete?id=${esc(r.id)}" style="display:inline"
+                      onsubmit="event.preventDefault(); showDeleteModal(this);">
+                    <input type="hidden" name="csrf_token" value="${esc(CSRF_TOKEN)}">
+                    <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+                </form>
+            </div>
+        </td>
+    </tr>`;
+}
 
     function currentParams(page = 1) {
         const form   = document.getElementById('filterForm');

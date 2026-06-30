@@ -427,7 +427,7 @@ select.form-control:disabled {
                                <?= $lock(true) ?>
                                <?= $isAdmin ? 'required' : '' ?>>
                     </div>
-
+                    <input type="hidden" name="client_id" value="<?= (int)$receipt['client_id'] ?>">
                     <?php if ($isAdmin): ?>
                     <div class="form-field">
                         <label class="form-label">هاتف العميل <span class="req">*</span></label>
