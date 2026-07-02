@@ -1003,10 +1003,15 @@ public function update(): void {
 
     $data = $this->parseForm();
 
+    // Fields not present on the edit form must be pinned back to their
+    // existing DB values — otherwise parseForm()'s defaults (e.g. 'new'
+    // for renewal_type, '' for receipt_status) silently overwrite the
+    // real value on every save AND falsely trigger an audit-log "change".
     $data['client_id']      = (int)    $receipt['client_id'];
     $data['creator_id']     = (int)    $receipt['creator_id'];
     $data['receipt_status'] = (string) $receipt['receipt_status'];
     $data['pdf_path']       = (string) ($receipt['pdf_path'] ?? '');
+    $data['renewal_type']   = (string) ($receipt['renewal_type'] ?? 'new');
 
     $errors = $this->validate($data);
 
@@ -1068,7 +1073,15 @@ public function update(): void {
     $oldAuditable = array_intersect_key($receipt, array_flip($auditableFields));
     $newAuditable = array_intersect_key($data,    array_flip($auditableFields));
 
+    // TEMP DEBUG — uncomment while diagnosing, remove once confirmed working:
+    // error_log('AUDIT DEBUG old=' . json_encode($oldAuditable));
+    // error_log('AUDIT DEBUG new=' . json_encode($newAuditable));
+
     $this->auditLog->logChanges($id, auth_user()['id'], auth_user()['role'], $oldAuditable, $newAuditable);
+
+    // TEMP DEBUG:
+    // error_log('AUDIT DEBUG pdo error=' . json_encode(get_db()->errorInfo()));
+
     $this->receipts->update($id, $data);
 
     $updatedReceipt = $this->receipts->findById($id);
@@ -1509,6 +1522,75 @@ public function update(): void {
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // REFUND PDF
+    //
+    // Streams a "refund receipt" PDF: same layout as the normal receipt,
+    // but with an extra "amount refunded" row and the paid / remaining
+    // figures reflecting the state AFTER the refund. Uses the most
+    // recent refund transaction on the receipt for the refunded amount
+    // and refund method (pass ?tx_id=123 to target a specific refund
+    // transaction instead of the latest one).
+    // ════════════════════════════════════════════════════════════════════════
+
+    public function refundPdf(): void {
+        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
+
+        $id      = (int) ($_GET['id'] ?? 0);
+        $receipt = $this->receipts->findById($id);
+
+        if (!$receipt) {
+            $this->flash('flash_error', 'الإيصال غير موجود.');
+            $this->redirect('/receipts');
+            return;
+        }
+
+        $db     = get_db();
+        $txId   = (int) ($_GET['tx_id'] ?? 0);
+
+        if ($txId) {
+            $stmt = $db->prepare("
+                SELECT amount, payment_method FROM transactions
+                WHERE id = ? AND receipt_id = ? AND type = 'refund'
+                LIMIT 1
+            ");
+            $stmt->execute([$txId, $id]);
+        } else {
+            $stmt = $db->prepare("
+                SELECT amount, payment_method FROM transactions
+                WHERE receipt_id = ? AND type = 'refund'
+                ORDER BY id DESC LIMIT 1
+            ");
+            $stmt->execute([$id]);
+        }
+
+        $lastRefund = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$lastRefund) {
+            $this->flash('flash_error', 'لا يوجد استرداد مسجّل على هذا الإيصال.');
+            $this->redirect('/receipt/preview?id=' . $id);
+            return;
+        }
+
+        $planPrice    = (float) ($receipt['plan_price'] ?? 0);
+        $ns           = $this->getReceiptNetStatus($id, $planPrice);
+        $refundAmount = (float) $lastRefund['amount'];
+        $refundMethod = (string) $lastRefund['payment_method'];
+
+        $lang = (trim($_GET['lang'] ?? '') === 'en') ? 'en' : 'ar';
+
+        require_once ROOT . '/app/Services/ReceiptPdfGenerator.php';
+        ReceiptPdfGenerator::generateRefund(
+            $receipt,
+            $ns['netPaid'],
+            $ns['remaining'],
+            $refundAmount,
+            $refundMethod,
+            $lang
+        );
+        exit;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // STORE PAYMENT
     // ════════════════════════════════════════════════════════════════════════
 
@@ -1657,6 +1739,29 @@ public function update(): void {
         $autoStatus = $this->autoReceiptStatus($receiptId, $planPrice);
         get_db()->prepare("UPDATE receipts SET receipt_status = ?, is_refunded = 1 WHERE id = ?")
                 ->execute([$autoStatus, $receiptId]);
+
+        // ── Auto-generate & save a copy of the refund receipt PDF ──────────
+        // (Mirrors what store() does for the original receipt PDF. This is
+        // a best-effort save — if it fails for any reason we don't want to
+        // block the refund flow, so wrap in try/catch.)
+        try {
+            require_once ROOT . '/app/Services/ReceiptPdfGenerator.php';
+
+            $updatedReceipt = $this->receipts->findById($receiptId);
+            $planPriceAfter = (float) ($updatedReceipt['plan_price'] ?? 0);
+            $nsAfter        = $this->getReceiptNetStatus($receiptId, $planPriceAfter);
+
+            ReceiptPdfGenerator::saveRefund(
+                $updatedReceipt,
+                $nsAfter['netPaid'],
+                $nsAfter['remaining'],
+                $amount,
+                $paymentMethod,
+                ROOT . '/public/uploads/receipts'
+            );
+        } catch (\Throwable $e) {
+            error_log('[ReceiptPdfGenerator::saveRefund] ' . $e->getMessage());
+        }
 
         log_action('refunded', "receipt_id: {$receiptId}, amount: {$amount}", auth_user()['id']);
         $this->flash('flash_success', 'تم تسجيل الاسترداد بنجاح.');

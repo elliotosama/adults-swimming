@@ -185,7 +185,7 @@ $routes = [
     ['POST', '/client/edit', fn () => $client->update()],
     ['POST', '/client/delete', fn () => $client->destroy()],
 
-
+    ['GET', '/receipt/refund-pdf', fn () => $receipt->refundPdf()],
     
 
 

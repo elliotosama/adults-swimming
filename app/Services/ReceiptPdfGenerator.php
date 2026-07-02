@@ -50,6 +50,55 @@ class ReceiptPdfGenerator {
         return $filename;
     }
 
+    /**
+     * Generate and stream a REFUND receipt PDF to the browser.
+     *
+     * Same layout/template as the normal receipt, but adds a
+     * "refunded amount" row and shows the post-refund paid /
+     * remaining figures instead of the original ones.
+     */
+    public static function generateRefund(
+        array  $receipt,
+        float  $totalPaid,
+        float  $remaining,
+        float  $refundAmount,
+        string $paymentMethod,
+        string $lang = 'ar'
+    ): void {
+
+        $mpdf = self::makeMpdf($lang);
+        $mpdf->WriteHTML(self::buildHtml($receipt, $totalPaid, $remaining, $paymentMethod, $lang, $refundAmount));
+
+        $filename = 'refund_' . $receipt['id'] . '_' . date('Ymd') . ($lang === 'en' ? '_en' : '') . '.pdf';
+        $mpdf->Output($filename, 'I');
+    }
+
+    /**
+     * Save a REFUND receipt PDF to disk and return the filename.
+     */
+    public static function saveRefund(
+        array  $receipt,
+        float  $totalPaid,
+        float  $remaining,
+        float  $refundAmount,
+        string $paymentMethod,
+        string $saveDir,
+        string $lang = 'ar'
+    ): string {
+
+        $mpdf = self::makeMpdf($lang);
+        $mpdf->WriteHTML(self::buildHtml($receipt, $totalPaid, $remaining, $paymentMethod, $lang, $refundAmount));
+
+        if (!is_dir($saveDir)) {
+            mkdir($saveDir, 0775, true);
+        }
+
+        $filename = 'refund_' . $receipt['id'] . '_' . date('Ymd') . ($lang === 'en' ? '_en' : '') . '.pdf';
+        $mpdf->Output(rtrim($saveDir, '/') . '/' . $filename, 'F');
+
+        return $filename;
+    }
+
     // ──────────────────────────────────────────────────────────────
     // Private helpers
     // ──────────────────────────────────────────────────────────────
@@ -81,15 +130,28 @@ class ReceiptPdfGenerator {
         return $mpdf;
     }
 
+    /**
+     * @param float|null $refundAmount  When provided, this renders the
+     *                                  document as a REFUND receipt:
+     *                                  the title, the "payment method"
+     *                                  label, and an extra "amount
+     *                                  refunded" row all switch to the
+     *                                  refund wording, while
+     *                                  $totalPaid / $remaining are
+     *                                  expected to already be the
+     *                                  POST-refund figures.
+     */
     private static function buildHtml(
-        array  $receipt,
-        float  $totalPaid,
-        float  $remaining,
-        string $paymentMethod,
-        string $lang
+        array   $receipt,
+        float   $totalPaid,
+        float   $remaining,
+        string  $paymentMethod,
+        string  $lang,
+        ?float  $refundAmount = null
     ): string {
 
-        $isEn = ($lang === 'en');
+        $isEn     = ($lang === 'en');
+        $isRefund = ($refundAmount !== null);
 
         // ── Sanitise fields ──────────────────────────────────────
         $id          = htmlspecialchars($receipt['id']              ?? '—');
@@ -123,6 +185,7 @@ class ReceiptPdfGenerator {
 
         $totalPaidFmt = number_format($totalPaid, 0);
         $remainingFmt = number_format($remaining, 0);
+        $refundedFmt  = number_format($refundAmount ?? 0, 0);
 
         // ── Logo ─────────────────────────────────────────────────
         $logoPath = ROOT . '/assets/images/logo.jpeg';
@@ -138,7 +201,7 @@ class ReceiptPdfGenerator {
         $L = $isEn ? [
             'dir'            => 'ltr',
             'htmlLang'       => 'en',
-            'receiptTitle'   => 'Cash Receipt',
+            'receiptTitle'   => $isRefund ? 'Refund Receipt' : 'Cash Receipt',
             'receiptNo'      => 'Receipt No.',
             'memberNo'       => 'Member No.',
             'clientName'     => 'Client Name',
@@ -151,8 +214,9 @@ class ReceiptPdfGenerator {
             'planType'       => 'Subscription',
             'branch'         => 'Branch',
             'amountPaid'     => 'Amount Paid',
+            'amountRefunded' => 'Amount Refunded',
             'captain'        => 'Captain',
-            'paymentMethod'  => 'Payment Method',
+            'paymentMethod'  => $isRefund ? 'Refund Method' : 'Payment Method',
             'receivedBy'     => 'Received By',
             'remaining'      => 'Remaining',
             'createdAt'      => 'Date',
@@ -165,7 +229,7 @@ class ReceiptPdfGenerator {
         ] : [
             'dir'            => 'rtl',
             'htmlLang'       => 'ar',
-            'receiptTitle'   => 'إيصال استلام نقدية',
+            'receiptTitle'   => $isRefund ? 'إيصال استرداد' : 'إيصال استلام نقدية',
             'receiptNo'      => 'رقم الايصال',
             'memberNo'       => 'رقم العضوية',
             'clientName'     => 'اسم العميل',
@@ -178,8 +242,9 @@ class ReceiptPdfGenerator {
             'planType'       => 'نوع الاشتراك',
             'branch'         => 'الفرع',
             'amountPaid'     => 'المبلغ المدفوع',
+            'amountRefunded' => 'المبلغ المسترد',
             'captain'        => 'الكابتن',
-            'paymentMethod'  => 'طريقة الدفع',
+            'paymentMethod'  => $isRefund ? 'طريقة الاسترداد' : 'طريقة الدفع',
             'receivedBy'     => 'المستلم',
             'remaining'      => 'المتبقي',
             'createdAt'      => 'تاريخ الإنشاء',
@@ -196,6 +261,19 @@ class ReceiptPdfGenerator {
 
         // membership number falls back to id if not present
         $memberNo = htmlspecialchars($receipt['member_number'] ?? $receipt['id'] ?? '—');
+
+        // Extra row shown only on refund receipts
+        $refundRowHtml = '';
+        if ($isRefund) {
+            $refundRowHtml = <<<HTML
+    <tr class="row-refunded">
+      <td class="label-cell">{$L['amountRefunded']}:</td>
+      <td class="value-cell">{$refundedFmt}</td>
+      <td class="label-cell"></td>
+      <td class="value-cell"></td>
+    </tr>
+HTML;
+        }
 
         return <<<HTML
 <!DOCTYPE html>
@@ -288,6 +366,10 @@ class ReceiptPdfGenerator {
   .row-remaining td {
     background: #ffeaea;
   }
+  .row-refunded td {
+    background: #fff0e0;
+    color: #c0392b;
+  }
 
   /* ── Footer ── */
   .footer {
@@ -379,6 +461,7 @@ class ReceiptPdfGenerator {
       <td class="label-cell">{$L['branch']}:</td>
       <td class="value-cell">{$branchName}</td>
     </tr>
+    {$refundRowHtml}
     <tr>
       <td class="label-cell">{$L['paymentMethod']}:</td>
       <td class="value-cell">{$payLabel}</td>

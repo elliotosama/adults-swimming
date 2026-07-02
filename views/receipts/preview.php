@@ -572,7 +572,11 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
         <a href="<?= APP_URL ?>/receipt/show?id=<?= $receipt['id'] ?>" class="btn-secondary-link">
             👁 عرض الإيصال الكامل
         </a>
-
+        <?php if (!empty($receipt['is_refunded'])): ?>
+    <a href="<?= APP_URL ?>/receipt/refund-pdf?id=<?= $receipt['id'] ?>" target="_blank" class="btn btn-secondary">
+      ↩️ إيصال الاسترداد
+    </a>
+  <?php endif; ?>
     </div>
 
 </div>
