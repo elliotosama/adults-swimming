@@ -791,6 +791,7 @@ select.form-control {
               <div class="pay-warn" id="new-pay-warn">
                 ⚠️ الحد الأدنى للدفع هو <strong><?= number_format($minPaymentAmount, 0) ?></strong> جنيه.
               </div>
+              <div class="inline-error" id="new-overpay-error">❌ المبلغ المدفوع أكبر من سعر الخطة.</div>
             </div>
             <div class="form-field computed-field">
               <label class="form-label">المتبقي</label>
@@ -1065,6 +1066,7 @@ select.form-control {
               <input type="text" name="amount" id="ren-paid-amount" class="form-control"
                      placeholder="0" min="<?= $minPaymentAmount ?>" required onchange="renCalcRemaining()">
               <div class="pay-warn" id="ren-pay-warn">⚠️ الحد الأدنى للدفع هو <strong><?= number_format($minPaymentAmount, 0) ?></strong> جنيه.</div>
+              <div class="inline-error" id="ren-overpay-error">❌ المبلغ المدفوع أكبر من سعر الخطة.</div>
             </div>
             <div class="form-field computed-field">
               <label class="form-label">المتبقي</label>
@@ -1194,8 +1196,9 @@ select.form-control {
           <div class="form-grid-3">
             <div class="form-field">
               <label class="form-label">المبلغ <span style="color:var(--danger);">*</span></label>
-              <input type="text" name="amount" id="pay-amount" class="form-control" placeholder="0" min="1" step="0.01" required>
+              <input type="text" name="amount" id="pay-amount" class="form-control" placeholder="0" min="1" step="0.01" required oninput="payValidateAmount()">
               <span class="field-hint">المتبقي الحالي: <strong id="pay-current-remaining">—</strong></span>
+              <div class="inline-error" id="pay-overpay-error">❌ المبلغ أكبر من المتبقي على هذا الإيصال.</div>
             </div>
             <div class="form-field">
               <label class="form-label">طريقة الدفع <span style="color:var(--danger);">*</span></label>
@@ -1358,8 +1361,9 @@ select.form-control {
             <div class="form-field">
               <label class="form-label">المبلغ المُسترَد <span style="color:var(--danger);">*</span></label>
               <input type="text" name="amount" id="refund-amount"
-                     class="form-control" placeholder="0" min="1" step="0.01" required>
+                     class="form-control" placeholder="0" min="1" step="0.01" required oninput="refundValidateAmount()">
               <span class="field-hint">الحد الأقصى للاسترداد: <strong id="refund-max-display">—</strong></span>
+              <div class="inline-error" id="refund-overamount-error">❌ المبلغ أكبر من الحد الأقصى المسموح للاسترداد.</div>
             </div>
             <div class="form-field">
               <label class="form-label">طريقة الاسترداد <span style="color:var(--danger);">*</span></label>
@@ -1656,9 +1660,17 @@ function newCalcRemaining() {
     const paid  = parseFloat(document.getElementById('new-paid-amount').value) || 0;
     if (price > 0) document.getElementById('new-paid-amount').setAttribute('max', price);
     document.getElementById('new-remaining').value = price > 0 ? Math.max(price - paid, 0) : 0;
-    const warn = document.getElementById('new-pay-warn'), sub = document.getElementById('new-submit-btn');
-    if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); sub.disabled = true; }
-    else { warn.classList.remove('visible'); sub.disabled = false; }
+
+    const warn    = document.getElementById('new-pay-warn');
+    const overpay = document.getElementById('new-overpay-error');
+    const sub     = document.getElementById('new-submit-btn');
+
+    const underMin = paid > 0 && paid < MIN_PAYMENT;
+    const overMax  = price > 0 && paid > price;
+
+    warn.classList.toggle('visible', underMin);
+    overpay.classList.toggle('visible', overMax);
+    sub.disabled = underMin || overMax;
 }
 function newUpdateDates() {
     const start = document.getElementById('new-start-date').value;
@@ -1682,15 +1694,46 @@ function newUpdateDates() {
     document.getElementById('new-renewal-date').value = result.renewal;
     document.getElementById('new-last-date').value    = result.last;
 }
+
+
 function newValidateTime() {
-    const t = document.getElementById('new-exercise-time').value, el = document.getElementById('new-time-error');
-    el.classList.remove('visible'); if (!t) return;
-    const meta = branchMeta(getBranchId('new')); if (!meta?.working_time_from) return;
-    if (t < meta.working_time_from || t > meta.working_time_to) {
-        document.getElementById('new-time-error-msg').textContent = `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
-      el.classList.add('visible');
+    const t = document.getElementById('new-exercise-time').value;
+    const el = document.getElementById('new-time-error');
+    
+    el.classList.remove('visible'); 
+    if (!t) return;
+    
+    const meta = branchMeta(getBranchId('new')); 
+    if (!meta?.working_time_from || !meta?.working_time_to) return;
+
+    // 1. Convert everything to minutes so we can compare actual numbers
+    const currentMins = timeToMinutes(t);
+    let fromMins = timeToMinutes(meta.working_time_from);
+    let toMins = timeToMinutes(meta.working_time_to);
+
+    // 2. Handle the midnight edge-case (00:00 becomes 1440 minutes)
+    if (toMins === 0 && fromMins > 0) {
+        toMins = 24 * 60; // 1440
+    }
+
+    // 3. Perform the correct range check
+    let isValid = false;
+    if (fromMins <= toMins) {
+        // Standard daytime range
+        isValid = (currentMins >= fromMins && currentMins <= toMins);
+    } else {
+        // Range that crosses midnight
+        isValid = (currentMins >= fromMins || currentMins <= toMins);
+    }
+
+    // 4. Trigger error UI if the time is invalid
+    if (!isValid) {
+        document.getElementById('new-time-error-msg').textContent = 
+            `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
+        el.classList.add('visible');
     }
 }
+
 function newToggleEvidence() {
     const m = document.getElementById('new-payment-method').value;
     const f = document.getElementById('new-evidence-field'), i = document.getElementById('new-transaction-evidence');
@@ -1701,8 +1744,10 @@ document.getElementById('newReceiptForm')?.addEventListener('submit', e => {
     const nameWords = document.querySelector('.new-client-name')?.value.trim().split(/\s+/).filter(w=>w.length>0) || [];
     if (nameWords.length < 3) { document.querySelector('.new-name-error').classList.add('visible'); e.preventDefault(); return; }
     document.querySelector('.new-name-error').classList.remove('visible');
+    const price = getPlanPrice('new-plan');
     const paid = parseFloat(document.getElementById('new-paid-amount').value) || 0;
     if (paid > 0 && paid < MIN_PAYMENT) { e.preventDefault(); return; }
+    if (price > 0 && paid > price) { document.getElementById('new-overpay-error').classList.add('visible'); e.preventDefault(); return; }
     const prefix = document.querySelector('.new-country-code').value;
     let local = document.querySelector('.new-phone-local').value.trim();
     if (prefix && local.startsWith('0')) local = local.slice(1);
@@ -1724,10 +1769,19 @@ function renBranchChanged() {
 function renPlanChanged() { renCalcRemaining(); renUpdateDates(); }
 function renCalcRemaining() {
     const price = getPlanPrice('ren-plan'), paid = parseFloat(document.getElementById('ren-paid-amount').value) || 0;
+    if (price > 0) document.getElementById('ren-paid-amount').setAttribute('max', price);
     document.getElementById('ren-remaining').value = price > 0 ? Math.max(price - paid, 0) : 0;
-    const warn = document.getElementById('ren-pay-warn'), sub = document.getElementById('ren-submit-btn');
-    if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); sub.disabled = true; }
-    else { warn.classList.remove('visible'); sub.disabled = false; }
+
+    const warn    = document.getElementById('ren-pay-warn');
+    const overpay = document.getElementById('ren-overpay-error');
+    const sub     = document.getElementById('ren-submit-btn');
+
+    const underMin = paid > 0 && paid < MIN_PAYMENT;
+    const overMax  = price > 0 && paid > price;
+
+    warn.classList.toggle('visible', underMin);
+    overpay.classList.toggle('visible', overMax);
+    sub.disabled = underMin || overMax;
 }
 function renUpdateDates() {
     const start = document.getElementById('ren-start-date')?.value;
@@ -1760,6 +1814,44 @@ function renUpdateDates() {
     document.getElementById('ren-renewal-date').value = result.renewal;
     document.getElementById('ren-last-date').value    = result.last;
 }
+
+
+function timeToMinutes(timeString) {
+    if (!timeString || typeof timeString !== 'string') return 0;
+    
+    // Clean up strings that might have AM/PM attached to them
+    let isPM = timeString.toUpperCase().includes('PM');
+    let isAM = timeString.toUpperCase().includes('AM');
+    
+    // Extract just the numbers (e.g., "22:00:00" or "07:00 PM" -> ["22", "00"])
+    const cleanTime = timeString.replace(/[^\d:]/g, '');
+    const parts = cleanTime.split(':');
+    
+    let hours = Number(parts[0]) || 0;
+    let minutes = Number(parts[1]) || 0;
+    
+    // If it was in 12-hour format with AM/PM text
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+    
+    return hours * 60 + minutes;
+}
+
+function isTimeInRange(time, from, to) {
+    const t = timeToMinutes(time);
+    let f = timeToMinutes(from);
+    let e = timeToMinutes(to);
+
+    // If closing is midnight (00:00 or 24:00), normalize it to 1440 mins
+    if (e === 0 && f > 0) e = 1440;
+
+    // Handle standard ranges and midnight crossings
+    if (f <= e) {
+        return t >= f && t <= e;
+    }
+    return t >= f || t <= e;
+}
+
 function renValidateTime() {
     const t = document.getElementById('ren-exercise-time').value, el = document.getElementById('ren-time-error');
     el.classList.remove('visible'); if (!t) return;
@@ -1800,6 +1892,8 @@ document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
     if (!renValidateRenewalType()) { e.preventDefault(); return; }
     const paid = parseFloat(document.getElementById('ren-paid-amount').value) || 0;
     if (paid > 0 && paid < MIN_PAYMENT) { e.preventDefault(); return; }
+    const price = getPlanPrice('ren-plan');
+    if (price > 0 && paid > price) { document.getElementById('ren-overpay-error').classList.add('visible'); e.preventDefault(); return; }
     const prefix = document.querySelector('.ren-country-code').value;
     let local = document.querySelector('.ren-phone-local').value.trim();
     if (prefix && local.startsWith('0')) local = local.slice(1);
@@ -1809,44 +1903,71 @@ document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
 // ════════════════════════════════════════════════════════════════
 //  TAB 3 — إضافة دفعة
 // ════════════════════════════════════════════════════════════════
+let PAY_SELECTED_REMAINING = 0;
+
 function paySelectReceipt(id, remaining, planPrice) {
     document.querySelectorAll('#tab-panel-payment .receipt-card').forEach(c => c.classList.remove('selected-pay'));
     document.querySelector('#tab-panel-payment .receipt-card[data-id="'+id+'"]').classList.add('selected-pay');
     document.getElementById('pay-selected-receipt-id').value = id;
     document.getElementById('pay-current-remaining').textContent = parseFloat(remaining).toLocaleString('ar-EG');
+    PAY_SELECTED_REMAINING = parseFloat(remaining) || 0;
+    document.getElementById('pay-amount').setAttribute('max', PAY_SELECTED_REMAINING);
     document.getElementById('pay-amount').value = remaining > 0 ? remaining : '';
+    document.getElementById('pay-overpay-error').classList.remove('visible');
     const form = document.getElementById('paymentAddForm');
     form.style.display = 'block';
     form.scrollIntoView({ behavior: 'smooth' });
+}
+function payValidateAmount() {
+    const amt = parseFloat(document.getElementById('pay-amount').value) || 0;
+    const bad = amt > PAY_SELECTED_REMAINING;
+    document.getElementById('pay-overpay-error').classList.toggle('visible', bad);
+    return !bad;
 }
 function payToggleEvidence(method) {
     const f = document.getElementById('pay-evidence-field'), i = document.getElementById('pay-evidence');
     if (method && method !== 'cash') { f.classList.add('visible'); i.required = true; }
     else { f.classList.remove('visible'); i.required = false; i.value = ''; }
 }
+document.getElementById('paymentAddForm')?.addEventListener('submit', e => {
+    if (!payValidateAmount()) e.preventDefault();
+});
 
 // ════════════════════════════════════════════════════════════════
 //  TAB 4 — استرداد
 // ════════════════════════════════════════════════════════════════
+let REFUND_MAX_AMOUNT = 0;
+
 function refundSelectReceipt(id, netPaid, maxRefund) {
     document.querySelectorAll('#tab-panel-refund .receipt-card').forEach(c => c.classList.remove('selected-refund'));
     document.querySelector('#tab-panel-refund .receipt-card[data-id="'+id+'"]').classList.add('selected-refund');
     document.getElementById('refund-selected-receipt-id').value = id;
     document.getElementById('refund-max-display').textContent   = parseFloat(maxRefund).toLocaleString('ar-EG');
+    REFUND_MAX_AMOUNT = parseFloat(maxRefund) || 0;
     const amountInput = document.getElementById('refund-amount');
-    amountInput.max   = maxRefund;
+    amountInput.max   = REFUND_MAX_AMOUNT;
     amountInput.value = '';
+    document.getElementById('refund-overamount-error').classList.remove('visible');
     document.getElementById('refund-method-select').value = '';
     refundToggleEvidence('');
     const wrap = document.getElementById('refundFormWrap');
     wrap.classList.add('visible');
     wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+function refundValidateAmount() {
+    const amt = parseFloat(document.getElementById('refund-amount').value) || 0;
+    const bad = amt > REFUND_MAX_AMOUNT;
+    document.getElementById('refund-overamount-error').classList.toggle('visible', bad);
+    return !bad;
+}
 function refundToggleEvidence(method) {
     const f = document.getElementById('refund-evidence-field'), i = document.getElementById('refund-evidence');
     if (method && method !== 'cash') { f.classList.add('visible'); i.required = true; }
     else { f.classList.remove('visible'); i.required = false; i.value = ''; }
 }
+document.getElementById('refundForm')?.addEventListener('submit', e => {
+    if (!refundValidateAmount()) e.preventDefault();
+});
 
 // ════════════════════════════════════════════════════════════════
 //  TAB 5 — عميل جديد

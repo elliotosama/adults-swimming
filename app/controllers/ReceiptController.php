@@ -866,6 +866,7 @@ public function store(): void {
     // PREVIEW
     // ════════════════════════════════════════════════════════════════════════
 
+
 public function preview(): void {
     auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
@@ -889,10 +890,26 @@ public function preview(): void {
     $planPrice = (float) ($receipt['plan_price'] ?? 0);
     $ns        = $this->getReceiptNetStatus($id, $planPrice);
 
+    $db = get_db();
+
+    // ── Fallback: pull payment method from latest transaction if not set on receipt ──
+    if (empty($receipt['payment_method'])) {
+        $stmt = $db->prepare("
+            SELECT payment_method
+            FROM transactions
+            WHERE receipt_id = ?
+            ORDER BY id DESC LIMIT 1
+        ");
+        $stmt->execute([$id]);
+        $lastTx = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($lastTx && !empty($lastTx['payment_method'])) {
+            $receipt['payment_method'] = $lastTx['payment_method'];
+        }
+    }
+
     // ── Refund summary (only when arriving from a refund action) ──
     $refundData = null;
     if ($type === 'refund') {
-        $db   = get_db();
         $stmt = $db->prepare("
             SELECT id, amount, payment_method, created_at
             FROM transactions
@@ -930,6 +947,7 @@ public function preview(): void {
         'refundData' => $refundData,
     ]);
 }
+
     // ════════════════════════════════════════════════════════════════════════
     // SHOW
     // ════════════════════════════════════════════════════════════════════════

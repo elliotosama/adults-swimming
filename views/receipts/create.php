@@ -1421,30 +1421,78 @@ evidenceIn.addEventListener('change', validateEvidence);
 // ═══════════════════════════════════════════════════════════════
 //  Exercise time validation
 // ═══════════════════════════════════════════════════════════════
+
 function formatTime12h(time24) {
-    const [hours, minutes] = time24.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hours12 = hours % 12 || 12;
+    let [hours, minutes] = time24.split(':').map(Number);
+    // Normalize 24 to 0 for proper AM/PM calculation
+    if (hours === 24) hours = 0; 
+    
+    const period = hours >= 12 ? 'م' : 'ص'; // Using Arabic indicators directly to match your UI
+    let hours12 = hours % 12 || 12;
+    
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
+
+function timeToMinutes(time) {
+    const [h, m] = time.split(':').map(Number);
+    // Convert 00:00 to 1440 ONLY if it's the end of a range, 
+    // but a cleaner way is to handle it in the range checker itself.
+    return h * 60 + m;
+}
+
+function isTimeInRange(time, from, to) {
+    const t = timeToMinutes(time);
+    let f = timeToMinutes(from);
+    let e = timeToMinutes(to);
+
+    // If closing time is midnight (00:00), treat it as the end of the day (1440 mins)
+    // so standard comparison works flawlessly.
+    if (e === 0) e = 24 * 60; 
+    if (f === 0 && e < f) f = 0;
+
+    // Standard day range
+    if (f <= e) {
+        return t >= f && t <= e;
+    }
+
+    // Overnight range (e.g., 9:00 PM to 2:00 AM)
+    return t >= f || t <= e;
 }
 
 function validateExerciseTime() {
     const time = exerciseTimeIn.value;
+
     timeErrorEl.classList.remove('visible');
     exerciseTimeIn.classList.remove('field-invalid');
+
     if (!time) return true;
+
     const meta = branchMeta();
     if (!meta || !meta.working_time_from || !meta.working_time_to) return true;
+
     const from = meta.working_time_from;
-    const to   = meta.working_time_to;
-    if (time < from || time > to) {
-        timeErrorMsg.textContent = `وقت التمرين يجب أن يكون بين ${formatTime12h(from)} و ${formatTime12h(to)} (ساعات عمل الفرع).`;
-      timeErrorEl.classList.add('visible');
+    const to = meta.working_time_to;
+
+    // 🔴 DEBUG LOGS - Check your browser console for these!
+    console.log("--- Time Validation Debug ---");
+    console.log("User Input (time):", JSON.stringify(time));
+    console.log("Branch From (from):", JSON.stringify(from));
+    console.log("Branch To (to):", JSON.stringify(to));
+    console.log("Is In Range?:", isTimeInRange(time, from, to));
+    console.log("-----------------------------");
+
+    if (!isTimeInRange(time, from, to)) {
+        timeErrorMsg.textContent =
+            `وقت التمرين يجب أن يكون بين ${formatTime12h(from)} و ${formatTime12h(to)} (ساعات عمل الفرع).`;
+
+        timeErrorEl.classList.add('visible');
         exerciseTimeIn.classList.add('field-invalid');
         return false;
     }
+
     return true;
 }
+
 exerciseTimeIn.addEventListener('change', validateExerciseTime);
 exerciseTimeIn.addEventListener('blur',   validateExerciseTime);
 

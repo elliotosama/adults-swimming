@@ -30,9 +30,16 @@ public function findFiltered(array $filters = []): array {
         $params[':role'] = $filters['role'];
     }
 
-    if ($filters['visible'] !== '') {
-        $clauses[] = 'visible = :visible';
-        $params[':visible'] = (int) $filters['visible'];
+    // FIX: Check BOTH columns to determine active status safely
+    if (isset($filters['visible']) && $filters['visible'] !== '') {
+        $status = (int) $filters['visible'];
+        if ($status === 1) {
+            // Active means BOTH must be 1
+            $clauses[] = 'visible = 1 AND is_active = 1';
+        } else {
+            // Inactive means EITHER can be 0
+            $clauses[] = '(visible = 0 OR is_active = 0)';
+        }
     }
 
     $where = $clauses ? 'WHERE ' . implode(' AND ', $clauses) : '';
@@ -62,9 +69,14 @@ public function findAll(array $filters = []): array {
         $params[':role'] = $filters['role'];
     }
 
-    if (isset($filters['visible']) && $filters['visible'] !== '') {
-        $where[]            = 'visible = :visible';
-        $params[':visible'] = (int) $filters['visible'];
+    // FIX: Match the same logic so live AJAX search mirrors the page filters perfectly
+    if (isset($filters['is_active']) && $filters['is_active'] !== '') {
+        $status = (int) $filters['is_active'];
+        if ($status === 1) {
+            $where[] = 'visible = 1 AND is_active = 1';
+        } else {
+            $where[] = '(visible = 0 OR is_active = 0)';
+        }
     }
 
     $sql  = 'SELECT * FROM users WHERE ' . implode(' AND ', $where) . ' ORDER BY username ASC';
@@ -73,7 +85,6 @@ public function findAll(array $filters = []): array {
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
-
     public function findById(int $id): array|false {
         $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");
         $stmt->execute([$id]);

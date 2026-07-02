@@ -1,11 +1,11 @@
-- [x] create receipt
-- [x] receipt pdf
-- [x] read
-- [x] receipt refund pdf
-- [ ] receipt preview when refund
-- [ ] update receipt refund pdf
----
-- [ ] change the layout
+- [ ] headers of the table in receipts
+- [ ] renew and new in receipts
+- [ ] add validation if email exists
 
 
 
+
+
+
+ahmed.abdelmoaty@gmail.com: XBA@@L4y
+nada.fathy@gmail.com: E#lH#Jg5

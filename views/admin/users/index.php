@@ -166,16 +166,17 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
             </div>
         </div>
 
-        <div class="form-group">
-            <label class="form-label">الحالة</label>
-            <div class="form-select-wrap">
-                <select id="filterVisible" name="visible" class="form-control">
-                    <option value="">الكل</option>
-                    <option value="1" <?= ($filters['visible'] ?? '') === '1' ? 'selected' : '' ?>>نشط ✅</option>
-                    <option value="0" <?= ($filters['visible'] ?? '') === '0' ? 'selected' : '' ?>>معطّل ❌</option>
-                </select>
-            </div>
-        </div>
+<div class="form-group">
+    <label class="form-label">الحالة</label>
+    <div class="form-select-wrap">
+        <!-- Changed name to is_active and updated the PHP checks to look for it -->
+        <select id="filterVisible" name="is_active" class="form-control">
+            <option value="">الكل</option>
+            <option value="1" <?= ($filters['is_active'] ?? '') === '1' ? 'selected' : '' ?>>نشط ✅</option>
+            <option value="0" <?= ($filters['is_active'] ?? '') === '0' ? 'selected' : '' ?>>معطّل ❌</option>
+        </select>
+    </div>
+</div>
 
         <div class="filter-bar__actions">
             <button type="submit" class="btn btn-primary">تطبيق</button>
@@ -393,11 +394,11 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
     }
 
     // ── Fetch from AJAX endpoint ─────────────────────────────────────────
-    function fetchUsers() {
+function fetchUsers() {
         const params = new URLSearchParams({
-            search:  searchInput.value.trim(),
-            role:    roleSelect.value,
-            visible: visibleSelect.value,
+            search:    searchInput.value.trim(),
+            role:      roleSelect.value,
+            is_active: visibleSelect.value, // <-- Changed from 'visible' to 'is_active'
         });
 
         wrap.style.opacity = '0.45';

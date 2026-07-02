@@ -42,10 +42,13 @@ $txRow = $db->prepare("
 $txRow->execute([$receipt['id']]);
 $txData = $txRow->fetch(PDO::FETCH_ASSOC);
 
-$totalPaidCalc = (float) $txData['total_paid'];
+
+$totalPaidCalc = (float) $txData['total_paid'];   // gross paid
 $totalRefunded = (float) $txData['total_refunded'];
 $netPaid       = $totalPaidCalc - $totalRefunded;
 $remainingCalc = max(0, $planPrice - $netPaid);
+
+$totalPaidCalc = $netPaid;  // ← ADD THIS LINE right after, to make Total Paid refund-adjusted
 
 $remaining = number_format($remainingCalc, 0);
 $type = $_GET['type'] ?? 'new';
@@ -519,10 +522,10 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
                     <label>إجمالي المدفوع / Total Paid</label>
                     <span class="success"><?= number_format($totalPaidCalc, 0) ?></span>
                 </div>
-                <div class="preview-item">
-                    <label>المتبقي / Remaining</label>
-                    <span class="<?= $remainingCalc > 0 ? 'danger' : 'success' ?>"><?= $remaining ?></span>
-                </div>
+<div class="preview-item">
+    <label>المتبقي / Remaining</label>
+    <span class="<?= $remainingCalc > 0 ? 'danger' : 'success' ?>"><?= number_format($remainingCalc, 0) ?></span>
+</div>
                 <div class="preview-item">
                     <label>طريقة الدفع / Method</label>
                     <span><?= htmlspecialchars($receipt['payment_method'] ?? '—') ?></span>

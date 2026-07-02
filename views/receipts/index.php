@@ -354,7 +354,7 @@ table td strong { color: #fff; font-weight: 800; }
     .filter-actions .btn { width: 100%; text-align: center; }
     .receipt-count-number { font-size: 1.9rem; }
     .receipt-count-label  { font-size: .9rem; }
-    table { min-width: 1100px; }
+    table { min-width: 1180px; }
     table th { font-size: .76rem; padding: .5rem .55rem; }
     table td { font-size: .88rem; padding: .5rem .55rem; }
     .td-actions { flex-direction: row; flex-wrap: wrap; gap: .25rem; min-width: 200px; }
@@ -367,7 +367,7 @@ table td strong { color: #fff; font-weight: 800; }
 @media (max-width: 400px) {
     .page-title { font-size: 1.2rem; }
     .receipt-count-number { font-size: 1.65rem; }
-    table { min-width: 1020px; }
+    table { min-width: 1100px; }
     table th { font-size: .72rem; padding: .45rem .48rem; }
     table td { font-size: .82rem; padding: .45rem .48rem; }
     .badge-refund  { font-size: .72rem; padding: .15rem .42rem; }
@@ -630,8 +630,9 @@ table td strong { color: #fff; font-weight: 800; }
                         <th>آخر تمرين</th>
                         <th>رقم الإيصال</th>
                         <?php if ($isAdmin): ?>
-                        <th>المنشئ</th>
-                        <?php endif; ?>
+                            <th>المنشئ</th>
+                            <?php endif; ?>
+                            <th>مسترد؟</th>
                         <th>الإجراءات</th>
                     </tr>
                 </thead>
@@ -655,8 +656,15 @@ table td strong { color: #fff; font-weight: 800; }
                                 <?= htmlspecialchars($r['receipt_ref'] ?? $r['id']) ?>
                             </td>
                             <?php if ($isAdmin): ?>
-                            <td><?= htmlspecialchars($r['creator_name'] ?? '—') ?></td>
-                            <?php endif; ?>
+                                <td><?= htmlspecialchars($r['creator_name'] ?? '—') ?></td>
+                                <?php endif; ?>
+                                <td>
+                                    <?php if (!empty($r['is_refunded'])): ?>
+                                        <span class="badge-refund">↩️ مسترد</span>
+                                    <?php else: ?>
+                                        <span style="color:var(--muted)">—</span>
+                                    <?php endif; ?>
+                                </td>
                             <td>
                                 <div class="td-actions">
                                     <a href="<?= APP_URL ?>/receipt/show?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
@@ -772,14 +780,15 @@ function renewalTypeLabel(type) {
         'previous_renewal': 'تجديد سابق',
     };
     const key = (type || '').toString().trim().toLowerCase();
-    console.log(type)
-    console.log(key)
     return map[key] || esc(type);
 }
 
 function buildRow(r) {
-    const creatorCell = IS_ADMIN ? `<td>${esc(r.creator_name)}</td>` : '';
-    const receiptRef  = r.receipt_ref ? esc(r.receipt_ref) : esc(r.id);
+    const creatorCell  = IS_ADMIN ? `<td>${esc(r.creator_name)}</td>` : '';
+    const receiptRef   = r.receipt_ref ? esc(r.receipt_ref) : esc(r.id);
+    const refundedCell = r.is_refunded
+        ? `<td><span class="badge-refund">↩️ مسترد</span></td>`
+        : `<td><span style="color:var(--muted)">—</span></td>`;
 
     return `<tr>
         <td>${renewalTypeLabel(r.renewal_type)}</td>
@@ -797,6 +806,7 @@ function buildRow(r) {
         <td>${esc(r.last_session)}</td>
         <td style="color:#fff;font-size:1rem;font-weight:800">${receiptRef}</td>
         ${creatorCell}
+        ${refundedCell}
         <td>
             <div class="td-actions">
                 <a href="${BASE_URL}/receipt/show?id=${esc(r.id)}" class="btn btn-sm btn-secondary">عرض</a>
@@ -950,6 +960,7 @@ function buildRow(r) {
                         <th>آخر تمرين</th>
                         <th>رقم الإيصال</th>
                         ${creatorTh}
+                        <th>مسترد؟</th>
                         <th>الإجراءات</th>
                     </tr></thead>
                     <tbody id="receiptsBody"></tbody>

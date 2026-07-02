@@ -73,34 +73,71 @@ class EmployeeController {
     // INDEX  —  GET /admin/users
     // ════════════════════════════════════════════════════════════════════════
 
-public function index(): void {
-    auth_require(['admin']);
 
-    $filters = [
-        'search'  => trim($_GET['search']  ?? ''),
-        'role'    => trim($_GET['role']    ?? ''),
-        'visible' => $_GET['visible'] ?? '',
-    ];
 
-    $users       = $this->users->findFiltered($filters);
-    $allUsers    = $this->users->findAll();
-    $activeUsers = count(array_filter($allUsers, fn($u) => $u['is_active'] && $u['visible']));
 
-    $roleCounts = [];
-    foreach ($allUsers as $u) {
-        $roleCounts[$u['role']] = ($roleCounts[$u['role']] ?? 0) + 1;
+
+
+    // ════════════════════════════════════════════════════════════════════════
+    // INDEX  —  GET /admin/users
+    // ════════════════════════════════════════════════════════════════════════
+    public function index(): void {
+        auth_require(['admin']);
+
+        // Check for either 'is_active' (from our updated HTML) or fallback to 'visible'
+        $statusValue = $_GET['is_active'] ?? $_GET['visible'] ?? '';
+
+        $filters = [
+            'search'    => trim($_GET['search']  ?? ''),
+            'role'      => trim($_GET['role']    ?? ''),
+            'visible'   => trim($statusValue), // For findFiltered() which expects 'visible'
+            'is_active' => trim($statusValue), // For safety if any internal check relies on it
+        ];
+
+        $users       = $this->users->findFiltered($filters);
+        
+        // Pass an empty array here so we get *all* unfiltered users for the counter blocks
+        $allUsers    = $this->users->findAll([]); 
+        $activeUsers = count(array_filter($allUsers, fn($u) => $u['is_active'] && $u['visible']));
+
+        $roleCounts = [];
+        foreach ($allUsers as $u) {
+            $roleCounts[$u['role']] = ($roleCounts[$u['role']] ?? 0) + 1;
+        }
+
+        $this->renderView('index', [
+            'pageTitle'   => 'المستخدمون',
+            'breadcrumb'  => 'لوحة التحكم · المستخدمون',
+            'users'       => $users,
+            'filters'     => $filters,
+            'totalUsers'  => count($allUsers),
+            'activeUsers' => $activeUsers,
+            'roleCounts'  => $roleCounts,
+        ]);
     }
 
-    $this->renderView('index', [
-        'pageTitle'   => 'المستخدمون',
-        'breadcrumb'  => 'لوحة التحكم · المستخدمون',
-        'users'       => $users,
-        'filters'     => $filters,
-        'totalUsers'  => count($allUsers),
-        'activeUsers' => $activeUsers,
-        'roleCounts'  => $roleCounts,
-    ]);
-}
+    // ════════════════════════════════════════════════════════════════════════
+    // AJAX SEARCH  —  GET /admin/users/search
+    // ════════════════════════════════════════════════════════════════════════
+    public function ajaxSearch(): void {
+        auth_require(['admin']);
+
+        header('Content-Type: application/json');
+
+        // Check for either parameter name coming from the frontend AJAX request
+        $statusValue = $_GET['is_active'] ?? $_GET['visible'] ?? '';
+
+        $filters = [
+            'search'    => trim($_GET['search']  ?? ''),
+            'role'      => trim($_GET['role']    ?? ''),
+            'visible'   => trim($statusValue), // Provided for safety
+            'is_active' => trim($statusValue), // Map directly to 'is_active' which EmployeeModel::findAll() expects
+        ];
+
+        // Using findFiltered instead of findAll keeps data sets uniform with initial page load
+        echo json_encode($this->users->findFiltered($filters));
+        exit;
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     // CREATE  —  GET /admin/users/create
@@ -293,20 +330,4 @@ public function index(): void {
         $this->redirect('/admin/users');
     }
 
-
-
-public function ajaxSearch(): void {
-    auth_require(['admin']);
-
-    header('Content-Type: application/json');
-
-    $filters = [
-        'search'  => trim($_GET['search']  ?? ''),
-        'role'    => trim($_GET['role']    ?? ''),
-        'visible' => trim($_GET['visible'] ?? ''),
-    ];
-
-    echo json_encode($this->users->findAll($filters));
-    exit;
-}
 }
