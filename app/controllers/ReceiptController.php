@@ -866,32 +866,70 @@ public function store(): void {
     // PREVIEW
     // ════════════════════════════════════════════════════════════════════════
 
-    public function preview(): void {
-        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
+public function preview(): void {
+    auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
-        $id      = (int) ($_GET['id'] ?? 0);
-        $receipt = $this->receipts->findById($id);
+    $id      = (int) ($_GET['id'] ?? 0);
+    $type    = trim($_GET['type'] ?? 'new');  // new | payment | refund | renewal
+    $receipt = $this->receipts->findById($id);
 
-        if (!$receipt) {
-            $this->flash('flash_error', 'الإيصال غير موجود.');
-            $this->redirect('/receipts');
-            return;
-        }
-
-        if (empty($receipt['receipt_ref'])) {
-            $ref = $this->buildReceiptRef($id, $receipt['created_at'] ?? '');
-            get_db()->prepare("UPDATE receipts SET receipt_ref = ? WHERE id = ?")
-                    ->execute([$ref, $id]);
-            $receipt['receipt_ref'] = $ref;
-        }
-
-        $this->renderView('preview', [
-            'pageTitle'  => 'تفاصيل الإيصال #' . ($receipt['receipt_ref'] ?? $id),
-            'breadcrumb' => 'لوحة التحكم · الإيصالات · معاينة',
-            'receipt'    => $receipt,
-        ]);
+    if (!$receipt) {
+        $this->flash('flash_error', 'الإيصال غير موجود.');
+        $this->redirect('/receipts');
+        return;
     }
 
+    if (empty($receipt['receipt_ref'])) {
+        $ref = $this->buildReceiptRef($id, $receipt['created_at'] ?? '');
+        get_db()->prepare("UPDATE receipts SET receipt_ref = ? WHERE id = ?")
+                ->execute([$ref, $id]);
+        $receipt['receipt_ref'] = $ref;
+    }
+
+    $planPrice = (float) ($receipt['plan_price'] ?? 0);
+    $ns        = $this->getReceiptNetStatus($id, $planPrice);
+
+    // ── Refund summary (only when arriving from a refund action) ──
+    $refundData = null;
+    if ($type === 'refund') {
+        $db   = get_db();
+        $stmt = $db->prepare("
+            SELECT id, amount, payment_method, created_at
+            FROM transactions
+            WHERE receipt_id = ? AND type = 'refund'
+            ORDER BY id DESC LIMIT 1
+        ");
+        $stmt->execute([$id]);
+        $lastRefundTx = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($lastRefundTx) {
+            $grossPaid      = $ns['grossPaid'];
+            $totalRefunded  = $ns['totalRefunded'];
+            $refundPct      = $grossPaid > 0
+                ? round(($totalRefunded / $grossPaid) * 100)
+                : 0;
+
+            $refundData = [
+                'tx_id'          => (int) $lastRefundTx['id'],
+                'refund_amount'  => (float) $lastRefundTx['amount'],
+                'gross_paid'     => $grossPaid,
+                'total_refunded' => $totalRefunded,
+                'remaining'      => $ns['remaining'],
+                'refund_pct'     => $refundPct,
+                'created_at'     => $lastRefundTx['created_at'],
+            ];
+        }
+    }
+
+    $this->renderView('preview', [
+        'pageTitle'  => 'تفاصيل الإيصال #' . ($receipt['receipt_ref'] ?? $id),
+        'breadcrumb' => 'لوحة التحكم · الإيصالات · معاينة',
+        'receipt'    => $receipt,
+        'type'       => $type,
+        'ns'         => $ns,
+        'refundData' => $refundData,
+    ]);
+}
     // ════════════════════════════════════════════════════════════════════════
     // SHOW
     // ════════════════════════════════════════════════════════════════════════
@@ -1008,10 +1046,6 @@ public function update(): void {
 
     $data = $this->parseForm();
 
-    // Fields not present on the edit form must be pinned back to their
-    // existing DB values — otherwise parseForm()'s defaults (e.g. 'new'
-    // for renewal_type, '' for receipt_status) silently overwrite the
-    // real value on every save AND falsely trigger an audit-log "change".
     $data['client_id']      = (int)    $receipt['client_id'];
     $data['creator_id']     = (int)    $receipt['creator_id'];
     $data['receipt_status'] = (string) $receipt['receipt_status'];
@@ -1036,9 +1070,20 @@ public function update(): void {
         return;
     }
 
-    if (!empty($receipt['client_id'])) {
-        $db = get_db();
+    $db = get_db();
 
+    // ── Fetch current client values BEFORE the update (needed for audit) ──
+    $oldClient = [];
+    if (!empty($receipt['client_id'])) {
+        $clientStmt = $db->prepare(
+            "SELECT client_name, phone, email, age, gender FROM clients WHERE id = ? LIMIT 1"
+        );
+        $clientStmt->execute([$receipt['client_id']]);
+        $oldClient = $clientStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    // ── Update clients table ───────────────────────────────────────────────
+    if (!empty($receipt['client_id'])) {
         $clientFields = [];
         $clientParams = [':id' => $receipt['client_id']];
 
@@ -1069,36 +1114,65 @@ public function update(): void {
         }
     }
 
-    $auditableFields = [
+    // ── Audit: receipt-level fields (only columns that receipts table stores) ──
+    // NOTE: payment_method and notes are NOT receipts columns — removed to
+    //       prevent permanent NULL old_value noise in the log.
+    $receiptAuditFields = [
         'branch_id', 'captain_id', 'plan_id', 'level',
         'first_session', 'last_session', 'renewal_session', 'renewal_type',
-        'exercise_time', 'payment_method', 'notes',
+        'exercise_time',
     ];
 
-    $oldAuditable = array_intersect_key($receipt, array_flip($auditableFields));
-    $newAuditable = array_intersect_key($data,    array_flip($auditableFields));
+    $oldReceiptAuditable = array_intersect_key($receipt, array_flip($receiptAuditFields));
+    $newReceiptAuditable = array_intersect_key($data,    array_flip($receiptAuditFields));
 
-    // TEMP DEBUG — uncomment while diagnosing, remove once confirmed working:
-    // error_log('AUDIT DEBUG old=' . json_encode($oldAuditable));
-    // error_log('AUDIT DEBUG new=' . json_encode($newAuditable));
+    $this->auditLog->logChanges(
+        $id,
+        auth_user()['id'],
+        auth_user()['role'],
+        $oldReceiptAuditable,
+        $newReceiptAuditable
+    );
 
-    $this->auditLog->logChanges($id, auth_user()['id'], auth_user()['role'], $oldAuditable, $newAuditable);
+    // ── Audit: client-level fields (old values fetched from DB above) ──────
+    $oldClientAuditable = [
+        'client_name'   => $oldClient['client_name'] ?? null,
+        'phone'         => $oldClient['phone']        ?? null,
+        'client_email'  => $oldClient['email']        ?? null,
+        'client_age'    => isset($oldClient['age'])   ? (string) $oldClient['age']    : null,
+        'client_gender' => $oldClient['gender']       ?? null,
+    ];
 
-    // TEMP DEBUG:
-    // error_log('AUDIT DEBUG pdo error=' . json_encode(get_db()->errorInfo()));
+    $newClientAuditable = [
+        'client_name'   => $data['client_name']   ?: null,
+        'phone'         => $data['phone']          ?: null,
+        'client_email'  => $data['client_email']   ?: null,
+        'client_age'    => $data['client_age'] !== null ? (string) $data['client_age'] : null,
+        'client_gender' => $data['client_gender']  ?: null,
+    ];
 
+    $this->auditLog->logChanges(
+        $id,
+        auth_user()['id'],
+        auth_user()['role'],
+        $oldClientAuditable,
+        $newClientAuditable
+    );
+
+    // ── Update receipt ────────────────────────────────────────────────────
     $this->receipts->update($id, $data);
 
     $updatedReceipt = $this->receipts->findById($id);
     $planPrice      = (float) ($updatedReceipt['plan_price'] ?? 0);
     $autoStatus     = $this->autoReceiptStatus($id, $planPrice);
-    get_db()->prepare("UPDATE receipts SET receipt_status = ? WHERE id = ?")
-            ->execute([$autoStatus, $id]);
+    $db->prepare("UPDATE receipts SET receipt_status = ? WHERE id = ?")
+       ->execute([$autoStatus, $id]);
 
     log_action('updated_receipt', "id: {$id}", auth_user()['id']);
     $this->flash('flash_success', 'تم تحديث الإيصال بنجاح.');
     $this->redirect('/receipts');
 }
+
 
     // ════════════════════════════════════════════════════════════════════════
     // DESTROY
@@ -1537,128 +1611,147 @@ public function update(): void {
     // transaction instead of the latest one).
     // ════════════════════════════════════════════════════════════════════════
 
-    public function refundPdf(): void {
-        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
+public function refundPdf(): void {
+    auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
-        $id      = (int) ($_GET['id'] ?? 0);
-        $receipt = $this->receipts->findById($id);
+    $id      = (int) ($_GET['id'] ?? 0);
+    $receipt = $this->receipts->findById($id);
 
-        if (!$receipt) {
-            $this->flash('flash_error', 'الإيصال غير موجود.');
-            $this->redirect('/receipts');
-            return;
-        }
-
-        $db     = get_db();
-        $txId   = (int) ($_GET['tx_id'] ?? 0);
-
-        if ($txId) {
-            $stmt = $db->prepare("
-                SELECT amount, payment_method FROM transactions
-                WHERE id = ? AND receipt_id = ? AND type = 'refund'
-                LIMIT 1
-            ");
-            $stmt->execute([$txId, $id]);
-        } else {
-            $stmt = $db->prepare("
-                SELECT amount, payment_method FROM transactions
-                WHERE receipt_id = ? AND type = 'refund'
-                ORDER BY id DESC LIMIT 1
-            ");
-            $stmt->execute([$id]);
-        }
-
-        $lastRefund = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$lastRefund) {
-            $this->flash('flash_error', 'لا يوجد استرداد مسجّل على هذا الإيصال.');
-            $this->redirect('/receipt/preview?id=' . $id);
-            return;
-        }
-
-        $planPrice    = (float) ($receipt['plan_price'] ?? 0);
-        $ns           = $this->getReceiptNetStatus($id, $planPrice);
-        $refundAmount = (float) $lastRefund['amount'];
-        $refundMethod = (string) $lastRefund['payment_method'];
-
-        $lang = (trim($_GET['lang'] ?? '') === 'en') ? 'en' : 'ar';
-
-        require_once ROOT . '/app/Services/ReceiptPdfGenerator.php';
-        ReceiptPdfGenerator::generateRefund(
-            $receipt,
-            $ns['netPaid'],
-            $ns['remaining'],
-            $refundAmount,
-            $refundMethod,
-            $lang
-        );
-        exit;
+    if (!$receipt) {
+        $this->flash('flash_error', 'الإيصال غير موجود.');
+        $this->redirect('/receipts');
+        return;
     }
 
+    $db   = get_db();
+    $txId = (int) ($_GET['tx_id'] ?? 0);
+
+    if ($txId) {
+        $stmt = $db->prepare("
+            SELECT amount, payment_method FROM transactions
+            WHERE id = ? AND receipt_id = ? AND type = 'refund'
+            LIMIT 1
+        ");
+        $stmt->execute([$txId, $id]);
+    } else {
+        $stmt = $db->prepare("
+            SELECT amount, payment_method FROM transactions
+            WHERE receipt_id = ? AND type = 'refund'
+            ORDER BY id DESC LIMIT 1
+        ");
+        $stmt->execute([$id]);
+    }
+
+    $lastRefund = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$lastRefund) {
+        $this->flash('flash_error', 'لا يوجد استرداد مسجّل على هذا الإيصال.');
+        $this->redirect('/receipt/preview?id=' . $id);
+        return;
+    }
+
+    $planPrice    = (float) ($receipt['plan_price'] ?? 0);
+    $ns           = $this->getReceiptNetStatus($id, $planPrice);
+    $refundAmount = (float) $lastRefund['amount'];
+    $refundMethod = (string) $lastRefund['payment_method'];
+    $lang         = (trim($_GET['lang'] ?? '') === 'en') ? 'en' : 'ar';
+
+    require_once ROOT . '/app/Services/ReceiptPdfGenerator.php';
+    ReceiptPdfGenerator::generateRefund(
+        $receipt,
+        $ns['grossPaid'],      // ← gross paid
+        $ns['totalRefunded'],  // ← total refunded
+        $ns['remaining'],
+        $refundAmount,
+        $refundMethod,
+        $lang
+    );
+    exit;
+}
     // ════════════════════════════════════════════════════════════════════════
     // STORE PAYMENT
     // ════════════════════════════════════════════════════════════════════════
 
-    public function storePayment(): void {
-        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
-        $receiptId     = (int) ($_POST['receipt_id']     ?? 0);
-        $amount        = (float) ($_POST['amount']        ?? 0);
-        $paymentMethod = trim($_POST['payment_method']    ?? '');
-        $notes         = trim($_POST['notes']             ?? '');
+public function storePayment(): void {
+    auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
-        $receipt = $this->receipts->findById($receiptId);
-        $errors  = [];
+    $receiptId     = (int) ($_POST['receipt_id']     ?? 0);
+    $amount        = (float) ($_POST['amount']        ?? 0);
+    $paymentMethod = trim($_POST['payment_method']    ?? '');
+    $notes         = trim($_POST['notes']             ?? '');
 
-        if (!$receipt)       $errors[] = 'الإيصال غير موجود.';
-        if ($amount <= 0)    $errors[] = 'يجب إدخال مبلغ أكبر من صفر.';
-        if (!$paymentMethod) $errors[] = 'يجب اختيار طريقة الدفع.';
+    $receipt = $this->receipts->findById($receiptId);
+    $errors  = [];
 
-        if ($errors) {
-            $this->flash('flash_error', implode('<br>', $errors));
-            $this->redirect('/receipt/payment?search=' . urlencode($_POST['search'] ?? ''));
-            return;
-        }
+    if (!$receipt)       $errors[] = 'الإيصال غير موجود.';
+    if ($amount <= 0)    $errors[] = 'يجب إدخال مبلغ أكبر من صفر.';
+    if (!$paymentMethod) $errors[] = 'يجب اختيار طريقة الدفع.';
 
-        $evidencePath = $this->handleEvidenceUpload();
-
-        $this->transactions->create([
-            'receipt_id'     => $receiptId,
-            'payment_method' => $paymentMethod,
-            'amount'         => $amount,
-            'created_by'     => auth_user()['id'],
-            'type'           => 'payment',
-            'notes'          => $notes ?: 'دفعة إضافية / Additional payment',
-            'attachment'     => $evidencePath,
-        ]);
-
-        $planPrice  = (float) ($receipt['plan_price'] ?? 0);
-        $autoStatus = $this->autoReceiptStatus($receiptId, $planPrice);
-        $db         = get_db();
-        $db->prepare("UPDATE receipts SET receipt_status = ? WHERE id = ?")
-           ->execute([$autoStatus, $receiptId]);
-
-        $user = auth_user();
-        if ($user['role'] === 'branch_manager') {
-            $managerBranchId = $this->receipts->getBranchIdByManager($user['id']);
-            if ($managerBranchId) {
-                $db->prepare("UPDATE receipts SET branch_id = ? WHERE id = ?")
-                   ->execute([$managerBranchId, $receiptId]);
-
-                $this->auditLog->logChanges(
-                    $receiptId,
-                    $user['id'],
-                    $user['role'],
-                    ['branch_id' => $receipt['branch_id']],
-                    ['branch_id' => $managerBranchId]
-                );
-            }
-        }
-
-        log_action('added_payment', "receipt_id: {$receiptId}, amount: {$amount}", auth_user()['id']);
-        $this->flash('flash_success', 'تم تسجيل الدفعة بنجاح.');
-        $this->redirect('/receipt/preview?id=' . $receiptId . '&type=payment');
+    if ($errors) {
+        $this->flash('flash_error', implode('<br>', $errors));
+        $this->redirect('/receipt/payment?search=' . urlencode($_POST['search'] ?? ''));
+        return;
     }
+
+    $evidencePath = $this->handleEvidenceUpload();
+
+    $this->transactions->create([
+        'receipt_id'     => $receiptId,
+        'payment_method' => $paymentMethod,
+        'amount'         => $amount,
+        'created_by'     => auth_user()['id'],
+        'type'           => 'payment',
+        'notes'          => $notes ?: 'دفعة إضافية / Additional payment',
+        'attachment'     => $evidencePath,
+    ]);
+
+    $planPrice  = (float) ($receipt['plan_price'] ?? 0);
+    $autoStatus = $this->autoReceiptStatus($receiptId, $planPrice);
+    $db         = get_db();
+    $db->prepare("UPDATE receipts SET receipt_status = ? WHERE id = ?")
+       ->execute([$autoStatus, $receiptId]);
+
+    $user = auth_user();
+    if ($user['role'] === 'branch_manager') {
+        $managerBranchId = $this->receipts->getBranchIdByManager($user['id']);
+        if ($managerBranchId) {
+            $db->prepare("UPDATE receipts SET branch_id = ? WHERE id = ?")
+               ->execute([$managerBranchId, $receiptId]);
+
+            $this->auditLog->logChanges(
+                $receiptId,
+                $user['id'],
+                $user['role'],
+                ['branch_id' => $receipt['branch_id']],
+                ['branch_id' => $managerBranchId]
+            );
+        }
+    }
+
+    // Regenerate PDF to reflect the new payment totals
+    require_once ROOT . '/app/Services/ReceiptPdfGenerator.php';
+    $fullReceipt = $this->receipts->findById($receiptId);
+    $planPrice   = (float) ($fullReceipt['plan_price'] ?? 0);
+    $ns          = $this->getReceiptNetStatus($receiptId, $planPrice);
+    $saveDir     = ROOT . '/public/uploads/receipts';
+
+    $pdfFile = ReceiptPdfGenerator::save(
+        $fullReceipt,
+        $ns['netPaid'],
+        $ns['remaining'],
+        $paymentMethod,
+        $saveDir
+    );
+
+    $db->prepare("UPDATE receipts SET pdf_path = ? WHERE id = ?")
+       ->execute([$pdfFile, $receiptId]);
+
+    log_action('added_payment', "receipt_id: {$receiptId}, amount: {$amount}", auth_user()['id']);
+    $this->flash('flash_success', 'تم تسجيل الدفعة بنجاح.');
+    $this->redirect('/receipt/preview?id=' . $receiptId . '&type=payment');
+}
+
 
     // ════════════════════════════════════════════════════════════════════════
     // REFUND PAGE
@@ -1693,7 +1786,8 @@ public function update(): void {
     // STORE REFUND
     // ════════════════════════════════════════════════════════════════════════
 
-    public function storeRefund(): void {
+
+        public function storeRefund(): void {
         auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
         $receiptId     = (int) ($_POST['receipt_id']     ?? 0);
@@ -1750,28 +1844,29 @@ public function update(): void {
         // a best-effort save — if it fails for any reason we don't want to
         // block the refund flow, so wrap in try/catch.)
         try {
-            require_once ROOT . '/app/Services/ReceiptPdfGenerator.php';
+    require_once ROOT . '/app/Services/ReceiptPdfGenerator.php';
 
-            $updatedReceipt = $this->receipts->findById($receiptId);
-            $planPriceAfter = (float) ($updatedReceipt['plan_price'] ?? 0);
-            $nsAfter        = $this->getReceiptNetStatus($receiptId, $planPriceAfter);
+    $updatedReceipt = $this->receipts->findById($receiptId);
+    $planPriceAfter = (float) ($updatedReceipt['plan_price'] ?? 0);
+    $nsAfter        = $this->getReceiptNetStatus($receiptId, $planPriceAfter);
 
-            ReceiptPdfGenerator::saveRefund(
-                $updatedReceipt,
-                $nsAfter['netPaid'],
-                $nsAfter['remaining'],
-                $amount,
-                $paymentMethod,
-                ROOT . '/public/uploads/receipts'
-            );
-        } catch (\Throwable $e) {
-            error_log('[ReceiptPdfGenerator::saveRefund] ' . $e->getMessage());
-        }
-
+    ReceiptPdfGenerator::saveRefund(
+        $updatedReceipt,
+        $nsAfter['grossPaid'],      // ← total gross paid (what client paid in total)
+        $nsAfter['totalRefunded'],  // ← total refunded
+        $nsAfter['remaining'],
+        $amount,
+        $paymentMethod,
+        ROOT . '/public/uploads/receipts'
+    );
+} catch (\Throwable $e) {
+    error_log('[ReceiptPdfGenerator::saveRefund] ' . $e->getMessage());
+}
         log_action('refunded', "receipt_id: {$receiptId}, amount: {$amount}", auth_user()['id']);
         $this->flash('flash_success', 'تم تسجيل الاسترداد بنجاح.');
         $this->redirect('/receipt/preview?id=' . $receiptId . '&type=refund');
     }
+
 
     // ════════════════════════════════════════════════════════════════════════
     // SEND EMAIL

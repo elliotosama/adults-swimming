@@ -34,7 +34,7 @@ public function findAll(): array {
         LEFT JOIN branches b  ON b.id  = r.branch_id
         LEFT JOIN prices   p  ON p.id  = r.plan_id
 
-        ORDER BY r.created_at DESC
+        ORDER BY r.id DESC
     ");
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -97,7 +97,7 @@ $dataSql = "
     LEFT JOIN transactions t ON t.receipt_id = r.id
     {$where}
     GROUP BY r.id
-    ORDER BY r.created_at DESC
+    ORDER BY r.id DESC
     LIMIT :limit OFFSET :offset
 ";
         $dataStmt = $this->db->prepare($dataSql);
@@ -154,7 +154,7 @@ public function searchAll(array $filters = []): array {
             LEFT JOIN branches b  ON b.id  = r.branch_id
             LEFT JOIN prices   p  ON p.id  = r.plan_id
             {$where}
-            ORDER BY r.created_at DESC
+            ORDER BY r.id DESC
         ";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -214,7 +214,7 @@ public function searchAll(array $filters = []): array {
             LEFT JOIN prices   p ON p.id = r.plan_id
             LEFT JOIN branches b ON b.id = r.branch_id
             WHERE r.client_id = ?
-            ORDER BY r.created_at DESC
+            ORDER BY r.id DESC
         ");
         $stmt->execute([$clientId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -253,7 +253,7 @@ public function searchAll(array $filters = []): array {
             LEFT JOIN transactions t ON t.receipt_id = r.id
             WHERE r.client_id = ?
             GROUP BY r.id
-            ORDER BY r.created_at DESC
+            ORDER BY r.id DESC
         ");
         $stmt->execute([$clientId]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);

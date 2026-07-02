@@ -56,7 +56,15 @@ $emailStmt->execute([$receipt['client_id']]);
 $clientEmail = $emailStmt->fetchColumn() ?: null;
 
 // PDF link to include in WhatsApp messages
-$pdfLink = rtrim(APP_URL, '/') . '/receipt/pdf?id=' . (int) $receipt['id'];
+$pdfUrl = ($type === 'refund')
+    ? APP_URL . '/receipt/refund-pdf?id=' . $receipt['id']
+    : APP_URL . '/receipt/pdf?id=' . $receipt['id'];
+
+$pdfUrlEn = ($type === 'refund')
+    ? APP_URL . '/receipt/refund-pdf?id=' . $receipt['id'] . '&lang=en'
+    : APP_URL . '/receipt/pdf?id=' . $receipt['id'] . '&lang=en';
+
+$pdfLink = $pdfUrl;
 
 $waMessage = match($type) {
     'renewal' => rawurlencode(
@@ -392,6 +400,17 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
         <?php unset($_SESSION['flash_error']); ?>
     <?php endif; ?>
 
+    <?php if (!empty($refundData)): ?>
+<div style="background:#1a0a0a;border:1px solid #c0392b;border-radius:14px;padding:20px 24px;margin-bottom:24px;">
+<div style="font-size:15px;font-weight:700;color:#fca5a5;margin-bottom:16px;">↩️ تفاصيل الاسترداد</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+<div><div style="font-size:11px;color:#7a84a0;">إجمالي المدفوع</div><div style="font-size:20px;font-weight:800;color:#4f7cff;"><?= number_format($refundData['gross_paid'],0) ?></div></div>
+<div><div style="font-size:11px;color:#7a84a0;">المبلغ المسترد</div><div style="font-size:20px;font-weight:800;color:#ef4444;"><?= number_format($refundData['total_refunded'],0) ?></div></div>
+<div><div style="font-size:11px;color:#7a84a0;">المتبقي</div><div style="font-size:20px;font-weight:800;color:<?= $refundData['remaining']<=0?'#22c55e':'#f59e0b' ?>;"><?= number_format($refundData['remaining'],0) ?></div></div>
+<div><div style="font-size:11px;color:#7a84a0;">نسبة الاسترداد</div><div style="font-size:20px;font-weight:800;color:#f97316;"><?= $refundData['refund_pct'] ?>%</div></div>
+</div></div>
+<?php endif; ?>
+
     <!-- Receipt card -->
     <div class="preview-card">
 
@@ -556,14 +575,14 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
         <?php endif; ?>
 
         <!-- Arabic PDF -->
-        <a href="<?= APP_URL ?>/receipt/pdf?id=<?= $receipt['id'] ?>"
+        <a href="<?= $pdfUrl ?>"
            target="_blank"
            class="btn-secondary-link">
             📄 PDF (عربي)
         </a>
 
         <!-- English PDF -->
-        <a href="<?= APP_URL ?>/receipt/pdf?id=<?= $receipt['id'] ?>&lang=en"
+        <a href="<?= $pdfUrlEn ?>"
            target="_blank"
            class="btn-pdf-en">
             📄 PDF (English)
