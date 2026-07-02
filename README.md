@@ -1,5 +1,12 @@
 - [x] create receipt
 - [x] receipt pdf
 - [x] read
+- [x] receipt refund pdf
+- [ ] when i create receipt and make another payment the payment does not appear in the pdf
+- [ ] receipt preview when refund
 - [ ] receipt audit log
-~
+- [ ] update receipt refund pdf
+---
+- [ ] when i create receipt from another account and see all receipts from admin it gets the latest that the admin created not the other account created
+- [ ] make all searches with receipt_ref column not id
+- [ ] change the layout
