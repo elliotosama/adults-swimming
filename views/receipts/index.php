@@ -670,6 +670,7 @@ table td strong { color: #fff; font-weight: 800; }
                                     <a href="<?= APP_URL ?>/receipt/show?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
                                     <a href="<?= APP_URL ?>/receipt/preview?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">تفاصيل</a>
                                     <a href="<?= APP_URL ?>/receipt/edit?id=<?= $r['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
+                                    <?php if($_SESSION['user']['role'] === 'admin') { ?>
                                     <form method="POST"
                                           action="<?= APP_URL ?>/receipt/delete?id=<?= $r['id'] ?>"
                                           style="display:inline"
@@ -678,6 +679,7 @@ table td strong { color: #fff; font-weight: 800; }
                                                value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                                         <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
                                     </form>
+                                    <?php }?>
                                 </div>
                             </td>
                         </tr>

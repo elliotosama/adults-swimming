@@ -279,7 +279,7 @@ public function searchAll(array $filters = []): array {
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
-    // ── Branch ID for a branch_manager ───────────────────────────────────────
+    // ── Branch ID for a branch_manager (single — for locked single-branch UI) ──
 
     public function getBranchIdByManager(int $userId): ?int {
         $stmt = $this->db->prepare(
@@ -288,6 +288,20 @@ public function searchAll(array $filters = []): array {
         $stmt->execute([$userId]);
         $id = $stmt->fetchColumn();
         return $id !== false ? (int) $id : null;
+    }
+
+    // ── ALL branch IDs for a branch_manager (many-to-many via user_branch) ─────
+    //
+    // Use this (instead of the singular version above) anywhere a manager's
+    // access should be scoped across every branch they manage, not just one —
+    // e.g. client search, receipt listing/filtering for the manage() hub.
+
+    public function getBranchIdsByManager(int $userId): array {
+        $stmt = $this->db->prepare(
+            "SELECT branch_id FROM user_branch WHERE user_id = ?"
+        );
+        $stmt->execute([$userId]);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
     // ── Create ────────────────────────────────────────────────────────────────

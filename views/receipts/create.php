@@ -1460,7 +1460,7 @@ function isTimeInRange(time, from, to) {
 }
 
 function validateExerciseTime() {
-    const time = exerciseTimeIn.value;
+    let time = exerciseTimeIn.value; // e.g., "22:00"
 
     timeErrorEl.classList.remove('visible');
     exerciseTimeIn.classList.remove('field-invalid');
@@ -1473,14 +1473,6 @@ function validateExerciseTime() {
     const from = meta.working_time_from;
     const to = meta.working_time_to;
 
-    // 🔴 DEBUG LOGS - Check your browser console for these!
-    console.log("--- Time Validation Debug ---");
-    console.log("User Input (time):", JSON.stringify(time));
-    console.log("Branch From (from):", JSON.stringify(from));
-    console.log("Branch To (to):", JSON.stringify(to));
-    console.log("Is In Range?:", isTimeInRange(time, from, to));
-    console.log("-----------------------------");
-
     if (!isTimeInRange(time, from, to)) {
         timeErrorMsg.textContent =
             `وقت التمرين يجب أن يكون بين ${formatTime12h(from)} و ${formatTime12h(to)} (ساعات عمل الفرع).`;
@@ -1492,6 +1484,7 @@ function validateExerciseTime() {
 
     return true;
 }
+
 
 exerciseTimeIn.addEventListener('change', validateExerciseTime);
 exerciseTimeIn.addEventListener('blur',   validateExerciseTime);

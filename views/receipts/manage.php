@@ -848,9 +848,9 @@ select.form-control {
         <form method="GET" action="<?= APP_URL ?>/receipt/manage" style="display:flex;gap:10px;align-items:flex-end;">
           <input type="hidden" name="tab" value="renew">
           <div class="form-field" style="flex:1;">
-            <label class="form-label">ابحث بالاسم، رقم الهاتف، أو رقم الإيصال</label>
+            <label class="form-label">ابحث بالاسم، رقم الهاتف</label>
             <input type="text" name="renew_search" class="form-control"
-                   placeholder="مثال: أحمد محمد أو 01012345678 أو #1234"
+                   placeholder="مثال: أحمد محمد أو 01012345678 أو"
                    value="<?= htmlspecialchars($renewSearch ?? '') ?>">
           </div>
           <button type="submit" class="btn btn-primary" style="height:42px;">🔍 بحث</button>
@@ -1852,15 +1852,17 @@ function isTimeInRange(time, from, to) {
     return t >= f || t <= e;
 }
 
+
 function renValidateTime() {
     const t = document.getElementById('ren-exercise-time').value, el = document.getElementById('ren-time-error');
     el.classList.remove('visible'); if (!t) return;
-    const meta = branchMeta(getBranchId('ren')); if (!meta?.working_time_from) return;
-    if (t < meta.working_time_from || t > meta.working_time_to) {
+    const meta = branchMeta(getBranchId('ren')); if (!meta?.working_time_from || !meta?.working_time_to) return;
+    if (!isTimeInRange(t, meta.working_time_from, meta.working_time_to)) {
         document.getElementById('ren-time-error-msg').textContent = `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
       el.classList.add('visible');
     }
 }
+
 function renToggleEvidence() {
     const m = document.getElementById('ren-payment-method').value;
     const f = document.getElementById('ren-evidence-field'), i = document.getElementById('ren-transaction-evidence');

@@ -578,17 +578,32 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
         <?php endif; ?>
 
         <!-- Arabic PDF -->
+<!-- Arabic PDF (view) -->
         <a href="<?= $pdfUrl ?>"
            target="_blank"
            class="btn-secondary-link">
             📄 PDF (عربي)
         </a>
 
-        <!-- English PDF -->
+        <!-- Arabic PDF (download) -->
+        <a href="<?= $pdfUrl ?>&download=1"
+           download="receipt-<?= (int)$receipt['id'] ?>-ar.pdf"
+           class="btn-secondary-link">
+            ⬇️ تحميل (عربي)
+        </a>
+
+        <!-- English PDF (view) -->
         <a href="<?= $pdfUrlEn ?>"
            target="_blank"
            class="btn-pdf-en">
             📄 PDF (English)
+        </a>
+
+        <!-- English PDF (download) -->
+        <a href="<?= $pdfUrlEn ?>&download=1"
+           download="receipt-<?= (int)$receipt['id'] ?>-en.pdf"
+           class="btn-pdf-en">
+            ⬇️ Download (English)
         </a>
 
         <a href="<?= APP_URL ?>/receipt/show?id=<?= $receipt['id'] ?>" class="btn-secondary-link">
