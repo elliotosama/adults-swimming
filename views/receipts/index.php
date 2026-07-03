@@ -28,6 +28,24 @@ function formatAmPm(string $time): string {
     }
 }
 
+// ── Renewal-type → Arabic label ─────────────────────────────────────────
+//
+// Mirrors the JS renewalTypeLabel() map used by the live-search buildRow().
+// Used here so the server-rendered table (initial page load / after
+// "إعادة تعيين") shows the same Arabic labels as the live-filtered table,
+// instead of the raw English enum value.
+function renewalTypeLabel(?string $type): string {
+    $map = [
+        'new'              => 'جديد',
+        'current_renewal'  => 'تجديد حالي',
+        'previous_renewal' => 'تجديد سابق',
+        'renewal' => 'تجديد'
+    ];
+    $key = strtolower(trim((string) $type));
+    if ($key === '') return '—';
+    return $map[$key] ?? htmlspecialchars($type);
+}
+
 $canFilter = fn(string $key): bool => in_array($key, $allowedFilters ?? [], true);
 $isAdmin   = $isAdmin ?? false;
 ?>
@@ -639,7 +657,7 @@ table td strong { color: #fff; font-weight: 800; }
                 <tbody id="receiptsBody">
                     <?php foreach ($receipts as $r): ?>
                         <tr>
-                            <td><?= htmlspecialchars($r['renewal_type'] ?? '—') ?></td>
+                            <td><?= renewalTypeLabel($r['renewal_type'] ?? null) ?></td>
                             <td><?= $r['client_id'] ?? '—' ?></td>
                             <td class="wrap-cell"><strong><?= htmlspecialchars($r['client_name'] ?? '—') ?></strong></td>
                             <td style="text-align:center"><?= htmlspecialchars($r['client_age'] ?? '—') ?></td>
@@ -761,7 +779,7 @@ table td strong { color: #fff; font-weight: 800; }
     function fmt(n) {
         const num = parseFloat(n);
         if (isNaN(num)) return '—';
-        return num.toLocaleString('ar-EG');
+        return num
     }
 
     function fmtTime(t) {
@@ -792,6 +810,18 @@ function buildRow(r) {
         ? `<td><span class="badge-refund">↩️ مسترد</span></td>`
         : `<td><span style="color:var(--muted)">—</span></td>`;
 
+    // Mirrors the PHP `<?php if($_SESSION['user']['role'] === 'admin') { ?>` guard
+    // around the "تعطيل" button — without this check the delete button appeared
+    // for every role once a live search/filter request ran, even though the
+    // initial server-rendered page correctly hid it for non-admins.
+    const deleteForm = IS_ADMIN ? `
+        <form method="POST" action="${BASE_URL}/receipt/delete?id=${esc(r.id)}" style="display:inline"
+              onsubmit="event.preventDefault(); showDeleteModal(this);">
+            <input type="hidden" name="csrf_token" value="${esc(CSRF_TOKEN)}">
+            <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+        </form>` : '';
+        <?php }?>
+
     return `<tr>
         <td>${renewalTypeLabel(r.renewal_type)}</td>
         <td>${esc(r.client_id)}</td>
@@ -814,11 +844,7 @@ function buildRow(r) {
                 <a href="${BASE_URL}/receipt/show?id=${esc(r.id)}" class="btn btn-sm btn-secondary">عرض</a>
                 <a href="${BASE_URL}/receipt/preview?id=${esc(r.id)}" class="btn btn-sm btn-secondary">تفاصيل</a>
                 <a href="${BASE_URL}/receipt/edit?id=${esc(r.id)}" class="btn btn-sm btn-warning">تعديل</a>
-                <form method="POST" action="${BASE_URL}/receipt/delete?id=${esc(r.id)}" style="display:inline"
-                      onsubmit="event.preventDefault(); showDeleteModal(this);">
-                    <input type="hidden" name="csrf_token" value="${esc(CSRF_TOKEN)}">
-                    <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
-                </form>
+                ${deleteForm}
             </div>
         </td>
     </tr>`;
@@ -845,7 +871,7 @@ function buildRow(r) {
         const info = document.createElement('p');
         info.className   = 'pag-info';
         info.id          = 'livePagInfo';
-        info.textContent = `عرض ${from.toLocaleString('ar-EG')}–${to.toLocaleString('ar-EG')} من ${total.toLocaleString('ar-EG')}`;
+        info.textContent = `عرض ${from}–${to} من ${total}`;
         tableCard.appendChild(info);
 
         const nav = document.createElement('nav');
@@ -929,7 +955,7 @@ function buildRow(r) {
             liveTotalNow = json.total;
             liveLastPage = json.lastPage;
 
-            if (countBig) countBig.textContent = Number(json.total).toLocaleString('ar-EG');
+            if (countBig) countBig.textContent = Number(json.total)
 
             if (!json.data || json.data.length === 0) {
                 showEmpty();

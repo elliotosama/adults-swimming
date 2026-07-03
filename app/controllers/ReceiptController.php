@@ -31,14 +31,6 @@ class ReceiptController {
         exit;
     }
 
-
-    private function managerBranchIds(): array {
-    $user = auth_user();
-    return $user['role'] === 'branch_manager'
-        ? $this->receipts->getBranchIdsByManager($user['id'])
-        : [];
-}
-
     private function renderView(string $view, array $data = []): void {
         extract($data);
         require ROOT . "/views/receipts/{$view}.php";
@@ -46,6 +38,19 @@ class ReceiptController {
 
     private function flash(string $key, string $msg): void {
         $_SESSION[$key] = $msg;
+    }
+
+    // ── Branch scoping for branch_manager (many-to-many via user_branch) ──
+    //
+    // Returns the full list of branch IDs this user manages when they are a
+    // branch_manager, or an empty array for every other role (meaning: no
+    // restriction — searchClientFlexible() and friends treat [] as "no scope").
+
+    private function managerBranchIds(): array {
+        $user = auth_user();
+        return $user['role'] === 'branch_manager'
+            ? $this->receipts->getBranchIdsByManager($user['id'])
+            : [];
     }
 
     private function parseForm(): array {
@@ -169,12 +174,13 @@ class ReceiptController {
 
         switch ($role) {
             case 'branch_manager':
-                $branchId = $this->receipts->getBranchIdByManager($user['id']);
+                $branchIds = $this->receipts->getBranchIdsByManager($user['id']);
                 return [
                     'forced'          => [
-                        'force_branch_ids' => $branchId ? [$branchId] : [0],
+                        'force_branch_ids' => $branchIds ?: [0],
                     ],
                     'allowed_filters' => array_diff($allFilterControls, ['branch', 'creator']),
+                    'managed_branch_ids' => $branchIds,
                 ];
 
             case 'customer_service':
@@ -304,59 +310,130 @@ class ReceiptController {
 
     // ════════════════════════════════════════════════════════════════════════
     // searchClientFlexible
+    //
+    // $allowedBranchIds: when non-empty (branch_manager with a many-to-many
+    // user_branch mapping), every search path is additionally scoped so a
+    // matched client must have at least one receipt in one of those branches.
+    // Empty array = no restriction (admin, area_manager, customer_service —
+    // area_manager/customer_service scoping is enforced elsewhere via
+    // roleScope(), not here).
     // ════════════════════════════════════════════════════════════════════════
 
-private function searchClientFlexible(string $q, array $allowedBranchIds = []): ?array {
-    $db = get_db();
-    $scoped = !empty($allowedBranchIds);
-    $ph = $scoped ? implode(',', array_fill(0, count($allowedBranchIds), '?')) : '';
+    private function searchClientFlexible(string $q, array $allowedBranchIds = []): ?array {
+        $db     = get_db();
+        $scoped = !empty($allowedBranchIds);
+        $ph     = $scoped ? implode(',', array_fill(0, count($allowedBranchIds), '?')) : '';
 
-    // Receipt ID search
-    if (ctype_digit($q) && strlen($q) <= 7) {
-        $sql = "
-            SELECT cl.* FROM receipts r
-            JOIN clients cl ON cl.id = r.client_id
-            WHERE r.id = ?" . ($scoped ? " AND r.branch_id IN ({$ph})" : "") . "
-            LIMIT 1
-        ";
-        $stmt = $db->prepare($sql);
-        $stmt->execute(array_merge([(int)$q], $allowedBranchIds));
+        // ── Receipt ID / ref search (short numeric query) ──────────────────
+        if (ctype_digit($q) && strlen($q) <= 7) {
+            $sql = "
+                SELECT cl.* FROM receipts r
+                JOIN clients cl ON cl.id = r.client_id
+                WHERE r.id = ?" . ($scoped ? " AND r.branch_id IN ({$ph})" : "") . "
+                LIMIT 1
+            ";
+            $stmt = $db->prepare($sql);
+            $stmt->execute(array_merge([(int)$q], $allowedBranchIds));
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) return $row;
+        }
+
+        // ── Phone search ─────────────────────────────────────────────────
+        [$phoneSql, $phoneParams] = PhoneHelper::buildSearchCondition($q);
+
+        if ($scoped) {
+            $stmt = $db->prepare("
+                SELECT cl.* FROM clients cl
+                WHERE ({$phoneSql})
+                  AND EXISTS (
+                      SELECT 1 FROM receipts r
+                      WHERE r.client_id = cl.id AND r.branch_id IN ({$ph})
+                  )
+                LIMIT 1
+            ");
+            $stmt->execute(array_merge($phoneParams, $allowedBranchIds));
+        } else {
+            $stmt = $db->prepare("SELECT * FROM clients WHERE {$phoneSql} LIMIT 1");
+            $stmt->execute($phoneParams);
+        }
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row) return $row;
+
+        // ── Name search ──────────────────────────────────────────────────
+        if ($scoped) {
+            $stmt = $db->prepare("
+                SELECT cl.* FROM clients cl
+                WHERE cl.client_name LIKE ?
+                  AND EXISTS (
+                      SELECT 1 FROM receipts r
+                      WHERE r.client_id = cl.id AND r.branch_id IN ({$ph})
+                  )
+                LIMIT 1
+            ");
+            $stmt->execute(array_merge(['%' . $q . '%'], $allowedBranchIds));
+        } else {
+            $stmt = $db->prepare("SELECT * FROM clients WHERE client_name LIKE ? LIMIT 1");
+            $stmt->execute(['%' . $q . '%']);
+        }
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
-    // Phone search
-    [$phoneSql, $phoneParams] = PhoneHelper::buildSearchCondition($q);
-    if ($scoped) {
-        $stmt = $db->prepare("
-            SELECT cl.* FROM clients cl
-            WHERE ({$phoneSql})
-              AND EXISTS (SELECT 1 FROM receipts r WHERE r.client_id = cl.id AND r.branch_id IN ({$ph}))
-            LIMIT 1
-        ");
-        $stmt->execute(array_merge($phoneParams, $allowedBranchIds));
-    } else {
-        $stmt = $db->prepare("SELECT * FROM clients WHERE {$phoneSql} LIMIT 1");
-        $stmt->execute($phoneParams);
-    }
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($row) return $row;
+    // ════════════════════════════════════════════════════════════════════════
+    // searchClientByIdOrPhone
+    //
+    // Used ONLY by the renewal tab/page. Matches the client's own primary key
+    // (clients.id) or phone number — never receipt IDs and never client name.
+    // Renewal eligibility is sensitive enough that a fuzzy name match could
+    // pull up the wrong person, so this intentionally has no name fallback.
+    // ════════════════════════════════════════════════════════════════════════
 
-    // Name search
-    if ($scoped) {
-        $stmt = $db->prepare("
-            SELECT cl.* FROM clients cl
-            WHERE cl.client_name LIKE ?
-              AND EXISTS (SELECT 1 FROM receipts r WHERE r.client_id = cl.id AND r.branch_id IN ({$ph}))
-            LIMIT 1
-        ");
-        $stmt->execute(array_merge(['%' . $q . '%'], $allowedBranchIds));
-    } else {
-        $stmt = $db->prepare("SELECT * FROM clients WHERE client_name LIKE ? LIMIT 1");
-        $stmt->execute(['%' . $q . '%']);
+    private function searchClientByIdOrPhone(string $q, array $allowedBranchIds = []): ?array {
+        $db     = get_db();
+        $scoped = !empty($allowedBranchIds);
+        $ph     = $scoped ? implode(',', array_fill(0, count($allowedBranchIds), '?')) : '';
+
+        // ── Client ID (clients.id) ──────────────────────────────────────
+        if (ctype_digit($q)) {
+            if ($scoped) {
+                $stmt = $db->prepare("
+                    SELECT cl.* FROM clients cl
+                    WHERE cl.id = ?
+                      AND EXISTS (
+                          SELECT 1 FROM receipts r
+                          WHERE r.client_id = cl.id AND r.branch_id IN ({$ph})
+                      )
+                    LIMIT 1
+                ");
+                $stmt->execute(array_merge([(int)$q], $allowedBranchIds));
+            } else {
+                $stmt = $db->prepare("SELECT * FROM clients WHERE id = ? LIMIT 1");
+                $stmt->execute([(int)$q]);
+            }
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) return $row;
+        }
+
+        // ── Phone number ────────────────────────────────────────────────
+        [$phoneSql, $phoneParams] = PhoneHelper::buildSearchCondition($q);
+
+        if ($scoped) {
+            $stmt = $db->prepare("
+                SELECT cl.* FROM clients cl
+                WHERE ({$phoneSql})
+                  AND EXISTS (
+                      SELECT 1 FROM receipts r
+                      WHERE r.client_id = cl.id AND r.branch_id IN ({$ph})
+                  )
+                LIMIT 1
+            ");
+            $stmt->execute(array_merge($phoneParams, $allowedBranchIds));
+        } else {
+            $stmt = $db->prepare("SELECT * FROM clients WHERE {$phoneSql} LIMIT 1");
+            $stmt->execute($phoneParams);
+        }
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-}
+
     // ════════════════════════════════════════════════════════════════════════
     // getReceiptNetStatus
     // ════════════════════════════════════════════════════════════════════════
@@ -1263,6 +1340,7 @@ public function update(): void {
         auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
         $isAdmin          = (auth_user()['role'] === 'admin');
+        $managerBranchIds = $this->managerBranchIds();
         $client           = null;
         $search           = trim($_GET['search'] ?? '');
         $eligibilityError = '';
@@ -1270,7 +1348,7 @@ public function update(): void {
         $prevLastSession  = '';
 
         if ($search) {
-            $client = $this->searchClientFlexible($search);
+            $client = $this->searchClientByIdOrPhone($search, $managerBranchIds);
 
             if ($client) {
                 $check = $this->checkRenewalEligibility((int)$client['id']);
@@ -1391,6 +1469,7 @@ public function update(): void {
     }
 
     // Server-compute the correct renewal type from previous receipt's last_session
+    // — used ONLY to validate what the user submitted, never to overwrite it.
     $serverRenewalType = 'current_renewal';
     if ($clientId) {
         $db       = get_db();
@@ -1430,8 +1509,14 @@ public function update(): void {
         }
     }
 
-    // Use the server-computed type (trusted source of truth)
-    $data['renewal_type'] = $serverRenewalType;
+    // ── IMPORTANT: use what the user actually chose, not the server-computed
+    // value. The block above already guarantees that if we reach this point
+    // with no errors, $submittedRenewalType === $serverRenewalType — so this
+    // is never "wrong", it just means the system validates rather than
+    // silently overrides the user's selection.
+    if (empty($errors)) {
+        $data['renewal_type'] = $submittedRenewalType;
+    }
 
     // Block renewal if first_session is today or in the past
     if (empty($errors) && !empty($data['first_session'])) {
@@ -1497,7 +1582,7 @@ public function update(): void {
             'receipt'         => array_merge($data, $clientData, [
                 'age'          => $data['client_age']    ?: ($clientData['age']    ?? ''),
                 'gender'       => $data['client_gender'] ?: ($clientData['gender'] ?? ''),
-                'renewal_type' => $serverRenewalType,
+                'renewal_type' => $submittedRenewalType ?: $serverRenewalType,
             ]),
             'client'          => !empty($clientData) ? $clientData : null,
             'search'          => '',
@@ -1581,15 +1666,25 @@ public function update(): void {
     public function paymentPage(): void {
         auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
+        $managerBranchIds = $this->managerBranchIds();
         $client   = null;
         $receipts = [];
         $search   = trim($_GET['search'] ?? '');
 
         if ($search) {
-            $client = $this->searchClientFlexible($search);
+            $client = $this->searchClientFlexible($search, $managerBranchIds);
 
             if ($client) {
-                $db   = get_db();
+                $db = get_db();
+
+                $branchFilter = '';
+                $params       = [$client['id']];
+                if (!empty($managerBranchIds)) {
+                    $bph          = implode(',', array_fill(0, count($managerBranchIds), '?'));
+                    $branchFilter = " AND r.branch_id IN ({$bph})";
+                    $params       = array_merge($params, $managerBranchIds);
+                }
+
                 $stmt = $db->prepare("
                     SELECT r.*,
                            p.price       AS plan_price,
@@ -1605,9 +1700,10 @@ public function update(): void {
                     LEFT JOIN branches b ON b.id = r.branch_id
                     WHERE r.client_id = ?
                       AND r.receipt_status = 'not_completed'
+                      {$branchFilter}
                     ORDER BY r.id DESC
                 ");
-                $stmt->execute([$client['id']]);
+                $stmt->execute($params);
                 $receipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
         }
@@ -1815,15 +1911,22 @@ public function storePayment(): void {
     public function refundPage(): void {
         auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
+        $managerBranchIds = $this->managerBranchIds();
         $client   = null;
         $receipts = [];
         $search   = trim($_GET['search'] ?? '');
 
         if ($search) {
-            $client = $this->searchClientFlexible($search);
+            $client = $this->searchClientFlexible($search, $managerBranchIds);
 
             if ($client) {
                 $receipts = $this->receipts->findByClientWithTotals($client['id']);
+
+                if (!empty($managerBranchIds)) {
+                    $receipts = array_values(array_filter($receipts, function (array $r) use ($managerBranchIds): bool {
+                        return in_array((int)($r['branch_id'] ?? 0), $managerBranchIds, true);
+                    }));
+                }
             }
         }
 
@@ -2131,9 +2234,9 @@ public function storePaymentByReceiptId(): void {
 public function manage(): void {
     auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
-$isAdmin = (auth_user()['role'] === 'admin');
-$db      = get_db();
-$managerBranchIds = $this->managerBranchIds(); // [] for non-managers
+    $isAdmin          = (auth_user()['role'] === 'admin');
+    $managerBranchIds = $this->managerBranchIds(); // [] for non-managers
+    $db               = get_db();
 
     // ── Which tab should open on load? ──────────────────────────────────
     $tabParam  = trim($_GET['tab'] ?? '');
@@ -2153,7 +2256,7 @@ $managerBranchIds = $this->managerBranchIds(); // [] for non-managers
 
     if ($renewSearch) {
         $activeTab   = 'renew';
-$renewClient = $this->searchClientFlexible($renewSearch, $managerBranchIds);
+        $renewClient = $this->searchClientByIdOrPhone($renewSearch, $managerBranchIds);
 
         if ($renewClient) {
             $check = $this->checkRenewalEligibility((int)$renewClient['id']);
@@ -2224,6 +2327,14 @@ $renewClient = $this->searchClientFlexible($renewSearch, $managerBranchIds);
         $payClient = $this->searchClientFlexible($paySearch, $managerBranchIds);
 
         if ($payClient) {
+            $payBranchFilter = '';
+            $payParams       = [$payClient['id']];
+            if (!empty($managerBranchIds)) {
+                $bph              = implode(',', array_fill(0, count($managerBranchIds), '?'));
+                $payBranchFilter  = " AND r.branch_id IN ({$bph})";
+                $payParams        = array_merge($payParams, $managerBranchIds);
+            }
+
 $stmt = $db->prepare("
     SELECT r.*,
            p.price       AS plan_price,
@@ -2242,6 +2353,7 @@ $stmt = $db->prepare("
     LEFT JOIN transactions t ON t.receipt_id = r.id
     WHERE r.client_id = ?
       AND r.receipt_status = 'not_completed'
+      {$payBranchFilter}
     GROUP BY r.id
     HAVING (
         COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
@@ -2249,7 +2361,7 @@ $stmt = $db->prepare("
     ) < COALESCE(p.price, 0)
     ORDER BY r.id DESC
 ");
-            $stmt->execute([$payClient['id']]);
+            $stmt->execute($payParams);
             $payReceipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
     }
@@ -2263,8 +2375,17 @@ $stmt = $db->prepare("
 
     if ($refundSearch) {
         $activeTab    = 'refund';
-$refundClient = $this->searchClientFlexible($refundSearch, $managerBranchIds);
+        $refundClient = $this->searchClientFlexible($refundSearch, $managerBranchIds);
+
         if ($refundClient) {
+            $refundBranchFilter = '';
+            $refundParams       = [$refundClient['id']];
+            if (!empty($managerBranchIds)) {
+                $bph                 = implode(',', array_fill(0, count($managerBranchIds), '?'));
+                $refundBranchFilter  = " AND r.branch_id IN ({$bph})";
+                $refundParams        = array_merge($refundParams, $managerBranchIds);
+            }
+
             $stmt = $db->prepare("
                 SELECT r.*,
                        p.price       AS plan_price,
@@ -2286,9 +2407,10 @@ $refundClient = $this->searchClientFlexible($refundSearch, $managerBranchIds);
                 LEFT JOIN branches b ON b.id = r.branch_id
                 LEFT JOIN clients  c ON c.id = r.client_id
                 WHERE r.client_id = ?
+                  {$refundBranchFilter}
                 ORDER BY r.id DESC
             ");
-            $stmt->execute([$refundClient['id']]);
+            $stmt->execute($refundParams);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Only include receipts where there is something to refund

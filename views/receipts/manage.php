@@ -848,10 +848,10 @@ select.form-control {
         <form method="GET" action="<?= APP_URL ?>/receipt/manage" style="display:flex;gap:10px;align-items:flex-end;">
           <input type="hidden" name="tab" value="renew">
           <div class="form-field" style="flex:1;">
-            <label class="form-label">ابحث بالاسم، رقم الهاتف</label>
-            <input type="text" name="renew_search" class="form-control"
-                   placeholder="مثال: أحمد محمد أو 01012345678 أو"
-                   value="<?= htmlspecialchars($renewSearch ?? '') ?>">
+<label class="form-label">ابحث برقم العضويه أو رقم الهاتف</label>
+<input type="text" name="renew_search" class="form-control"
+       placeholder="مثال: 4821 أو 01012345678"
+       value="<?= htmlspecialchars($renewSearch ?? '') ?>">
           </div>
           <button type="submit" class="btn btn-primary" style="height:42px;">🔍 بحث</button>
         </form>

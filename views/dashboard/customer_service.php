@@ -94,12 +94,6 @@ require ROOT . '/views/includes/layout_top.php';
         <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:<?= $pct ?>%"></div></div>
     </div>
 
-    <div class="stat-card accent-yellow">
-        <div class="stat-icon">⏳</div>
-        <div class="stat-label">معلّقة</div>
-        <div class="stat-value"><?= number_format($stats['receipts']['pending'] ?? 0) ?></div>
-        <div class="stat-sub">تحتاج متابعة</div>
-    </div>
 
     <div class="stat-card accent-red">
         <div class="stat-icon">❌</div>
