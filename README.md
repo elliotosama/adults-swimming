@@ -7,8 +7,8 @@
 - [x] when i search with branch manager account it should get the users from this branch only => Done
 - [x] in renewal tab make the search with client id or phone number only => Done
 - [x] renewal type in receipts page should be in arabic => Done
-- [ ] add validation if email exists
-- [ ] show the image in the same page in show receipt page
+- [x] add validation if email exists => Done
+- [x] show the image in the same page in show receipt page => Done
 
 
 
@@ -16,13 +16,6 @@
 - [ ] headers of the table in receipts => ui rebuild
 - [ ] add cards in dashbaord to show current and previous and new receipts => ui rebuild
 - [ ] scrolling in receipts page => ui rebuild
-- [ ] receipt creation is devided into parts => ui rebuild
+- [ ] receipt creation is divided into parts => ui rebuild
 - [ ] dates they fucking does not see them => ui rebuild
 - [ ] rebuild ui => ui rebuild
-
-
-
-
-
-
-osamaitech123456@gmail.com => claude account for last two bugs

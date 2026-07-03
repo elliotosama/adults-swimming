@@ -120,6 +120,9 @@ function evidenceUrl(string $raw): string {
     overflow: hidden;
     border: 1px solid var(--border, #e2e8f0);
     flex-shrink: 0;
+    cursor: pointer;
+    background: none;
+    padding: 0;
 }
 .evidence-thumb {
     width: 100%;
@@ -151,6 +154,69 @@ function evidenceUrl(string $raw): string {
     min-width: 520px;
     width: 100%;
 }
+
+/* ── Evidence lightbox modal ─────────────────────────────────────────────── */
+.evidence-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.82);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.evidence-modal-overlay.visible {
+    display: flex;
+}
+.evidence-modal-box {
+    position: relative;
+    max-width: min(90vw, 800px);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.evidence-modal-box img {
+    max-width: 100%;
+    max-height: 78vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    background: #111;
+}
+.evidence-modal-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.evidence-modal-close {
+    position: absolute;
+    top: -14px;
+    left: -14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #fff;
+    color: #111;
+    border: none;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+}
+.evidence-modal-close:hover { background: #f1f1f1; }
+.evidence-modal-link {
+    color: #fff;
+    font-size: .82rem;
+    text-decoration: underline;
+    opacity: .85;
+}
+.evidence-modal-link:hover { opacity: 1; }
 
 /* ── Mobile card view for transactions (≤ 600px) ────────────────────────── */
 @media (max-width: 600px) {
@@ -389,12 +455,13 @@ function evidenceUrl(string $raw): string {
                                 <?php if (!empty($evidenceUrl)): ?>
                                     <div class="evidence-cell">
                                         <?php if (!$isPdf): ?>
-                                            <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="evidence-thumb-wrap">
+                                            <button type="button" class="evidence-thumb-wrap"
+                                                    onclick="openEvidenceModal('<?= htmlspecialchars($evidenceUrl, ENT_QUOTES) ?>')">
                                                 <img src="<?= htmlspecialchars($evidenceUrl) ?>"
                                                      class="evidence-thumb"
                                                      alt="إثبات الدفع"
                                                      onerror="this.closest('.evidence-thumb-wrap').innerHTML='<span style=\'font-size:.7rem;color:var(--muted);padding:.2rem\'>خطأ</span>'">
-                                            </a>
+                                            </button>
                                         <?php else: ?>
                                             <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="btn btn-sm btn-secondary">📄 PDF</a>
                                         <?php endif; ?>
@@ -473,9 +540,10 @@ function evidenceUrl(string $raw): string {
                         <span class="tx-card-label">الإثبات</span>
                         <span class="tx-card-value">
                             <?php if (!$isPdf): ?>
-                                <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="evidence-thumb-wrap" style="width:44px;height:44px">
+                                <button type="button" class="evidence-thumb-wrap" style="width:44px;height:44px"
+                                        onclick="openEvidenceModal('<?= htmlspecialchars($evidenceUrl, ENT_QUOTES) ?>')">
                                     <img src="<?= htmlspecialchars($evidenceUrl) ?>" class="evidence-thumb" alt="إثبات الدفع">
-                                </a>
+                                </button>
                             <?php else: ?>
                                 <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="btn btn-sm btn-secondary">📄 PDF</a>
                             <?php endif; ?>
@@ -568,5 +636,33 @@ function evidenceUrl(string $raw): string {
 
     <?php endif; ?>
 </div>
+
+<!-- ─── Evidence lightbox modal ───────────────────────────────────────── -->
+<div class="evidence-modal-overlay" id="evidenceModalOverlay" onclick="if(event.target===this) closeEvidenceModal()">
+    <div class="evidence-modal-box">
+        <button type="button" class="evidence-modal-close" onclick="closeEvidenceModal()" aria-label="إغلاق">✕</button>
+        <img id="evidenceModalImg" src="" alt="إثبات الدفع">
+        <div class="evidence-modal-actions">
+            <a id="evidenceModalOpenNewTab" href="#" target="_blank" class="evidence-modal-link">فتح في تبويب جديد ↗</a>
+        </div>
+    </div>
+</div>
+
+<script>
+function openEvidenceModal(url) {
+    document.getElementById('evidenceModalImg').src = url;
+    document.getElementById('evidenceModalOpenNewTab').href = url;
+    document.getElementById('evidenceModalOverlay').classList.add('visible');
+    document.addEventListener('keydown', evidenceModalEscHandler);
+}
+function closeEvidenceModal() {
+    document.getElementById('evidenceModalOverlay').classList.remove('visible');
+    document.getElementById('evidenceModalImg').src = '';
+    document.removeEventListener('keydown', evidenceModalEscHandler);
+}
+function evidenceModalEscHandler(e) {
+    if (e.key === 'Escape') closeEvidenceModal();
+}
+</script>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>

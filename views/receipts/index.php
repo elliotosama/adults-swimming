@@ -37,8 +37,8 @@ function formatAmPm(string $time): string {
 function renewalTypeLabel(?string $type): string {
     $map = [
         'new'              => 'جديد',
-        'current_renewal'  => 'تجديد حالي',
-        'previous_renewal' => 'تجديد سابق',
+        'current_renewal'  => 'حالي',
+        'previous_renewal' => 'سابق',
         'renewal' => 'تجديد'
     ];
     $key = strtolower(trim((string) $type));

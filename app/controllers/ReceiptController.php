@@ -309,6 +309,21 @@ class ReceiptController {
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // findClientByEmail
+    //
+    // Used to block receipt creation when the submitted email already
+    // belongs to a different client. Simple exact-match lookup — emails
+    // are stored as entered, so no normalization is applied here.
+    // ════════════════════════════════════════════════════════════════════════
+
+    private function findClientByEmail(string $email): ?array {
+        $db   = get_db();
+        $stmt = $db->prepare("SELECT * FROM clients WHERE email = ? LIMIT 1");
+        $stmt->execute([$email]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // searchClientFlexible
     //
     // $allowedBranchIds: when non-empty (branch_manager with a many-to-many
@@ -855,7 +870,8 @@ public function store(): void {
         }
     }
 
-    $errors = $this->validate($data);
+    $errors         = $this->validate($data);
+    $existingClient = null;
 
     // ── Phone-existence check ──────────────────────────────────────────
     if (empty($errors) && !empty($data['phone'])) {
@@ -898,6 +914,21 @@ public function store(): void {
             //         htmlspecialchars($existingClient['client_name'])
             //     );
             // }
+        }
+    }
+
+    // ── Email-existence check ────────────────────────────────────────────
+    // Only block if the email belongs to a DIFFERENT client than the one
+    // already matched by phone (or if no phone match exists). A returning
+    // client reusing their own email is fine and shouldn't be blocked here.
+    if (empty($errors) && !empty($data['client_email'])) {
+        $emailOwner = $this->findClientByEmail($data['client_email']);
+        if ($emailOwner && (!$existingClient || (int)$emailOwner['id'] !== (int)$existingClient['id'])) {
+            $errors[] = sprintf(
+                'البريد الإلكتروني "%s" مسجّل مسبقاً لعميل آخر ("%s"). يرجى استخدام بريد إلكتروني مختلف.',
+                htmlspecialchars($data['client_email']),
+                htmlspecialchars($emailOwner['client_name'])
+            );
         }
     }
 
