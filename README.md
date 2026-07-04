@@ -9,6 +9,13 @@
 - [x] renewal type in receipts page should be in arabic => Done
 - [x] add validation if email exists => Done
 - [x] show the image in the same page in show receipt page => Done
+- [ ] validate missing fields in create receipt page
+- [ ] check renewal type in renewal page
+- [ ] remove delete from read receipt page
+- [ ] check payment page with search => this happends because of renewal type in the database
+- [ ] in refund should appear the last receipt for him
+- [ ] transactions should appear only for the admin
+- [ ] when receipt refunded it can not made another payment on it
 
 
 
