@@ -16,6 +16,7 @@
 - [ ] in refund should appear the last receipt for him
 - [ ] transactions should appear only for the admin
 - [ ] when receipt refunded it can not made another payment on it
+- [ ] appear only in show receipts for any account paid and remaining only
 
 
 
