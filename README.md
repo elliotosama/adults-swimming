@@ -3,7 +3,7 @@
 - [x] check working time in renewal tab => Done
 - [x] the number of total receipts i in arabic in receipts page => Done
 - [x] icon is just an icon
-- [x] i don't want the system to store renewal type by it's own i just want to validate it and the user choose renwal type and if its wrong i want the system rais error message => Done
+- [x] i don't want the system to stomre renewal type by it's own i just want to validate it and the user choose renwal type and if its wrong i want the system rais error message => Done
 - [x] when i search with branch manager account it should get the users from this branch only => Done
 - [x] in renewal tab make the search with client id or phone number only => Done
 - [x] renewal type in receipts page should be in arabic => Done
