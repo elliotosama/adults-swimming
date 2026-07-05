@@ -85,19 +85,20 @@ $preSelectedType = !empty($submittedType) ? $submittedType : '';
 ?>
 <style>
 :root {
-    --bg:          #0f1117;
-    --surface:     #181c27;
-    --surface-2:   #1e2334;
-    --border:      #2a3047;
-    --border-focus:#4f7cff;
-    --accent:      #4f7cff;
-    --accent-dim:  #2a3f7a;
-    --success:     #22c55e;
-    --danger:      #ef4444;
-    --warning:     #f59e0b;
-    --text:        #e8eaf0;
-    --text-muted:  #7a84a0;
-    --text-label:  #a0a9c0;
+    --bg:          #1E1E2D;
+    --surface:     #252736;
+    --surface-2:   #2C2F38;
+    --border:      #3C3F58;
+    --border-focus:#007ACC;
+    --accent:      #007ACC;
+    --accent-dim:  #0A3A5C;
+    --success:     #98C379;
+    --danger:      #E06C75;
+    --warning:     #D19A66;
+    --highlight:   #61DAFB;
+    --text:        #FFFFFF;
+    --text-muted:  #A3A3A3;
+    --text-label:  #A3A3A3;
     --radius:      10px;
     --transition:  0.2s ease;
 }
@@ -106,7 +107,7 @@ body {
     font-size: 16px;
     font-weight: bold;
     color: #fff;
-    font-family: 'Tajawal', sans-serif;
+    font-family: 'Cairo', sans-serif;
 }
 .receipt-page { max-width: 980px; margin: 0 auto; padding: 32px 20px 60px; }
 
@@ -131,7 +132,7 @@ body {
     border: none;
     background: transparent;
     cursor: pointer;
-    font-family: 'Tajawal', sans-serif;
+    font-family: 'Cairo', sans-serif;
     font-size: 14px;
     font-weight: 600;
     color: var(--text-muted);
@@ -149,11 +150,11 @@ body {
     color: var(--text);
     border: 1px solid var(--border);
 }
-.tab-btn.active .tab-badge-new      { background: #0f2a1a; color: #22c55e; border: 1px solid #1a5c30; }
-.tab-btn.active .tab-badge-renew    { background: #0a1a2a; color: #4f7cff; border: 1px solid #2a3f7a; }
-.tab-btn.active .tab-badge-payment  { background: #2a1a00; color: #f59e0b; border: 1px solid #6b4800; }
-.tab-btn.active .tab-badge-refund   { background: #2a1515; color: #ef4444; border: 1px solid #5a2020; }
-.tab-btn.active .tab-badge-client   { background: #1a0a2a; color: #a78bfa; border: 1px solid #4a2a7a; }
+.tab-btn.active .tab-badge-new      { background: #1E2D1E; color: #98C379; border: 1px solid #3C5C3F; }
+.tab-btn.active .tab-badge-renew    { background: #1A2D33; color: #007ACC; border: 1px solid #0A3A5C; }
+.tab-btn.active .tab-badge-payment  { background: #2D2620; color: #D19A66; border: 1px solid #5C4A3C; }
+.tab-btn.active .tab-badge-refund   { background: #2D1E20; color: #E06C75; border: 1px solid #5C3C40; }
+.tab-btn.active .tab-badge-client   { background: #1A2D33; color: #61DAFB; border: 1px solid #2D3C42; }
 .tab-btn:not(.active) .tab-badge    { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
 .tab-btn:not(.active):hover         { background: var(--surface-2); color: var(--text-muted); }
 
@@ -174,16 +175,16 @@ body {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 8px 18px; background: var(--surface-2);
     border: 1px solid var(--border); border-radius: var(--radius);
-    color: var(--text-muted); font-family: 'Tajawal', sans-serif;
+    color: var(--text-muted); font-family: 'Cairo', sans-serif;
     font-size: 13px; cursor: pointer; text-decoration: none;
     transition: all var(--transition);
 }
 .btn-back:hover { background: var(--surface); color: var(--text); border-color: var(--accent); }
 
 .alert { padding: 14px 18px; border-radius: var(--radius); margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
-.alert-error   { background: #2a1515; border: 1px solid #5a2020; color: #fca5a5; }
-.alert-success { background: #0f2a1a; border: 1px solid #1a5c30; color: #86efac; }
-.alert-info    { background: #00b4d810; border: 1px solid #00b4d840; color: #00b4d8; }
+.alert-error   { background: #2D1E20; border: 1px solid #5C3C40; color: #F0A8AD; }
+.alert-success { background: #1E2D1E; border: 1px solid #3C5C3F; color: #C0DBA0; }
+.alert-info    { background: #61DAFB10; border: 1px solid #61DAFB40; color: #61DAFB; }
 
 .form-section {
     background: var(--surface); border: 1px solid var(--border);
@@ -217,17 +218,17 @@ body {
     width: 100%; padding: 10px 14px;
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: var(--radius); color: var(--text);
-    font-family: 'Tajawal', sans-serif; font-size: 14px;
+    font-family: 'Cairo', sans-serif; font-size: 14px;
     outline: none; transition: border-color var(--transition), box-shadow var(--transition);
     appearance: none;
 }
-.form-control:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(79,124,255,0.15); }
+.form-control:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(0,122,204,0.25); }
 .form-control::placeholder { color: var(--text-muted); }
 .form-control:disabled { opacity: 0.45; cursor: not-allowed; }
-.form-control.field-invalid { border-color: var(--danger) !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.15) !important; }
+.form-control.field-invalid { border-color: var(--danger) !important; box-shadow: 0 0 0 3px rgba(224,108,117,0.15) !important; }
 
 select.form-control {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a84a0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A3A3A3' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: left 12px center; padding-left: 34px;
 }
 
@@ -237,7 +238,7 @@ select.form-control {
     min-width: 68px; padding: 10px 12px;
     background: var(--accent-dim); border: 1px solid var(--border);
     border-radius: var(--radius); color: var(--accent);
-    font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 700;
+    font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700;
     letter-spacing: 0.5px; flex-shrink: 0; white-space: nowrap;
 }
 .phone-row .form-control { flex: 1; }
@@ -245,30 +246,30 @@ select.form-control {
 
 .inline-error {
     display: none; align-items: center; gap: 8px;
-    padding: 10px 14px; background: #2a1515;
-    border: 1px solid #5a2020; border-radius: var(--radius);
-    color: #fca5a5; font-size: 13px; margin-top: 8px;
+    padding: 10px 14px; background: #2D1E20;
+    border: 1px solid #5C3C40; border-radius: var(--radius);
+    color: #F0A8AD; font-size: 13px; margin-top: 8px;
 }
 .inline-error.visible { display: flex; }
 
 .pay-warn {
     display: none; align-items: center; gap: 8px;
-    padding: 10px 14px; background: #2a1a00;
-    border: 1px solid #6b4800; border-radius: var(--radius);
-    color: #fcd34d; font-size: 13px; margin-top: 8px;
+    padding: 10px 14px; background: #2D2620;
+    border: 1px solid #5C4A3C; border-radius: var(--radius);
+    color: #E0B98A; font-size: 13px; margin-top: 8px;
 }
 .pay-warn.visible { display: flex; }
 
 .no-plans-notice {
     display: none; align-items: center; gap: 8px;
-    padding: 10px 14px; background: #1a1a2a;
-    border: 1px solid #3a3a6a; border-radius: var(--radius);
-    color: #a0a9ff; font-size: 13px; margin-top: 8px;
+    padding: 10px 14px; background: #1A2D33;
+    border: 1px solid #2D3C42; border-radius: var(--radius);
+    color: #61DAFB; font-size: 13px; margin-top: 8px;
 }
 .no-plans-notice.visible { display: flex; }
 
 .computed-field .form-control {
-    background: rgba(79,124,255,0.05);
+    background: rgba(0,122,204,0.06);
     border-color: var(--accent-dim);
     color: var(--accent);
     font-weight: 600;
@@ -299,7 +300,7 @@ select.form-control {
 .branch-locked {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 14px;
-    background: rgba(79,124,255,0.07);
+    background: rgba(0,122,204,0.08);
     border: 1px solid var(--accent-dim);
     border-radius: var(--radius);
     font-size: 14px; color: var(--text);
@@ -311,11 +312,11 @@ select.form-control {
 .btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 11px 26px; border-radius: var(--radius);
-    font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600;
+    font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600;
     cursor: pointer; border: none; transition: all var(--transition); text-decoration: none;
 }
-.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 20px rgba(79,124,255,0.35); }
-.btn-primary:hover { background: #3a68e8; transform: translateY(-1px); }
+.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 20px rgba(0,122,204,0.35); }
+.btn-primary:hover { background: #3399FF; transform: translateY(-1px); }
 .btn-secondary { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
 .btn-secondary:hover { color: var(--text); border-color: var(--accent); }
 
@@ -330,9 +331,9 @@ select.form-control {
     border-radius: 12px; background: var(--surface-2);
     transition: border-color 0.2s, background 0.2s, box-shadow 0.2s; user-select: none;
 }
-.rtype-option input:checked ~ .rtype-card { border-color: var(--accent); background: rgba(79,124,255,0.07); box-shadow: 0 0 0 3px rgba(79,124,255,0.12); }
-.rtype-option input:checked ~ .rtype-card.card-previous { border-color: var(--warning); background: rgba(245,158,11,0.07); box-shadow: 0 0 0 3px rgba(245,158,11,0.12); }
-.rtype-card.card-invalid { border-color: var(--danger) !important; background: rgba(239,68,68,0.06) !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.12) !important; }
+.rtype-option input:checked ~ .rtype-card { border-color: var(--accent); background: rgba(0,122,204,0.08); box-shadow: 0 0 0 3px rgba(0,122,204,0.14); }
+.rtype-option input:checked ~ .rtype-card.card-previous { border-color: var(--warning); background: rgba(209,154,102,0.10); box-shadow: 0 0 0 3px rgba(209,154,102,0.14); }
+.rtype-card.card-invalid { border-color: var(--danger) !important; background: rgba(224,108,117,0.08) !important; box-shadow: 0 0 0 3px rgba(224,108,117,0.14) !important; }
 .rtype-icon { font-size: 26px; flex-shrink: 0; line-height: 1; }
 .rtype-body { display: flex; flex-direction: column; gap: 3px; }
 .rtype-label { font-size: 14px; font-weight: 700; color: var(--text); }
@@ -350,20 +351,20 @@ select.form-control {
 
 .renewal-type-error {
     display: none; align-items: flex-start; gap: 10px;
-    padding: 13px 16px; background: #2a1515; border: 1px solid #5a2020;
-    border-radius: var(--radius); color: #fca5a5; font-size: 13px; line-height: 1.6; margin-top: 14px;
+    padding: 13px 16px; background: #2D1E20; border: 1px solid #5C3C40;
+    border-radius: var(--radius); color: #F0A8AD; font-size: 13px; line-height: 1.6; margin-top: 14px;
 }
 .renewal-type-error.visible { display: flex; }
 .correct-answer-pill {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-top: 6px;
 }
-.correct-answer-pill.current  { background: rgba(79,124,255,0.15); color: var(--accent); border: 1px solid var(--accent); }
-.correct-answer-pill.previous { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid var(--warning); }
+.correct-answer-pill.current  { background: rgba(0,122,204,0.15); color: var(--accent); border: 1px solid var(--accent); }
+.correct-answer-pill.previous { background: rgba(209,154,102,0.15); color: var(--warning); border: 1px solid var(--warning); }
 
 .eligibility-error {
-    padding: 14px 18px; background: #2a1515; border: 1px solid #5a2020;
-    border-radius: 14px; color: #fca5a5; font-size: 14px; line-height: 1.7; margin-bottom: 20px;
+    padding: 14px 18px; background: #2D1E20; border: 1px solid #5C3C40;
+    border-radius: 14px; color: #F0A8AD; font-size: 14px; line-height: 1.7; margin-bottom: 20px;
 }
 
 /* ── Receipt cards (payment + refund tabs) ── */
@@ -388,9 +389,9 @@ select.form-control {
 .rc-item label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
 .rc-item span { font-size: 13px; font-weight: 600; }
 .renewal-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-.renewal-badge.new      { background: #0f2a1a; color: #34c789; border: 1px solid #1a5c30; }
-.renewal-badge.current  { background: #0a1a2a; color: #00b4d8; border: 1px solid #1a3a4a; }
-.renewal-badge.previous { background: #1a1a00; color: #fbbf24; border: 1px solid #3a3a00; }
+.renewal-badge.new      { background: #1E2D1E; color: #98C379; border: 1px solid #3C5C3F; }
+.renewal-badge.current  { background: #1A2D33; color: #61DAFB; border: 1px solid #2D3C42; }
+.renewal-badge.previous { background: #2D2620; color: #D19A66; border: 1px solid #5C4A3C; }
 
 /* payment inline form */
 .payment-form { margin-top: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
@@ -408,7 +409,7 @@ select.form-control {
 .refund-form-wrap {
     margin-top: 24px;
     background: var(--surface);
-    border: 1px solid #5a2020;
+    border: 1px solid #5C3C40;
     border-radius: 12px;
     overflow: hidden;
     display: none;
@@ -416,9 +417,9 @@ select.form-control {
 .refund-form-wrap.visible { display: block; }
 .refund-form-header {
     padding: 14px 20px;
-    background: #2a1515;
-    border-bottom: 1px solid #5a2020;
-    font-size: 14px; font-weight: 600; color: #fca5a5;
+    background: #2D1E20;
+    border-bottom: 1px solid #5C3C40;
+    font-size: 14px; font-weight: 600; color: #F0A8AD;
 }
 .refund-form-body { padding: 22px; }
 
@@ -428,25 +429,25 @@ select.form-control {
 .badge-fully-paid {
     display: inline-flex; align-items: center; gap: 4px;
     padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
-    background: #0a2a1a; color: #34c789; border: 1px solid #1a5c30;
+    background: #1E2D1E; color: #98C379; border: 1px solid #3C5C3F;
 }
 
 /* ── Client tab ── */
 .client-success-banner {
     display: flex; align-items: center; gap: 14px;
     padding: 18px 22px;
-    background: #0a2010; border: 1px solid #1a5c30;
+    background: #1E2D1E; border: 1px solid #3C5C3F;
     border-radius: 14px; margin-bottom: 20px;
 }
 .client-success-banner .csb-icon { font-size: 28px; flex-shrink: 0; }
 .client-success-banner .csb-body { display: flex; flex-direction: column; gap: 2px; }
-.client-success-banner .csb-title { font-size: 15px; font-weight: 700; color: #86efac; }
+.client-success-banner .csb-title { font-size: 15px; font-weight: 700; color: #C0DBA0; }
 .client-success-banner .csb-sub   { font-size: 12px; color: var(--text-muted); }
 .client-submit-btn {
-    background: #7c3aed !important;
-    box-shadow: 0 4px 20px rgba(124,58,237,0.35) !important;
+    background: #007ACC !important;
+    box-shadow: 0 4px 20px rgba(0,122,204,0.35) !important;
 }
-.client-submit-btn:hover { background: #6d28d9 !important; }
+.client-submit-btn:hover { background: #3399FF !important; }
 
 /* ════════════════════════════════════════════════════════════════
    RESPONSIVE — tablet ≤768px and mobile ≤480px
@@ -602,7 +603,7 @@ select.form-control {
        TAB 1: إيصال جديد
   ══════════════════════════════════════════════════════════════ -->
   <div class="tab-panel" id="tab-panel-new" role="tabpanel">
-	<h1>ايصال جديد</h1>
+	<h1 style="margin: 10px;">ايصال جديد</h1>
     <form method="POST" action="<?= APP_URL ?>/receipt/create"
           enctype="multipart/form-data" id="newReceiptForm">
       <input type="hidden" name="renewal_type" value="new">
@@ -791,7 +792,6 @@ select.form-control {
               <div class="pay-warn" id="new-pay-warn">
                 ⚠️ الحد الأدنى للدفع هو <strong><?= number_format($minPaymentAmount, 0) ?></strong> جنيه.
               </div>
-              <div class="inline-error" id="new-overpay-error">❌ المبلغ المدفوع أكبر من سعر الخطة.</div>
             </div>
             <div class="form-field computed-field">
               <label class="form-label">المتبقي</label>
@@ -848,10 +848,10 @@ select.form-control {
         <form method="GET" action="<?= APP_URL ?>/receipt/manage" style="display:flex;gap:10px;align-items:flex-end;">
           <input type="hidden" name="tab" value="renew">
           <div class="form-field" style="flex:1;">
-<label class="form-label">ابحث برقم العضويه أو رقم الهاتف</label>
-<input type="text" name="renew_search" class="form-control"
-       placeholder="مثال: 4821 أو 01012345678"
-       value="<?= htmlspecialchars($renewSearch ?? '') ?>">
+            <label class="form-label">ابحث بالاسم، رقم الهاتف، أو رقم الإيصال</label>
+            <input type="text" name="renew_search" class="form-control"
+                   placeholder="مثال: أحمد محمد أو 01012345678 أو #1234"
+                   value="<?= htmlspecialchars($renewSearch ?? '') ?>">
           </div>
           <button type="submit" class="btn btn-primary" style="height:42px;">🔍 بحث</button>
         </form>
@@ -867,7 +867,7 @@ select.form-control {
             <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">الاسم</div><div style="font-weight:700;"><?= htmlspecialchars($renewClient['client_name']) ?></div></div>
             <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">الهاتف</div><div style="font-weight:700;"><?= htmlspecialchars($renewClient['phone']) ?></div></div>
             <?php if (!empty($renewClient['age'])): ?><div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">العمر</div><div style="font-weight:700;"><?= htmlspecialchars($renewClient['age']) ?></div></div><?php endif; ?>
-            <div style="margin-right:auto;align-self:center;"><span style="background:#0f2a1a;border:1px solid #1a5c30;color:#86efac;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;">✅ تم العثور على العميل</span></div>
+            <div style="margin-right:auto;align-self:center;"><span style="background:#1E2D1E;border:1px solid #3C5C3F;color:#C0DBA0;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;">✅ تم العثور على العميل</span></div>
           </div>
         <?php endif; ?>
       </div>
@@ -1066,7 +1066,6 @@ select.form-control {
               <input type="text" name="amount" id="ren-paid-amount" class="form-control"
                      placeholder="0" min="<?= $minPaymentAmount ?>" required onchange="renCalcRemaining()">
               <div class="pay-warn" id="ren-pay-warn">⚠️ الحد الأدنى للدفع هو <strong><?= number_format($minPaymentAmount, 0) ?></strong> جنيه.</div>
-              <div class="inline-error" id="ren-overpay-error">❌ المبلغ المدفوع أكبر من سعر الخطة.</div>
             </div>
             <div class="form-field computed-field">
               <label class="form-label">المتبقي</label>
@@ -1170,7 +1169,7 @@ select.form-control {
           <span style="font-weight:700;color:var(--text);">#<?= $r['id'] ?> — <?= htmlspecialchars($r['plan_name'] ?? '—') ?></span>
           <span style="font-size:12px;color:var(--text-muted);"><?= htmlspecialchars($r['branch_name'] ?? '—') ?></span>
           <span class="renewal-badge <?= $rtMeta['class'] ?>"><?= $rtMeta['label'] ?></span>
-          <span style="font-size:11px;font-weight:700;color:#fbbf24;">غير مكتمل</span>
+          <span style="font-size:11px;font-weight:700;color:#D19A66;">غير مكتمل</span>
         </div>
         <div class="receipt-card-body">
           <div class="rc-item"><label>أول جلسة</label><span><?= htmlspecialchars($r['first_session'] ?? '—') ?></span></div>
@@ -1196,9 +1195,8 @@ select.form-control {
           <div class="form-grid-3">
             <div class="form-field">
               <label class="form-label">المبلغ <span style="color:var(--danger);">*</span></label>
-              <input type="text" name="amount" id="pay-amount" class="form-control" placeholder="0" min="1" step="0.01" required oninput="payValidateAmount()">
+              <input type="text" name="amount" id="pay-amount" class="form-control" placeholder="0" min="1" step="0.01" required>
               <span class="field-hint">المتبقي الحالي: <strong id="pay-current-remaining">—</strong></span>
-              <div class="inline-error" id="pay-overpay-error">❌ المبلغ أكبر من المتبقي على هذا الإيصال.</div>
             </div>
             <div class="form-field">
               <label class="form-label">طريقة الدفع <span style="color:var(--danger);">*</span></label>
@@ -1306,7 +1304,7 @@ select.form-control {
           $rtMeta = $rtMap[$rtKey] ?? ['label' => $rtKey, 'class' => 'new'];
 
           $st = $r['receipt_status'] ?? '';
-          $stColors = ['completed' => '#22c55e', 'not_completed' => '#fbbf24', 'pending' => '#818cf8'];
+          $stColors = ['completed' => '#98C379', 'not_completed' => '#D19A66', 'pending' => '#61DAFB'];
           $stLabels = ['completed' => 'مكتمل', 'not_completed' => 'غير مكتمل', 'pending' => 'معلّق'];
       ?>
       <div class="receipt-card"
@@ -1361,9 +1359,8 @@ select.form-control {
             <div class="form-field">
               <label class="form-label">المبلغ المُسترَد <span style="color:var(--danger);">*</span></label>
               <input type="text" name="amount" id="refund-amount"
-                     class="form-control" placeholder="0" min="1" step="0.01" required oninput="refundValidateAmount()">
+                     class="form-control" placeholder="0" min="1" step="0.01" required>
               <span class="field-hint">الحد الأقصى للاسترداد: <strong id="refund-max-display">—</strong></span>
-              <div class="inline-error" id="refund-overamount-error">❌ المبلغ أكبر من الحد الأقصى المسموح للاسترداد.</div>
             </div>
             <div class="form-field">
               <label class="form-label">طريقة الاسترداد <span style="color:var(--danger);">*</span></label>
@@ -1392,7 +1389,7 @@ select.form-control {
 
           <div style="margin-top:18px;display:flex;gap:10px;">
             <button type="submit" class="btn btn-primary"
-                    style="background:var(--danger);box-shadow:0 4px 20px rgba(239,68,68,.35);">
+                    style="background:var(--danger);box-shadow:0 4px 20px rgba(224,108,117,.35);">
               ↩️ تأكيد الاسترداد
             </button>
             <button type="button" class="btn btn-secondary"
@@ -1660,17 +1657,9 @@ function newCalcRemaining() {
     const paid  = parseFloat(document.getElementById('new-paid-amount').value) || 0;
     if (price > 0) document.getElementById('new-paid-amount').setAttribute('max', price);
     document.getElementById('new-remaining').value = price > 0 ? Math.max(price - paid, 0) : 0;
-
-    const warn    = document.getElementById('new-pay-warn');
-    const overpay = document.getElementById('new-overpay-error');
-    const sub     = document.getElementById('new-submit-btn');
-
-    const underMin = paid > 0 && paid < MIN_PAYMENT;
-    const overMax  = price > 0 && paid > price;
-
-    warn.classList.toggle('visible', underMin);
-    overpay.classList.toggle('visible', overMax);
-    sub.disabled = underMin || overMax;
+    const warn = document.getElementById('new-pay-warn'), sub = document.getElementById('new-submit-btn');
+    if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); sub.disabled = true; }
+    else { warn.classList.remove('visible'); sub.disabled = false; }
 }
 function newUpdateDates() {
     const start = document.getElementById('new-start-date').value;
@@ -1694,46 +1683,15 @@ function newUpdateDates() {
     document.getElementById('new-renewal-date').value = result.renewal;
     document.getElementById('new-last-date').value    = result.last;
 }
-
-
 function newValidateTime() {
-    const t = document.getElementById('new-exercise-time').value;
-    const el = document.getElementById('new-time-error');
-    
-    el.classList.remove('visible'); 
-    if (!t) return;
-    
-    const meta = branchMeta(getBranchId('new')); 
-    if (!meta?.working_time_from || !meta?.working_time_to) return;
-
-    // 1. Convert everything to minutes so we can compare actual numbers
-    const currentMins = timeToMinutes(t);
-    let fromMins = timeToMinutes(meta.working_time_from);
-    let toMins = timeToMinutes(meta.working_time_to);
-
-    // 2. Handle the midnight edge-case (00:00 becomes 1440 minutes)
-    if (toMins === 0 && fromMins > 0) {
-        toMins = 24 * 60; // 1440
-    }
-
-    // 3. Perform the correct range check
-    let isValid = false;
-    if (fromMins <= toMins) {
-        // Standard daytime range
-        isValid = (currentMins >= fromMins && currentMins <= toMins);
-    } else {
-        // Range that crosses midnight
-        isValid = (currentMins >= fromMins || currentMins <= toMins);
-    }
-
-    // 4. Trigger error UI if the time is invalid
-    if (!isValid) {
-        document.getElementById('new-time-error-msg').textContent = 
-            `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
-        el.classList.add('visible');
+    const t = document.getElementById('new-exercise-time').value, el = document.getElementById('new-time-error');
+    el.classList.remove('visible'); if (!t) return;
+    const meta = branchMeta(getBranchId('new')); if (!meta?.working_time_from) return;
+    if (t < meta.working_time_from || t > meta.working_time_to) {
+        document.getElementById('new-time-error-msg').textContent = `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
+      el.classList.add('visible');
     }
 }
-
 function newToggleEvidence() {
     const m = document.getElementById('new-payment-method').value;
     const f = document.getElementById('new-evidence-field'), i = document.getElementById('new-transaction-evidence');
@@ -1744,10 +1702,8 @@ document.getElementById('newReceiptForm')?.addEventListener('submit', e => {
     const nameWords = document.querySelector('.new-client-name')?.value.trim().split(/\s+/).filter(w=>w.length>0) || [];
     if (nameWords.length < 3) { document.querySelector('.new-name-error').classList.add('visible'); e.preventDefault(); return; }
     document.querySelector('.new-name-error').classList.remove('visible');
-    const price = getPlanPrice('new-plan');
     const paid = parseFloat(document.getElementById('new-paid-amount').value) || 0;
     if (paid > 0 && paid < MIN_PAYMENT) { e.preventDefault(); return; }
-    if (price > 0 && paid > price) { document.getElementById('new-overpay-error').classList.add('visible'); e.preventDefault(); return; }
     const prefix = document.querySelector('.new-country-code').value;
     let local = document.querySelector('.new-phone-local').value.trim();
     if (prefix && local.startsWith('0')) local = local.slice(1);
@@ -1769,19 +1725,10 @@ function renBranchChanged() {
 function renPlanChanged() { renCalcRemaining(); renUpdateDates(); }
 function renCalcRemaining() {
     const price = getPlanPrice('ren-plan'), paid = parseFloat(document.getElementById('ren-paid-amount').value) || 0;
-    if (price > 0) document.getElementById('ren-paid-amount').setAttribute('max', price);
     document.getElementById('ren-remaining').value = price > 0 ? Math.max(price - paid, 0) : 0;
-
-    const warn    = document.getElementById('ren-pay-warn');
-    const overpay = document.getElementById('ren-overpay-error');
-    const sub     = document.getElementById('ren-submit-btn');
-
-    const underMin = paid > 0 && paid < MIN_PAYMENT;
-    const overMax  = price > 0 && paid > price;
-
-    warn.classList.toggle('visible', underMin);
-    overpay.classList.toggle('visible', overMax);
-    sub.disabled = underMin || overMax;
+    const warn = document.getElementById('ren-pay-warn'), sub = document.getElementById('ren-submit-btn');
+    if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); sub.disabled = true; }
+    else { warn.classList.remove('visible'); sub.disabled = false; }
 }
 function renUpdateDates() {
     const start = document.getElementById('ren-start-date')?.value;
@@ -1814,55 +1761,15 @@ function renUpdateDates() {
     document.getElementById('ren-renewal-date').value = result.renewal;
     document.getElementById('ren-last-date').value    = result.last;
 }
-
-
-function timeToMinutes(timeString) {
-    if (!timeString || typeof timeString !== 'string') return 0;
-    
-    // Clean up strings that might have AM/PM attached to them
-    let isPM = timeString.toUpperCase().includes('PM');
-    let isAM = timeString.toUpperCase().includes('AM');
-    
-    // Extract just the numbers (e.g., "22:00:00" or "07:00 PM" -> ["22", "00"])
-    const cleanTime = timeString.replace(/[^\d:]/g, '');
-    const parts = cleanTime.split(':');
-    
-    let hours = Number(parts[0]) || 0;
-    let minutes = Number(parts[1]) || 0;
-    
-    // If it was in 12-hour format with AM/PM text
-    if (isPM && hours < 12) hours += 12;
-    if (isAM && hours === 12) hours = 0;
-    
-    return hours * 60 + minutes;
-}
-
-function isTimeInRange(time, from, to) {
-    const t = timeToMinutes(time);
-    let f = timeToMinutes(from);
-    let e = timeToMinutes(to);
-
-    // If closing is midnight (00:00 or 24:00), normalize it to 1440 mins
-    if (e === 0 && f > 0) e = 1440;
-
-    // Handle standard ranges and midnight crossings
-    if (f <= e) {
-        return t >= f && t <= e;
-    }
-    return t >= f || t <= e;
-}
-
-
 function renValidateTime() {
     const t = document.getElementById('ren-exercise-time').value, el = document.getElementById('ren-time-error');
     el.classList.remove('visible'); if (!t) return;
-    const meta = branchMeta(getBranchId('ren')); if (!meta?.working_time_from || !meta?.working_time_to) return;
-    if (!isTimeInRange(t, meta.working_time_from, meta.working_time_to)) {
+    const meta = branchMeta(getBranchId('ren')); if (!meta?.working_time_from) return;
+    if (t < meta.working_time_from || t > meta.working_time_to) {
         document.getElementById('ren-time-error-msg').textContent = `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
       el.classList.add('visible');
     }
 }
-
 function renToggleEvidence() {
     const m = document.getElementById('ren-payment-method').value;
     const f = document.getElementById('ren-evidence-field'), i = document.getElementById('ren-transaction-evidence');
@@ -1894,8 +1801,6 @@ document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
     if (!renValidateRenewalType()) { e.preventDefault(); return; }
     const paid = parseFloat(document.getElementById('ren-paid-amount').value) || 0;
     if (paid > 0 && paid < MIN_PAYMENT) { e.preventDefault(); return; }
-    const price = getPlanPrice('ren-plan');
-    if (price > 0 && paid > price) { document.getElementById('ren-overpay-error').classList.add('visible'); e.preventDefault(); return; }
     const prefix = document.querySelector('.ren-country-code').value;
     let local = document.querySelector('.ren-phone-local').value.trim();
     if (prefix && local.startsWith('0')) local = local.slice(1);
@@ -1905,71 +1810,44 @@ document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
 // ════════════════════════════════════════════════════════════════
 //  TAB 3 — إضافة دفعة
 // ════════════════════════════════════════════════════════════════
-let PAY_SELECTED_REMAINING = 0;
-
 function paySelectReceipt(id, remaining, planPrice) {
     document.querySelectorAll('#tab-panel-payment .receipt-card').forEach(c => c.classList.remove('selected-pay'));
     document.querySelector('#tab-panel-payment .receipt-card[data-id="'+id+'"]').classList.add('selected-pay');
     document.getElementById('pay-selected-receipt-id').value = id;
     document.getElementById('pay-current-remaining').textContent = parseFloat(remaining).toLocaleString('ar-EG');
-    PAY_SELECTED_REMAINING = parseFloat(remaining) || 0;
-    document.getElementById('pay-amount').setAttribute('max', PAY_SELECTED_REMAINING);
     document.getElementById('pay-amount').value = remaining > 0 ? remaining : '';
-    document.getElementById('pay-overpay-error').classList.remove('visible');
     const form = document.getElementById('paymentAddForm');
     form.style.display = 'block';
     form.scrollIntoView({ behavior: 'smooth' });
-}
-function payValidateAmount() {
-    const amt = parseFloat(document.getElementById('pay-amount').value) || 0;
-    const bad = amt > PAY_SELECTED_REMAINING;
-    document.getElementById('pay-overpay-error').classList.toggle('visible', bad);
-    return !bad;
 }
 function payToggleEvidence(method) {
     const f = document.getElementById('pay-evidence-field'), i = document.getElementById('pay-evidence');
     if (method && method !== 'cash') { f.classList.add('visible'); i.required = true; }
     else { f.classList.remove('visible'); i.required = false; i.value = ''; }
 }
-document.getElementById('paymentAddForm')?.addEventListener('submit', e => {
-    if (!payValidateAmount()) e.preventDefault();
-});
 
 // ════════════════════════════════════════════════════════════════
 //  TAB 4 — استرداد
 // ════════════════════════════════════════════════════════════════
-let REFUND_MAX_AMOUNT = 0;
-
 function refundSelectReceipt(id, netPaid, maxRefund) {
     document.querySelectorAll('#tab-panel-refund .receipt-card').forEach(c => c.classList.remove('selected-refund'));
     document.querySelector('#tab-panel-refund .receipt-card[data-id="'+id+'"]').classList.add('selected-refund');
     document.getElementById('refund-selected-receipt-id').value = id;
     document.getElementById('refund-max-display').textContent   = parseFloat(maxRefund).toLocaleString('ar-EG');
-    REFUND_MAX_AMOUNT = parseFloat(maxRefund) || 0;
     const amountInput = document.getElementById('refund-amount');
-    amountInput.max   = REFUND_MAX_AMOUNT;
+    amountInput.max   = maxRefund;
     amountInput.value = '';
-    document.getElementById('refund-overamount-error').classList.remove('visible');
     document.getElementById('refund-method-select').value = '';
     refundToggleEvidence('');
     const wrap = document.getElementById('refundFormWrap');
     wrap.classList.add('visible');
     wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-function refundValidateAmount() {
-    const amt = parseFloat(document.getElementById('refund-amount').value) || 0;
-    const bad = amt > REFUND_MAX_AMOUNT;
-    document.getElementById('refund-overamount-error').classList.toggle('visible', bad);
-    return !bad;
-}
 function refundToggleEvidence(method) {
     const f = document.getElementById('refund-evidence-field'), i = document.getElementById('refund-evidence');
     if (method && method !== 'cash') { f.classList.add('visible'); i.required = true; }
     else { f.classList.remove('visible'); i.required = false; i.value = ''; }
 }
-document.getElementById('refundForm')?.addEventListener('submit', e => {
-    if (!refundValidateAmount()) e.preventDefault();
-});
 
 // ════════════════════════════════════════════════════════════════
 //  TAB 5 — عميل جديد
