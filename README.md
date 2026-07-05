@@ -27,3 +27,6 @@
 - [ ] receipt creation is divided into parts => ui rebuild
 - [ ] dates they fucking does not see them => ui rebuild
 - [ ] rebuild ui => ui rebuild
+
+
+osamaitech123456@gmail.com

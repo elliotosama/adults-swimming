@@ -26,9 +26,40 @@ function evidenceUrl(string $raw): string {
     $filename = basename($raw);
     return APP_URL . '/uploads/evidence/' . $filename;
 }
+
+// ── Role gate: transaction history + audit log are admin-only ───────────
+$isAdmin = (auth_user()['role'] === 'admin');
 ?>
 
 <style>
+/* ── Match index.php's dark theme: bg, surface, border, accent, Cairo font ── */
+:root {
+    --bg:      #1E1E2D;
+    --surface: #252736;
+    --border:  #3C3F58;
+    --primary: #007ACC;
+    --text:    #FFFFFF;
+    --muted:   #ffffffb3;
+}
+body {
+    background: var(--bg);
+    font-family: 'Cairo', sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text);
+}
+html,
+body,
+.page,
+.page--full {
+    background: var(--bg) !important;
+}
+.card {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
 /* ── Page header ─────────────────────────────────────────────────────────── */
 .page-header {
     display: flex;
@@ -394,7 +425,8 @@ function evidenceUrl(string $raw): string {
     </div>
 </div>
 
-<!-- ─── المعاملات المالية ──────────────────────────────────────────────── -->
+<?php if ($isAdmin): ?>
+<!-- ─── المعاملات المالية (Admin only) ─────────────────────────────────── -->
 <div class="card" style="margin-bottom:1.5rem; padding: 14px;">
     <div class="section-header">
         <h2>💳 المعاملات المالية</h2>
@@ -439,7 +471,6 @@ function evidenceUrl(string $raw): string {
                         $evidenceUrl = $rawEvidence ? evidenceUrl($rawEvidence) : '';
                         $ext         = $rawEvidence ? strtolower(pathinfo($rawEvidence, PATHINFO_EXTENSION)) : '';
                         $isPdf       = ($ext === 'pdf');
-                        $isAdmin     = (auth_user()['role'] === 'admin');
                         ?>
                         <tr>
                             <td style="color:var(--muted);font-size:.82rem"><?= $t['id'] ?></td>
@@ -510,7 +541,6 @@ function evidenceUrl(string $raw): string {
                 $evidenceUrl = $rawEvidence ? evidenceUrl($rawEvidence) : '';
                 $ext         = $rawEvidence ? strtolower(pathinfo($rawEvidence, PATHINFO_EXTENSION)) : '';
                 $isPdf       = ($ext === 'pdf');
-                $isAdmin     = (auth_user()['role'] === 'admin');
                 ?>
                 <div class="tx-card">
                     <div class="tx-card-row">
@@ -558,7 +588,7 @@ function evidenceUrl(string $raw): string {
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                             <button type="submit" class="btn btn-sm btn-danger">حذف</button>
                         </form>
-                        <?php if ($isAdmin && !empty($evidenceUrl)): ?>
+                        <?php if (!empty($evidenceUrl)): ?>
                             <form method="POST"
                                   action="<?= APP_URL ?>/transaction/remove-evidence?id=<?= $t['id'] ?>"
                                   style="display:inline"
@@ -575,7 +605,7 @@ function evidenceUrl(string $raw): string {
     <?php endif; ?>
 </div>
 
-<!-- ─── سجل التدقيق ───────────────────────────────────────────────────── -->
+<!-- ─── سجل التدقيق (Admin only) ─────────────────────────────────────── -->
 <div class="card" style="padding: 14px;">
     <h2 style="font-size:1rem;font-weight:600;margin-bottom:1rem;color:var(--text)">📋 سجل التعديلات</h2>
 
@@ -636,6 +666,7 @@ function evidenceUrl(string $raw): string {
 
     <?php endif; ?>
 </div>
+<?php endif; // $isAdmin ?>
 
 <!-- ─── Evidence lightbox modal ───────────────────────────────────────── -->
 <div class="evidence-modal-overlay" id="evidenceModalOverlay" onclick="if(event.target===this) closeEvidenceModal()">

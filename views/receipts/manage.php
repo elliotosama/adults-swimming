@@ -97,8 +97,8 @@ $preSelectedType = !empty($submittedType) ? $submittedType : '';
     --warning:     #D19A66;
     --highlight:   #61DAFB;
     --text:        #FFFFFF;
-    --text-muted:  #A3A3A3;
-    --text-label:  #A3A3A3;
+    --text-muted:  #fff;
+    --text-label:  #fff;
     --radius:      10px;
     --transition:  0.2s ease;
 }
@@ -106,7 +106,7 @@ $preSelectedType = !empty($submittedType) ? $submittedType : '';
 body {
     font-size: 16px;
     font-weight: bold;
-    color: #fff;
+    color: white;
     font-family: 'Cairo', sans-serif;
 }
 .receipt-page { max-width: 980px; margin: 0 auto; padding: 32px 20px 60px; }
@@ -367,6 +367,16 @@ select.form-control {
     border-radius: 14px; color: #F0A8AD; font-size: 14px; line-height: 1.7; margin-bottom: 20px;
 }
 
+/* ── Missing required fields banner ── */
+.missing-fields-alert {
+    display: none; align-items: flex-start; gap: 10px;
+    padding: 14px 18px; background: #2D1E20; border: 1px solid #5C3C40;
+    border-radius: var(--radius); color: #F0A8AD; font-size: 13px; line-height: 1.8;
+    margin-bottom: 18px;
+}
+.missing-fields-alert.visible { display: flex; }
+.missing-fields-alert strong { color: #fff; }
+
 /* ── Receipt cards (payment + refund tabs) ── */
 .receipt-pick { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
 .receipt-card {
@@ -603,13 +613,15 @@ select.form-control {
        TAB 1: إيصال جديد
   ══════════════════════════════════════════════════════════════ -->
   <div class="tab-panel" id="tab-panel-new" role="tabpanel">
-	<h1 style="margin: 10px;">ايصال جديد</h1>
+    <h1 style="margin: 10px;">ايصال جديد</h1>
     <form method="POST" action="<?= APP_URL ?>/receipt/create"
           enctype="multipart/form-data" id="newReceiptForm">
       <input type="hidden" name="renewal_type" value="new">
       <?php if (!empty($receipt['client_id'])): ?>
         <input type="hidden" name="client_id" value="<?= (int)$receipt['client_id'] ?>">
       <?php endif; ?>
+
+      <div class="missing-fields-alert" id="new-missing-fields-alert"></div>
 
       <!-- § 1 — بيانات العميل -->
       <div class="form-section">
@@ -838,7 +850,7 @@ select.form-control {
        TAB 2: تجديد
   ══════════════════════════════════════════════════════════════ -->
   <div class="tab-panel" id="tab-panel-renew" role="tabpanel">
-	<h1>تجديد ايصال</h1>
+    <h1>تجديد ايصال</h1>
     <div class="form-section">
       <div class="section-header">
         <div class="section-icon">🔍</div>
@@ -848,9 +860,9 @@ select.form-control {
         <form method="GET" action="<?= APP_URL ?>/receipt/manage" style="display:flex;gap:10px;align-items:flex-end;">
           <input type="hidden" name="tab" value="renew">
           <div class="form-field" style="flex:1;">
-            <label class="form-label">ابحث بالاسم، رقم الهاتف، أو رقم الإيصال</label>
+            <label class="form-label">ابحث برقم العميل (Client ID) أو رقم الهاتف</label>
             <input type="text" name="renew_search" class="form-control"
-                   placeholder="مثال: أحمد محمد أو 01012345678 أو #1234"
+                   placeholder="مثال: 01012345678 أو رقم العميل"
                    value="<?= htmlspecialchars($renewSearch ?? '') ?>">
           </div>
           <button type="submit" class="btn btn-primary" style="height:42px;">🔍 بحث</button>
@@ -877,6 +889,8 @@ select.form-control {
     <form method="POST" action="<?= APP_URL ?>/receipt/renew"
           enctype="multipart/form-data" id="renewReceiptForm">
       <input type="hidden" name="client_id" value="<?= (int)$renewClient['id'] ?>">
+
+      <div class="missing-fields-alert" id="ren-missing-fields-alert"></div>
 
       <div class="form-section">
         <div class="section-header"><div class="section-icon">🔄</div><span class="section-title">نوع التجديد <span style="color:var(--danger);margin-right:4px;">*</span></span></div>
@@ -1109,16 +1123,16 @@ select.form-control {
        TAB 3: إضافة دفعة
   ══════════════════════════════════════════════════════════════ -->
   <div class="tab-panel" id="tab-panel-payment" role="tabpanel">
-	<h1>تكمله ايصال</h1>
+    <h1>تكمله ايصال</h1>
     <div class="form-section">
       <div class="section-header"><div class="section-icon">🔍</div><span class="section-title">البحث عن العميل</span></div>
       <div class="section-body">
         <form method="GET" action="<?= APP_URL ?>/receipt/manage" style="display:flex;gap:10px;align-items:flex-end;">
           <input type="hidden" name="tab" value="payment">
           <div class="form-field" style="flex:1;">
-            <label class="form-label">ابحث بالاسم، رقم الهاتف، أو رقم الإيصال</label>
+            <label class="form-label">ابحث برقم العميل (Client ID) أو رقم الهاتف</label>
             <input type="text" name="pay_search" class="form-control"
-                   placeholder="مثال: أحمد أو 01012345678 أو #1234"
+                   placeholder="مثال: 01012345678 أو رقم العميل"
                    value="<?= htmlspecialchars($paySearch) ?>">
           </div>
           <button type="submit" class="btn btn-primary" style="height:42px;">🔍 بحث</button>
@@ -1236,28 +1250,28 @@ select.form-control {
        TAB 4: استرداد
   ══════════════════════════════════════════════════════════════ -->
   <div class="tab-panel" id="tab-panel-refund" role="tabpanel">
-	<h1>استرداد</h1>
+    <h1>استرداد</h1>
     <div class="form-section">
       <div class="section-header">
         <div class="section-icon">🔍</div>
-        <span class="section-title">البحث عن العميل</span>
+        <span class="section-title">البحث برقم الإيصال</span>
       </div>
       <div class="section-body">
         <form method="GET" action="<?= APP_URL ?>/receipt/manage" style="display:flex;gap:10px;align-items:flex-end;">
           <input type="hidden" name="tab" value="refund">
           <div class="form-field" style="flex:1;">
-            <label class="form-label">ابحث بالاسم، رقم الهاتف (مع أو بدون كود الدولة)، أو رقم الإيصال</label>
+            <label class="form-label">أدخل رقم الإيصال فقط</label>
             <input type="text" name="refund_search" class="form-control"
-                   placeholder="مثال: أحمد أو 01012345678 أو 1012345678 أو #1234"
+                   placeholder="مثال: 1234"
+                   inputmode="numeric"
                    value="<?= htmlspecialchars($refundSearch) ?>">
+              <span class="field-hint">البحث في الاسترداد يتم برقم الإيصال فقط — لا يقبل الاسم أو رقم الهاتف</span>
           </div>
           <button type="submit" class="btn btn-primary" style="height:42px;">🔍 بحث</button>
         </form>
 
         <?php if (!empty($refundSearch) && empty($refundClient)): ?>
-          <div class="alert alert-error" style="margin-top:12px;">⚠️ لم يتم العثور على عميل.</div>
-        <?php elseif (!empty($refundClient) && empty($refundReceipts)): ?>
-          <div class="alert alert-error" style="margin-top:12px;">⚠️ لا توجد إيصالات مرتبطة بهذا العميل.</div>
+          <div class="alert alert-error" style="margin-top:12px;">⚠️ لم يتم العثور على إيصال بهذا الرقم، أو لا يوجد مبلغ متاح للاسترداد عليه.</div>
         <?php endif; ?>
 
         <?php if (!empty($refundClient)): ?>
@@ -1277,7 +1291,7 @@ select.form-control {
 
     <?php if (!empty($refundReceipts)): ?>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">
-      اختر الإيصال الذي تريد استرداد مبلغ منه:
+      الإيصال المطابق لرقم البحث:
     </div>
 
     <div class="receipt-pick" id="refundReceiptPick">
@@ -1408,7 +1422,7 @@ select.form-control {
        TAB 5: عميل جديد
   ══════════════════════════════════════════════════════════════ -->
   <div class="tab-panel" id="tab-panel-client" role="tabpanel">
-	<h1>اضافه عميل</h1>
+    <h1>اضافه عميل</h1>
     <?php if (!empty($_SESSION['flash_success_client'])): ?>
       <div class="client-success-banner">
         <span class="csb-icon">✅</span>
@@ -1556,6 +1570,78 @@ const PHONE_RULES = {
 };
 
 // ════════════════════════════════════════════════════════════════
+//  Required-fields validation (used by "new" and "renew" tabs)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Checks a list of { el, label } fields. A field is only checked when it is
+ * actually visible on screen (offsetParent !== null) — this automatically
+ * skips locked/hidden branch inputs and evidence fields that are hidden
+ * because the "cash" payment method doesn't require them.
+ */
+function checkRequiredFields(fields) {
+    const missing = [];
+    let firstInvalid = null;
+
+    fields.forEach(({ el, label }) => {
+        if (!el || el.type === 'hidden') return;
+        const visible = el.offsetParent !== null;
+        if (!visible) { el.classList.remove('field-invalid'); return; }
+
+        const val = (el.value || '').trim();
+        if (!val) {
+            el.classList.add('field-invalid');
+            missing.push(label);
+            if (!firstInvalid) firstInvalid = el;
+        } else {
+            el.classList.remove('field-invalid');
+        }
+    });
+
+    return { missing, firstInvalid };
+}
+
+function showMissingFieldsAlert(alertId, missing) {
+    const alertEl = document.getElementById(alertId);
+    if (!alertEl) return;
+    if (!missing.length) {
+        alertEl.classList.remove('visible');
+        alertEl.innerHTML = '';
+        return;
+    }
+    alertEl.innerHTML = '⚠️ يرجى استكمال الحقول التالية قبل المتابعة: <strong>' + missing.join('، ') + '</strong>';
+    alertEl.classList.add('visible');
+}
+
+function getNewRequiredFields() {
+    const fields = [
+        { el: document.querySelector('.new-client-name'),   label: 'اسم العميل' },
+        { el: document.querySelector('.new-phone-local'),   label: 'هاتف العميل' },
+        { el: document.getElementById('new-branch'),        label: 'الفرع' },
+        { el: document.getElementById('new-plan'),          label: 'الخطة / العرض' },
+        { el: document.getElementById('new-start-date'),    label: 'تاريخ أول جلسة' },
+        { el: document.getElementById('new-paid-amount'),   label: 'المبلغ المدفوع' },
+        { el: document.getElementById('new-payment-method'),label: 'طريقة الدفع' },
+        { el: document.getElementById('new-transaction-evidence'), label: 'إثبات الدفع' },
+    ];
+    return fields;
+}
+
+function getRenRequiredFields() {
+    const fields = [
+        { el: document.querySelector('.ren-client-name'),   label: 'اسم العميل' },
+        { el: document.querySelector('.ren-phone-local'),   label: 'هاتف العميل' },
+        { el: document.getElementById('ren-branch'),        label: 'الفرع' },
+        { el: document.getElementById('ren-plan'),          label: 'الخطة / العرض' },
+        { el: document.getElementById('ren-start-date'),    label: 'تاريخ أول جلسة' },
+        { el: document.getElementById('ren-paid-amount'),   label: 'المبلغ المدفوع' },
+        { el: document.getElementById('ren-payment-method'),label: 'طريقة الدفع' },
+        { el: document.getElementById('ren-transaction-evidence'), label: 'إثبات الدفع' },
+    ];
+    return fields;
+}
+
+// ════════════════════════════════════════════════════════════════
 //  Tab switching
 // ════════════════════════════════════════════════════════════════
 
@@ -1699,6 +1785,14 @@ function newToggleEvidence() {
     else { f.classList.remove('visible'); i.required = false; i.value = ''; }
 }
 document.getElementById('newReceiptForm')?.addEventListener('submit', e => {
+    const { missing, firstInvalid } = checkRequiredFields(getNewRequiredFields());
+    showMissingFieldsAlert('new-missing-fields-alert', missing);
+    if (missing.length) {
+        e.preventDefault();
+        firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
     const nameWords = document.querySelector('.new-client-name')?.value.trim().split(/\s+/).filter(w=>w.length>0) || [];
     if (nameWords.length < 3) { document.querySelector('.new-name-error').classList.add('visible'); e.preventDefault(); return; }
     document.querySelector('.new-name-error').classList.remove('visible');
@@ -1796,6 +1890,14 @@ function renValidateRenewalType() {
 document.getElementById('ren-rt-current')?.addEventListener('change',  renValidateRenewalType);
 document.getElementById('ren-rt-previous')?.addEventListener('change', renValidateRenewalType);
 document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
+    const { missing, firstInvalid } = checkRequiredFields(getRenRequiredFields());
+    showMissingFieldsAlert('ren-missing-fields-alert', missing);
+    if (missing.length) {
+        e.preventDefault();
+        firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
     const nameWords = document.querySelector('.ren-client-name')?.value.trim().split(/\s+/).filter(w=>w.length>0) || [];
     if (nameWords.length < 3) { document.querySelector('.ren-name-error').classList.add('visible'); e.preventDefault(); return; }
     if (!renValidateRenewalType()) { e.preventDefault(); return; }

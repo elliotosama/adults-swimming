@@ -64,6 +64,35 @@ $isAdmin   = $isAdmin ?? false;
 </div>
 
 <style>
+/* ── Match manage.php's dark theme: bg, surface, border, accent, Cairo font ── */
+:root {
+    --bg:      #1E1E2D;
+    --surface: #252736;
+    --border:  #3C3F58;
+    --primary: #007ACC;
+    --text:    #FFFFFF;
+    --muted:   #ffffffb3;
+}
+.page--full,
+.page--full * {
+    font-family: 'Cairo', sans-serif;
+}
+.page--full {
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    font-weight: bold;
+}
+.filter-panel,
+.card,
+#tableCard {
+    background: var(--surface);
+    border-color: var(--border);
+}
+table th {
+    background: var(--primary);
+}
+
 @keyframes modalIn {
     from { opacity:0; transform:scale(.92) translateY(8px); }
     to   { opacity:1; transform:scale(1) translateY(0); }

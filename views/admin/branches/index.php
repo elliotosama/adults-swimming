@@ -16,6 +16,34 @@ require ROOT . '/views/includes/layout_top.php';
 </div>
 
 <style>
+/* ── Match the gym theme: dark bg, surface, accent, Cairo bold white text ── */
+:root {
+    --bg:      #1E1E2D;
+    --surface: #252736;
+    --border:  #3C3F58;
+    --accent:  #007ACC;
+    --gold:    #D19A66;
+    --success: #98C379;
+    --danger:  #E06C75;
+    --text:    #FFFFFF;
+    --muted:   #ffffffb3;
+}
+html, body, .page, .page--full {
+    background: var(--bg) !important;
+}
+body {
+    font-family: 'Cairo', sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text);
+}
+.card,
+.filter-bar {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
 @keyframes modalIn {
     from { opacity:0; transform:scale(.92) translateY(8px); }
     to   { opacity:1; transform:scale(1) translateY(0); }

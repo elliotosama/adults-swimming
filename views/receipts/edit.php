@@ -4,24 +4,47 @@ require ROOT . '/views/includes/layout_top.php';
 
 /*
  * Role gate
- * Fields editable by non-admin in edit mode:
- *   plan_id, level, branch_id, captain_id, first_session   (§2 + §3)
- *   payment_method, transaction_evidence, notes             (§4)
+ * ─────────
+ * Admin:            full edit access to everything.
+ * customer_service: can ALSO edit level, first_session (start date), and
+ *                    captain_id — in addition to whatever non-admins can
+ *                    already touch (branch_id, plan_id, payment_method,
+ *                    transaction_evidence, notes).
+ * Everyone else (branch_manager, area_manager, ...):
+ *                    level / first_session / captain_id are LOCKED,
+ *                    same as the always-locked client fields.
  *
- * Fields LOCKED for non-admin in edit mode:
- *   client_name, phone                                      (§1)
- *   exercise_time, double                                   (§3 partials)
+ * Fields LOCKED for everyone except admin:
+ *   client_name, phone, client_email, client_age, client_gender          (§1)
+ *   exercise_time, double                                               (§3 partials)
  *   remaining (always readonly / computed)
+ *
+ * Fields LOCKED for everyone except admin + customer_service:
+ *   level, first_session, captain_id                                    (§2 + §3)
+ *
+ * Fields editable by ALL roles in edit mode:
+ *   branch_id, plan_id                                                  (§2)
+ *   payment_method, transaction_evidence, notes                         (§4)
  */
 $isAdmin = $isAdmin ?? false;
 $isEdit  = $isEdit  ?? true;
 $action  = APP_URL . '/receipt/edit?id=' . $receipt['id'];
 
-$lock = function(bool $adminOnly) use ($isAdmin, $isEdit): string {
-    if ($isAdmin)              return '';
-    if ($isEdit && $adminOnly) return 'disabled';
+$role              = $_SESSION['user']['role'] ?? '';
+$isCustomerService = ($role === 'customer_service');
+
+// $csAllowed = true for fields that customer_service is also allowed to edit
+// (level, first_session, captain_id). Defaults to false (admin-only lock).
+$lock = function(bool $adminOnly, bool $csAllowed = false) use ($isAdmin, $isEdit, $isCustomerService): string {
+    if ($isAdmin)                        return '';
+    if ($csAllowed && $isCustomerService) return '';
+    if ($isEdit && $adminOnly)           return 'disabled';
     return '';
 };
+
+// Convenience flag used for label/lock-icon rendering on the three fields
+// customer_service is now allowed to touch.
+$canEditCS = $isAdmin || $isCustomerService;
 
 /*
  * total_paid  = real sum of all payment transactions (injected by controller)
@@ -37,20 +60,21 @@ $totalRefunded  = (float) ($receipt['total_refunded']  ?? 0);
 $remaining      = max(0, $planPrice - $totalPaid + $totalRefunded);
 ?>
 <style>
+/* ── Shared dark theme (same palette as index.php / manage.php) ── */
 :root {
-    --bg:          #0f1117;
-    --surface:     #181c27;
-    --surface-2:   #1e2334;
-    --border:      #2a3047;
-    --border-focus:#4f7cff;
-    --accent:      #4f7cff;
-    --accent-dim:  #2a3f7a;
-    --success:     #22c55e;
-    --danger:      #ef4444;
-    --warning:     #f59e0b;
-    --text:        #e8eaf0;
-    --text-muted:  #7a84a0;
-    --text-label:  #a0a9c0;
+    --bg:          #1E1E2D;
+    --surface:     #252736;
+    --surface-2:   #2C2F38;
+    --border:      #3C3F58;
+    --border-focus:#007ACC;
+    --accent:      #007ACC;
+    --accent-dim:  #0A3A5C;
+    --success:     #98C379;
+    --danger:      #E06C75;
+    --warning:     #D19A66;
+    --text:        #FFFFFF;
+    --text-muted:  #ffffffb3;
+    --text-label:  #ffffffb3;
     --radius:      10px;
     --transition:  0.2s ease;
 }
@@ -61,6 +85,8 @@ body {
     font-family: 'Cairo', sans-serif;
     background: var(--bg);
     color: var(--text);
+    font-size: 16px;
+    font-weight: bold;
     min-height: 100vh;
     direction: rtl;
 }
@@ -92,8 +118,8 @@ body {
     font-weight: 600;
     margin-top: 8px;
 }
-.role-badge.admin { background: rgba(79,124,255,0.15); color: var(--accent); border: 1px solid var(--accent-dim); }
-.role-badge.user  { background: rgba(122,132,160,0.12); color: var(--text-muted); border: 1px solid var(--border); }
+.role-badge.admin { background: rgba(0,122,204,0.15); color: var(--accent); border: 1px solid var(--accent-dim); }
+.role-badge.user  { background: rgba(255,255,255,0.08); color: var(--text-muted); border: 1px solid var(--border); }
 
 .btn-back {
     display: inline-flex;
@@ -122,9 +148,9 @@ body {
     gap: 10px;
     line-height: 1.6;
 }
-.alert-error   { background: #2a1515; border: 1px solid #5a2020; color: #fca5a5; }
-.alert-success { background: #0f2a1a; border: 1px solid #1a5c30; color: #86efac; }
-.alert-info    { background: rgba(79,124,255,0.08); border: 1px solid var(--accent-dim); color: var(--text-muted); }
+.alert-error   { background: #2D1E20; border: 1px solid #5C3C40; color: #F0A8AD; }
+.alert-success { background: #1E2D1E; border: 1px solid #3C5C3F; color: #C0DBA0; }
+.alert-info    { background: rgba(0,122,204,0.08); border: 1px solid var(--accent-dim); color: var(--text-muted); }
 
 .form-section {
     background: var(--surface);
@@ -190,7 +216,7 @@ body {
     gap: 6px;
 }
 .form-label .req  { color: var(--danger); margin-right: 3px; }
-.form-label .lock { font-size: 11px; opacity: 0.5; }
+.form-label .lock { font-size: 11px; opacity: 0.7; }
 
 .form-control {
     width: 100%;
@@ -207,12 +233,12 @@ body {
 }
 .form-control:focus {
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(79,124,255,0.15);
+    box-shadow: 0 0 0 3px rgba(0,122,204,0.2);
 }
 .form-control::placeholder { color: var(--text-muted); }
 
 select.form-control {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a84a0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A3A3A3' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: left 12px center;
     padding-left: 34px;
@@ -220,21 +246,21 @@ select.form-control {
 
 .form-control:disabled,
 .form-control[disabled] {
-    background: rgba(26,29,45,0.6);
-    border-color: rgba(42,48,71,0.5);
+    background: rgba(37,39,54,0.6);
+    border-color: rgba(60,63,88,0.5);
     color: var(--text-muted);
     cursor: not-allowed;
     opacity: 0.75;
 }
 select.form-control:disabled {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a526a' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666a80' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
 .field-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
 /* Computed / read-only fields */
 .computed-field .form-control {
-    background: rgba(79,124,255,0.05);
+    background: rgba(0,122,204,0.06);
     border-color: var(--accent-dim);
     color: var(--accent);
     font-weight: 600;
@@ -242,8 +268,8 @@ select.form-control:disabled {
 
 /* Green tint when fully paid */
 .computed-field.paid .form-control {
-    background: rgba(34,197,94,0.06);
-    border-color: #1a5c30;
+    background: rgba(152,195,121,0.1);
+    border-color: #3C5C3F;
     color: var(--success);
 }
 
@@ -322,8 +348,8 @@ select.form-control:disabled {
     transition: all var(--transition);
     text-decoration: none;
 }
-.btn-primary   { background: var(--accent); color: #fff; box-shadow: 0 4px 20px rgba(79,124,255,0.35); }
-.btn-primary:hover { background: #3a68e8; transform: translateY(-1px); }
+.btn-primary   { background: var(--accent); color: #fff; box-shadow: 0 4px 20px rgba(0,122,204,0.35); }
+.btn-primary:hover { background: #3399FF; transform: translateY(-1px); }
 .btn-secondary { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
 .btn-secondary:hover { color: var(--text); border-color: var(--accent); }
 </style>
@@ -336,7 +362,13 @@ select.form-control:disabled {
             <h1>تعديل الإيصال #<?= (int)$receipt['id'] ?></h1>
             <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
             <span class="role-badge <?= $isAdmin ? 'admin' : 'user' ?>">
-                <?= $isAdmin ? '🔓 مدير — تعديل كامل' : '🔒 مستخدم — تعديل محدود' ?>
+                <?php if ($isAdmin): ?>
+                    🔓 مدير — تعديل كامل
+                <?php elseif ($isCustomerService): ?>
+                    🔓 خدمة العملاء — تعديل الفرع، الخطة، المستوى، الكابتن، تاريخ أول جلسة، والدفع
+                <?php else: ?>
+                    🔒 مستخدم — تعديل محدود
+                <?php endif; ?>
             </span>
         </div>
         <a href="<?= APP_URL ?>/receipts" class="btn-back">← رجوع</a>
@@ -345,9 +377,14 @@ select.form-control:disabled {
     <!-- Info banner for non-admins -->
     <?php if (!$isAdmin): ?>
     <div class="alert alert-info">
-        ℹ️ يمكنك تعديل <strong>تفاصيل الاشتراك</strong> (الخطة، المستوى، الفرع، الكابتن)
-        و<strong>الجلسات</strong> (أول جلسة) وبيانات <strong>الدفع</strong> فقط.
-        بيانات العميل وباقي الحقول للقراءة فقط.
+        <?php if ($isCustomerService): ?>
+            ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الخطة</strong>، بالإضافة إلى
+            <strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>الكابتن</strong>،
+            وبيانات <strong>الدفع</strong>. بيانات العميل وباقي الحقول للقراءة فقط.
+        <?php else: ?>
+            ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الخطة</strong> وبيانات <strong>الدفع</strong> فقط.
+            بيانات العميل، المستوى، تاريخ أول جلسة، والكابتن للقراءة فقط.
+        <?php endif; ?>
     </div>
     <?php endif; ?>
 
@@ -391,7 +428,7 @@ select.form-control:disabled {
         </div>
         <?php if ($remaining <= 0): ?>
         <div class="pay-summary-item" style="align-self:center; margin-right:auto;">
-            <span style="background:#0f2a1a;border:1px solid #1a5c30;color:#86efac;
+            <span style="background:#1E2D1E;border:1px solid #3C5C3F;color:#C0DBA0;
                          padding:4px 14px;border-radius:999px;font-size:12px;font-weight:600;">
                 ✅ مدفوع بالكامل
             </span>
@@ -483,12 +520,17 @@ select.form-control:disabled {
         </div>
 
         <!-- ══════════════════════════════════════════
-             § 2 — تفاصيل الاشتراك  (EDITABLE for all)
+             § 2 — تفاصيل الاشتراك
+             branch_id / plan_id: editable by everyone.
+             level / captain_id : admin + customer_service only.
         ══════════════════════════════════════════ -->
         <div class="form-section">
             <div class="section-header">
                 <div class="section-icon">📋</div>
                 <span class="section-title">تفاصيل الاشتراك</span>
+                <?php if (!$canEditCS): ?>
+                    <span class="section-lock">🔒 المستوى والكابتن لخدمة العملاء والمدير فقط</span>
+                <?php endif; ?>
             </div>
             <div class="section-body">
                 <div class="form-grid">
@@ -523,8 +565,11 @@ select.form-control:disabled {
                     </div>
 
                     <div class="form-field">
-                        <label class="form-label">الكابتن</label>
-                        <select name="captain_id" id="captain" class="form-control">
+                        <label class="form-label">
+                            الكابتن
+                            <?= !$canEditCS ? '<span class="lock">🔒</span>' : '' ?>
+                        </label>
+                        <select name="captain_id" id="captain" class="form-control" <?= $lock(true, true) ?>>
                             <option value="">— اختر الكابتن —</option>
                             <?php foreach (($captains ?? []) as $ca): ?>
                                 <option value="<?= $ca['id'] ?>"
@@ -536,8 +581,11 @@ select.form-control:disabled {
                     </div>
 
                     <div class="form-field">
-                        <label class="form-label">المستوى <span class="req">*</span></label>
-                        <select name="level" class="form-control" required>
+                        <label class="form-label">
+                            المستوى
+                            <?= $canEditCS ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
+                        </label>
+                        <select name="level" class="form-control" <?= $lock(true, true) ?> <?= $canEditCS ? 'required' : '' ?>>
                             <option value="">— اختر المستوى —</option>
                             <?php for ($i = 1; $i <= 6; $i++): ?>
                                 <option value="<?= $i ?>"
@@ -554,22 +602,33 @@ select.form-control:disabled {
 
         <!-- ══════════════════════════════════════════
              § 3 — الجلسات
+             first_session : admin + customer_service only.
+             exercise_time / double : admin only.
         ══════════════════════════════════════════ -->
         <div class="form-section">
             <div class="section-header">
                 <div class="section-icon">📅</div>
                 <span class="section-title">الجلسات</span>
                 <?php if (!$isAdmin): ?>
-                    <span class="section-lock">🔒 وقت التمرين والجلسة المزدوجة للمدير فقط</span>
+                    <span class="section-lock">
+                        <?= $isCustomerService
+                            ? '🔒 وقت التمرين والجلسة المزدوجة للمدير فقط'
+                            : '🔒 تاريخ أول جلسة، وقت التمرين، والجلسة المزدوجة للمدير وخدمة العملاء فقط' ?>
+                    </span>
                 <?php endif; ?>
             </div>
             <div class="section-body">
                 <div class="form-grid">
 
                     <div class="form-field">
-                        <label class="form-label">تاريخ أول جلسة <span class="req">*</span></label>
+                        <label class="form-label">
+                            تاريخ أول جلسة
+                            <?= $canEditCS ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
+                        </label>
                         <input type="date" name="first_session" id="start_date" class="form-control"
-                               value="<?= htmlspecialchars($receipt['first_session'] ?? '') ?>" required>
+                               value="<?= htmlspecialchars($receipt['first_session'] ?? '') ?>"
+                               <?= $lock(true, true) ?>
+                               <?= $canEditCS ? 'required' : '' ?>>
                     </div>
 
                     <div class="form-field">
