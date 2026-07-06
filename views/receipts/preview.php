@@ -43,12 +43,15 @@ $txRow->execute([$receipt['id']]);
 $txData = $txRow->fetch(PDO::FETCH_ASSOC);
 
 
-$totalPaidCalc = (float) $txData['total_paid'];   // gross paid
+$grossPaidCalc = (float) $txData['total_paid'];   // gross paid (before refunds)
 $totalRefunded = (float) $txData['total_refunded'];
-$netPaid       = $totalPaidCalc - $totalRefunded;
+$netPaid       = $grossPaidCalc - $totalRefunded;
 $remainingCalc = max(0, $planPrice - $netPaid);
 
-$totalPaidCalc = $netPaid;  // ← ADD THIS LINE right after, to make Total Paid refund-adjusted
+// % of what the client actually paid that has been refunded so far
+$refundPctCalc = $grossPaidCalc > 0 ? round(($totalRefunded / $grossPaidCalc) * 100) : 0;
+
+$totalPaidCalc = $netPaid;  // Total Paid shown to the user is refund-adjusted (net)
 
 $remaining = number_format($remainingCalc, 0);
 $type = $_GET['type'] ?? 'new';
@@ -97,10 +100,10 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
 <style>
 :root {
     --surface-2:  #0d1821;
-    --text-muted: #5a7a96;
-    --text:       #e0eaf4;
+    --text-muted: #fff;
+    --text:       #fff;
     --border:     #1a2e42;
-    --surface:    #111d2b;
+    --surface:    #252736;;
     --accent:     #00b4d8;
     --success:    #34c789;
     --danger:     #e05c5c;
@@ -526,6 +529,15 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
     <label>المتبقي / Remaining</label>
     <span class="<?= $remainingCalc > 0 ? 'danger' : 'success' ?>"><?= number_format($remainingCalc, 0) ?></span>
 </div>
+<?php if (!empty($receipt['is_refunded']) && $grossPaidCalc > 0): ?>
+<div class="preview-item">
+    <label>نسبة الاسترداد / Refunded %</label>
+    <span class="danger"><?= $refundPctCalc ?>%</span>
+    <span class="muted" style="display:block;font-size:11px;margin-top:2px;">
+        (<?= number_format($totalRefunded, 0) ?> من <?= number_format($grossPaidCalc, 0) ?> مدفوع)
+    </span>
+</div>
+<?php endif; ?>
                 <div class="preview-item">
                     <label>طريقة الدفع / Method</label>
                     <span><?= htmlspecialchars($receipt['payment_method'] ?? '—') ?></span>

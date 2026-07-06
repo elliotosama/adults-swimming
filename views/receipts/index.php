@@ -752,7 +752,9 @@ table td strong { color: #fff;}
                                 </td>
                             <td>
                                 <div class="td-actions">
+                                    <?php if($_SESSION['user']['role'] === 'admin') { ?>
                                     <a href="<?= APP_URL ?>/receipt/show?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
+                                    <?php }?>
                                     <a href="<?= APP_URL ?>/receipt/preview?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">تفاصيل</a>
                                     <a href="<?= APP_URL ?>/receipt/edit?id=<?= $r['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
                                     <?php if($_SESSION['user']['role'] === 'admin') { ?>
@@ -907,7 +909,9 @@ function buildRow(r) {
         ${refundedCell}
         <td>
             <div class="td-actions">
+            <?php if($_SESSION['user']['role'] === 'admin') { ?>
                 <a href="${BASE_URL}/receipt/show?id=${esc(r.id)}" class="btn btn-sm btn-secondary">عرض</a>
+            <?php }?>
                 <a href="${BASE_URL}/receipt/preview?id=${esc(r.id)}" class="btn btn-sm btn-secondary">تفاصيل</a>
                 <a href="${BASE_URL}/receipt/edit?id=${esc(r.id)}" class="btn btn-sm btn-warning">تعديل</a>
                 ${deleteForm}

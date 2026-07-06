@@ -49,6 +49,8 @@ branch manager => abdullah.ezaat.2@gmail.com : $mJvM9Fn
 - [ ] filters should be in the same line
 - [x] make text in the table in the middle
 -----------------------------
+when making a receipt [Mon Jul 06 12:45:47.358379 2026] [php:error] [pid 1880044] [client 102.184.85.96:34940] PHP Fatal error:  Uncaught PDOException: SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry '' for key 'email' in /var/www/swimming-academy/app/controllers/ReceiptController.php:890\nStack trace:\n#0 /var/www/swimming-academy/app/controllers/ReceiptController.php(890): PDOStatement->execute()\n#1 /var/www/swimming-academy/app/controllers/ReceiptController.php(999): ReceiptController->findOrCreateClient()\n#2 /var/www/swimming-academy/public/index.php(132): ReceiptController->store()\n#3 /var/www/swimming-academy/public/index.php(218): {closure}()\n#4 {main}\n  thrown in /var/www/swimming-academy/app/controllers/ReceiptController.php on line 890, referer: http://92.205.25.104/receipt/manage
+- [ ]in refund show the percentage of refund
 ------------------------------
 
 

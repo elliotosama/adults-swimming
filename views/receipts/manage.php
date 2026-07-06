@@ -595,10 +595,10 @@
           🔄
           <span class="tab-badge tab-badge-renew">تجديد</span>
         </button>
-        <button class="tab-btn" id="tab-btn-payment"
+        <button class="tab-btn" id="tab-btn-payment
                 onclick="switchTab('payment')" role="tab">
           💳
-          <span class="tab-badge tab-badge-payment">دفعة</span>
+          <span class="tab-badge tab-badge-payment">بواقي</span>
         </button>
         <button class="tab-btn" id="tab-btn-refund"
                 onclick="switchTab('refund')" role="tab">

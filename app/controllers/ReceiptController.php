@@ -847,58 +847,57 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
     // FIND OR CREATE CLIENT
     // ════════════════════════════════════════════════════════════════════════
 
-    private function findOrCreateClient(string $name, string $phone, array $extra = []): int {
-        $db = get_db();
+private function findOrCreateClient(string $name, string $phone, array $extra = []): int {
+    $db = get_db();
 
-        [$sql, $params] = PhoneHelper::buildSearchCondition($phone);
-        $stmt = $db->prepare("SELECT id FROM clients WHERE {$sql} LIMIT 1");
-        $stmt->execute($params);
-        $existing = $stmt->fetchColumn();
+    [$sql, $params] = PhoneHelper::buildSearchCondition($phone);
+    $stmt = $db->prepare("SELECT id FROM clients WHERE {$sql} LIMIT 1");
+    $stmt->execute($params);
+    $existing = $stmt->fetchColumn();
 
-        if ($existing) {
-            $updates = [];
-            $params2  = [];
+    if ($existing) {
+        $updates = [];
+        $params2  = [];
 
-            if (!empty($extra['email'])) {
-                $updates[]        = "email = COALESCE(NULLIF(email,''), :email)";
-                $params2[':email'] = $extra['email'];
-            }
-            if (!empty($extra['age'])) {
-                $updates[]      = "age = COALESCE(age, :age)";
-                $params2[':age'] = $extra['age'];
-            }
-            if (!empty($extra['gender'])) {
-                $updates[]         = "gender = COALESCE(NULLIF(gender,''), :gender)";
-                $params2[':gender'] = $extra['gender'];
-            }
-
-            if ($updates) {
-                $params2[':id'] = (int) $existing;
-                $db->prepare("UPDATE clients SET " . implode(', ', $updates) . " WHERE id = :id")
-                   ->execute($params2);
-            }
-
-            return (int) $existing;
+        if (!empty($extra['email'])) {
+            $updates[]        = "email = COALESCE(NULLIF(email,''), :email)";
+            $params2[':email'] = $extra['email'];
+        }
+        if (!empty($extra['age'])) {
+            $updates[]      = "age = COALESCE(age, :age)";
+            $params2[':age'] = $extra['age'];
+        }
+        if (!empty($extra['gender'])) {
+            $updates[]         = "gender = COALESCE(NULLIF(gender,''), :gender)";
+            $params2[':gender'] = $extra['gender'];
         }
 
-        $stmt = $db->prepare("
-            INSERT INTO clients
-                (client_name, phone, email, age, gender, created_by, created_at)
-            VALUES
-                (:client_name, :phone, :email, :age, :gender, :created_by, CURDATE())
-        ");
-        $stmt->execute([
-            ':client_name' => $name,
-            ':phone'       => $phone,
-            ':email'       => $extra['email']  ?? null,
-            ':age'         => $extra['age']    ?? null,
-            ':gender'      => $extra['gender'] ?? null,
-            ':created_by'  => auth_user()['id'],
-        ]);
+        if ($updates) {
+            $params2[':id'] = (int) $existing;
+            $db->prepare("UPDATE clients SET " . implode(', ', $updates) . " WHERE id = :id")
+               ->execute($params2);
+        }
 
-        return (int) $db->lastInsertId();
+        return (int) $existing;
     }
 
+    $stmt = $db->prepare("
+        INSERT INTO clients
+            (client_name, phone, email, age, gender, created_by, created_at)
+        VALUESi
+            (:client_name, :phone, :email, :age, :gender, :created_by, CURDATE())
+    ");
+    $stmt->execute([
+        ':client_name' => $name,
+        ':phone'       => $phone,
+        ':email'       => !empty($extra['email'])  ? $extra['email']  : null,
+        ':age'         => $extra['age']    ?? null,
+        ':gender'      => !empty($extra['gender']) ? $extra['gender'] : null,
+        ':created_by'  => auth_user()['id'],
+    ]);
+
+    return (int) $db->lastInsertId();
+}
     // ════════════════════════════════════════════════════════════════════════
     // STORE
     // ════════════════════════════════════════════════════════════════════════
