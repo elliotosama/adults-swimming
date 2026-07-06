@@ -538,46 +538,31 @@ class ReceiptController {
     // resolveRenewalType
     // ════════════════════════════════════════════════════════════════════════
 
-    private function resolveRenewalType(string $lastSession): string {
-        if (!$lastSession) return 'current_renewal';
 
-        try {
-            $lastDate = new DateTime($lastSession);
-        } catch (\Exception $e) {
-            return 'current_renewal';
-        }
+private function resolveRenewalType(string $lastSession): string {
+    if (!$lastSession) return 'current_renewal';
 
-        $lastDay   = (int) $lastDate->format('j');
-        $lastMonth = (int) $lastDate->format('n');
-        $lastYear  = (int) $lastDate->format('Y');
-
-        $today     = new DateTime();
-        $todayDay  = (int) $today->format('j');
-        $thisMonth = (int) $today->format('n');
-        $thisYear  = (int) $today->format('Y');
-
-        if ($lastYear === $thisYear && $lastMonth === $thisMonth) {
-            // Cutoff is based on TODAY's date relative to the 21st of the
-            // month, not the day of the previous last_session. e.g. last
-            // session on the 18th: renewing on the 20th → current_renewal,
-            // renewing on the 21st or later → previous_renewal.
-            return $todayDay < 21 ? 'current_renewal' : 'previous_renewal';
-        }
-
-        $prevMonth = $thisMonth === 1 ? 12 : $thisMonth - 1;
-        $prevYear  = $thisMonth === 1 ? $thisYear - 1 : $thisYear;
-
-        if (
-            $lastYear  === $prevYear  &&
-            $lastMonth === $prevMonth &&
-            $lastDay   >  21          &&
-            $todayDay  <  20
-        ) {
-            return 'previous_renewal';
-        }
-
+    try {
+        $lastDate = new DateTime($lastSession);
+    } catch (\Exception $e) {
         return 'current_renewal';
     }
+
+    // The renewal cutoff is always the 21st of the month the last
+    // session fell in — NOT the 21st of today's month. If "today" is
+    // on or after that date, the grace period has expired and it's a
+    // previous_renewal, whether that happens later in the same month
+    // or after rolling into a following month.
+    //
+    // e.g. last_session = 2026-06-18 → cutoff = 2026-06-21.
+    //   renewing on 2026-06-20  → current_renewal   (before cutoff)
+    //   renewing on 2026-06-21  → previous_renewal  (on/after cutoff)
+    //   renewing on 2026-07-06  → previous_renewal  (well past cutoff)
+    $cutoff = new DateTime($lastDate->format('Y-m') . '-21');
+    $today  = new DateTime();
+
+    return ($today < $cutoff) ? 'current_renewal' : 'previous_renewal';
+}
 
     // ════════════════════════════════════════════════════════════════════════
     // checkRenewalEligibility
@@ -1538,8 +1523,7 @@ public function update(): void {
     // STORE RENEWAL
     // ════════════════════════════════════════════════════════════════════════
 
-
-    public function storeRenewal(): void {
+public function storeRenewal(): void {
     auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
     $isAdmin            = (auth_user()['role'] === 'admin');
@@ -1766,7 +1750,6 @@ public function update(): void {
     $this->flash('flash_success', 'تم إنشاء إيصال التجديد بنجاح.');
     $this->redirect('/receipt/preview?id=' . $newId . '&type=renewal');
 }
-
 
     // ════════════════════════════════════════════════════════════════════════
     // PAYMENT PAGE

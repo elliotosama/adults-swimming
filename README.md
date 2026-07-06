@@ -29,24 +29,24 @@ branch manager => abdullah.ezaat.2@gmail.com : $mJvM9Fn
 - [x] in refund should appear the last receipt only
 - [x] can not make another payment on a refunded receipt
 - [x] check if this email or phone number has exist aleardy in a new receipt or not if exists rais error message to tell him this client has a new receipt already
+- [x] upload evidance required in all payment method except cash and don't appear cash in customer service account
+- [x] in refund searching using receipt id does not work
+- [x] in payment search should be phone number or receipt id
 # bugs in pdf
 ---
 - [ ] ajax in transactions page
 - [ ] check search page and font in all pages
 - [ ] in login make the form more bigger
 - [ ] in show receipt show remaining and paid amount
+- [ ] check receipt type when renew a receipt "if my last receipt end date is 18/4 and i renewd a receipt in 20/4 it will be current renewal but if the renewed at 21/4 it will be previous renewal becuase my month ends at 21
 
 
 -----------------------------
 ------------------------------
-- [ ] in refund searching using receipt id does not work
-- [ ] check receipt type when renew a receipt "if my last receipt end date is 18/4 and i renewd a receipt in 20/4 it will be current renewal but if the renewed at 21/4 it will be previous renewal becuase my month ends at 21
 
 
-- [ ] in payment search should be phone number or receipt
 
 
-- [ ] upload evidance required in all payment method except cash and don't appear cash in customer service account
 
 16746
 +201273521512
