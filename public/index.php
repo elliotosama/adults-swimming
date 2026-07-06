@@ -156,6 +156,8 @@ $routes = [
     ['POST', '/transaction/edit',     fn () => $transaction->update()],
     ['POST', '/transaction/delete',   fn () => $transaction->destroy()],
     ['POST', '/transaction/remove-evidence', fn() => $transaction->removeEvidence()],
+    ['GET', '/transaction/search-json', fn() => $transaction->searchJson()],
+
 
     // captains
     ['GET',  '/admin/captains',        fn () => $captain->index()],

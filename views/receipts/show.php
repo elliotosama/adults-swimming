@@ -29,6 +29,13 @@ function evidenceUrl(string $raw): string {
 
 // ── Role gate: transaction history + audit log are admin-only ───────────
 $isAdmin = (auth_user()['role'] === 'admin');
+
+// ── Payment summary (paid / remaining / refunded) ────────────────────────
+$ns            = $ns ?? [];
+$netPaid       = (float) ($ns['netPaid']       ?? ($totalPaid ?? 0));
+$remaining     = (float) ($ns['remaining']     ?? 0);
+$totalRefunded = (float) ($ns['totalRefunded'] ?? 0);
+$hasRefund     = $totalRefunded > 0;
 ?>
 
 <style>
@@ -40,6 +47,8 @@ $isAdmin = (auth_user()['role'] === 'admin');
     --primary: #007ACC;
     --text:    #FFFFFF;
     --muted:   #ffffffb3;
+    --success: #98C379;
+    --danger:  #E06C75;
 }
 body {
     background: var(--bg);
@@ -98,6 +107,40 @@ body,
     font-size: .92rem;
     color: var(--text);
 }
+
+/* ── Payment summary strip ───────────────────────────────────────────────── */
+.payment-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+.payment-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    padding: .85rem 1rem;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+}
+.payment-summary-label {
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    font-weight: 600;
+}
+.payment-summary-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+.payment-summary-value.paid      { color: var(--success); }
+.payment-summary-value.remaining-due   { color: var(--danger); }
+.payment-summary-value.remaining-clear { color: var(--success); }
+.payment-summary-value.refunded  { color: var(--danger); }
 
 /* ── Section header ──────────────────────────────────────────────────────── */
 .section-header {
@@ -318,6 +361,10 @@ body,
         font-size: .78rem;
         color: var(--muted);
     }
+
+    .payment-summary {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
 /* ── On larger screens hide the card fallbacks ───────────────────────────── */
@@ -330,6 +377,9 @@ body,
 @media (max-width: 400px) {
     .detail-grid {
         grid-template-columns: 1fr 1fr;
+    }
+    .payment-summary {
+        grid-template-columns: 1fr;
     }
 }
 </style>
@@ -423,6 +473,26 @@ body,
         </div>
         <?php endif; ?>
     </div>
+
+    <!-- ─── ملخص الدفع: المدفوع / المتبقي / المسترد ─────────────────────── -->
+    <div class="payment-summary">
+        <div class="payment-summary-item">
+            <span class="payment-summary-label">المبلغ المدفوع</span>
+            <span class="payment-summary-value paid"><?= number_format($netPaid, 2) ?></span>
+        </div>
+        <div class="payment-summary-item">
+            <span class="payment-summary-label">المتبقي</span>
+            <span class="payment-summary-value <?= $remaining > 0 ? 'remaining-due' : 'remaining-clear' ?>">
+                <?= number_format($remaining, 2) ?>
+            </span>
+        </div>
+        <?php if ($hasRefund): ?>
+        <div class="payment-summary-item">
+            <span class="payment-summary-label">المبلغ المسترد</span>
+            <span class="payment-summary-value refunded">↩️ <?= number_format($totalRefunded, 2) ?></span>
+        </div>
+        <?php endif; ?>
+    </div>
 </div>
 
 <?php if ($isAdmin): ?>
@@ -431,7 +501,10 @@ body,
     <div class="section-header">
         <h2>💳 المعاملات المالية</h2>
         <div class="section-header-meta">
-            <span>إجمالي المدفوع: <strong style="color:var(--text)"><?= number_format($totalPaid, 2) ?></strong></span>
+            <span>إجمالي المدفوع: <strong style="color:var(--text)"><?= number_format($netPaid, 2) ?></strong></span>
+            <?php if ($hasRefund): ?>
+                <span>إجمالي المسترد: <strong style="color:var(--danger)"><?= number_format($totalRefunded, 2) ?></strong></span>
+            <?php endif; ?>
             <a href="<?= APP_URL ?>/transaction/create?receipt_id=<?= $receipt['id'] ?>" class="btn btn-sm btn-primary">+ إضافة معاملة</a>
         </div>
     </div>
@@ -476,7 +549,9 @@ body,
                             <td style="color:var(--muted);font-size:.82rem"><?= $t['id'] ?></td>
                             <td><span class="badge <?= $tCls ?>"><?= $tLabel ?></span></td>
                             <td><?= htmlspecialchars($t['payment_method'] ?? '—') ?></td>
-                            <td><strong><?= number_format($t['amount'], 2) ?></strong></td>
+                            <td><strong style="<?= $t['type'] === 'refund' ? 'color:var(--danger)' : '' ?>">
+                                <?= $t['type'] === 'refund' ? '−' : '' ?><?= number_format($t['amount'], 2) ?>
+                            </strong></td>
                             <td style="font-size:.85rem"><?= htmlspecialchars($t['creator_name'] ?? '—') ?></td>
                             <td style="font-size:.82rem;color:var(--muted)"><?= htmlspecialchars($t['created_at'] ?? '—') ?></td>
                             <td style="font-size:.82rem;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
@@ -545,7 +620,9 @@ body,
                 <div class="tx-card">
                     <div class="tx-card-row">
                         <span class="tx-card-label">#<?= $t['id'] ?> &nbsp; <span class="badge <?= $tCls ?>"><?= $tLabel ?></span></span>
-                        <strong class="tx-card-value"><?= number_format($t['amount'], 2) ?></strong>
+                        <strong class="tx-card-value" style="<?= $t['type'] === 'refund' ? 'color:var(--danger)' : '' ?>">
+                            <?= $t['type'] === 'refund' ? '−' : '' ?><?= number_format($t['amount'], 2) ?>
+                        </strong>
                     </div>
                     <div class="tx-card-row">
                         <span class="tx-card-label">طريقة الدفع</span>

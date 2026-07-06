@@ -88,42 +88,6 @@ class TransactionController {
         return $errors;
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // INDEX  —  GET /transactions
-    // ════════════════════════════════════════════════════════════════════════
-
-    public function index(): void {
-        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
-
-        $user    = auth_user();
-        $role    = $user['role'];
-        $perPage = 20;
-        $page    = max(1, (int) ($_GET['page'] ?? 1));
-
-        $searchReceiptId   = (int)  ($_GET['receipt_id']   ?? 0) ?: null;
-        $searchClientPhone = trim(   $_GET['client_phone'] ?? '');
-
-        $filters = $this->buildFilters($user, $role, skipCreatedByForReceiptSearch: (bool) $searchReceiptId);
-
-        if ($searchReceiptId)   $filters['receipt_id']   = $searchReceiptId;
-        if ($searchClientPhone) $filters['client_phone'] = $searchClientPhone;
-
-        $filters['exclude_refunded_receipts'] = true;
-
-        $transactions = $this->transactions->findFiltered($filters, $page, $perPage);
-        $total        = $this->transactions->countFiltered($filters);
-        $totalPages   = (int) ceil($total / $perPage);
-
-        $this->renderView('index', [
-            'pageTitle'    => 'المعاملات المالية',
-            'breadcrumb'   => 'لوحة التحكم · المعاملات',
-            'transactions' => $transactions,
-            'page'         => $page,
-            'totalPages'   => $totalPages,
-            'total'        => $total,
-        ]);
-    }
-
     // ── Build filters based on role ───────────────────────────────────────
 
     private function buildFilters(array $user, string $role, bool $skipCreatedByForReceiptSearch = false): array {
@@ -145,6 +109,79 @@ class TransactionController {
             default:
                 return [];
         }
+    }
+
+    // ── Shared fetch logic used by both index() and searchJson() ──────────
+
+    private function fetchTransactionsData(): array {
+        $user    = auth_user();
+        $role    = $user['role'];
+        $perPage = 20;
+        $page    = max(1, (int) ($_GET['page'] ?? 1));
+
+        $searchReceiptId   = (int)  ($_GET['receipt_id']   ?? 0) ?: null;
+        $searchClientPhone = trim(   $_GET['client_phone'] ?? '');
+
+        $filters = $this->buildFilters($user, $role, skipCreatedByForReceiptSearch: (bool) $searchReceiptId);
+
+        if ($searchReceiptId)   $filters['receipt_id']   = $searchReceiptId;
+        if ($searchClientPhone) $filters['client_phone'] = $searchClientPhone;
+
+        $filters['exclude_refunded_receipts'] = true;
+
+        $transactions = $this->transactions->findFiltered($filters, $page, $perPage);
+        $total        = $this->transactions->countFiltered($filters);
+        $totalPages   = (int) ceil($total / $perPage);
+
+        return [
+            'transactions' => $transactions,
+            'page'         => $page,
+            'totalPages'   => $totalPages,
+            'total'        => $total,
+        ];
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // INDEX  —  GET /transactions
+    // ════════════════════════════════════════════════════════════════════════
+
+    public function index(): void {
+        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
+
+        $result = $this->fetchTransactionsData();
+
+        $this->renderView('index', [
+            'pageTitle'    => 'المعاملات المالية',
+            'breadcrumb'   => 'لوحة التحكم · المعاملات',
+            'transactions' => $result['transactions'],
+            'page'         => $result['page'],
+            'totalPages'   => $result['totalPages'],
+            'total'        => $result['total'],
+        ]);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // SEARCH JSON  —  GET /transaction/search-json
+    //
+    // AJAX endpoint powering the live filter form on the index page.
+    // Accepts the same query params as index() (receipt_id, client_phone,
+    // page) and returns the same data as JSON instead of rendering HTML.
+    // ════════════════════════════════════════════════════════════════════════
+
+    public function searchJson(): void {
+        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
+
+        header('Content-Type: application/json; charset=utf-8');
+
+        $result = $this->fetchTransactionsData();
+
+        echo json_encode([
+            'data'       => $result['transactions'],
+            'page'       => $result['page'],
+            'totalPages' => $result['totalPages'],
+            'total'      => $result['total'],
+        ]);
+        exit;
     }
 
     // ════════════════════════════════════════════════════════════════════════

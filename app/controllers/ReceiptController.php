@@ -1145,33 +1145,33 @@ public function preview(): void {
     // SHOW
     // ════════════════════════════════════════════════════════════════════════
 
-    public function show(): void {
-        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
+public function show(): void {
+    auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
-        $id      = (int) ($_GET['id'] ?? 0);
-        $receipt = $this->receipts->findById($id);
+    $id      = (int) ($_GET['id'] ?? 0);
+    $receipt = $this->receipts->findById($id);
 
-        if (!$receipt) {
-            $this->flash('flash_error', 'الإيصال غير موجود.');
-            $this->redirect('/receipts');
-            return;
-        }
-
-        $transactions = $this->transactions->findByReceipt($id);
-        $auditLogs    = $this->auditLog->findByReceipt($id);
-        $planPrice    = (float) ($receipt['plan_price'] ?? 0);
-        $ns           = $this->getReceiptNetStatus($id, $planPrice);
-
-        $this->renderView('show', [
-            'pageTitle'    => 'عرض الإيصال #' . ($receipt['receipt_ref'] ?? $id),
-            'breadcrumb'   => 'لوحة التحكم · الإيصالات · عرض',
-            'receipt'      => $receipt,
-            'transactions' => $transactions,
-            'auditLogs'    => $auditLogs,
-            'totalPaid'    => $ns['netPaid'],
-        ]);
+    if (!$receipt) {
+        $this->flash('flash_error', 'الإيصال غير موجود.');
+        $this->redirect('/receipts');
+        return;
     }
 
+    $transactions = $this->transactions->findByReceipt($id);
+    $auditLogs    = $this->auditLog->findByReceipt($id);
+    $planPrice    = (float) ($receipt['plan_price'] ?? 0);
+    $ns           = $this->getReceiptNetStatus($id, $planPrice);
+
+    $this->renderView('show', [
+        'pageTitle'    => 'عرض الإيصال #' . ($receipt['receipt_ref'] ?? $id),
+        'breadcrumb'   => 'لوحة التحكم · الإيصالات · عرض',
+        'receipt'      => $receipt,
+        'transactions' => $transactions,
+        'auditLogs'    => $auditLogs,
+        'totalPaid'    => $ns['netPaid'],
+        'ns'           => $ns, // ← now also carries remaining + totalRefunded for the view
+    ]);
+}
     // ════════════════════════════════════════════════════════════════════════
     // EDIT
     // ════════════════════════════════════════════════════════════════════════
