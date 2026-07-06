@@ -21,7 +21,7 @@
             --accent-dim:  #0A3A5C;
             --gold:        #D19A66;
             --text:        #FFFFFF;
-            --muted:       #fff;
+            --muted:       #ffffff;
             --error:       #E06C75;
             --success:     #98C379;
             --warning:     #D19A66;
@@ -34,7 +34,6 @@
             font-family: 'Cairo', sans-serif;
             background: var(--bg);
             font-size: 16px;
-            font-weight: bold;
             color: #fff;
             direction: rtl;
         }

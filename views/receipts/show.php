@@ -54,7 +54,6 @@ body {
     background: var(--bg);
     font-family: 'Cairo', sans-serif;
     font-size: 16px;
-    font-weight: bold;
     color: var(--text);
 }
 html,

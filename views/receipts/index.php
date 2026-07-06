@@ -54,11 +54,11 @@ $isAdmin   = $isAdmin ?? false;
 <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
     <div style="background:var(--color-background-primary,#fff);border-radius:16px;border:0.5px solid var(--color-border-tertiary);padding:2rem 2rem 1.5rem;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.18);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);">
         <div style="width:52px;height:52px;border-radius:50%;background:#fff0f0;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:24px;">⚠️</div>
-        <h2 style="text-align:center;font-size:1.15rem;font-weight:600;margin:0 0 .5rem;color:black">تعطيل الإيصال</h2>
+        <h2 style="text-align:center;font-size:1.15rem;margin:0 0 .5rem;color:black">تعطيل الإيصال</h2>
         <p style="text-align:center;color:black;font-size:.9rem;margin:0 0 1.75rem;line-height:1.6">هل أنت متأكد من تعطيل هذا الإيصال؟<br>يمكنك إعادة تفعيله لاحقاً.</p>
         <div style="display:flex;gap:.75rem;">
             <button onclick="closeModal()" style="flex:1;padding:.7rem;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;font-size:.9rem;color:black;transition:background .15s">إلغاء</button>
-            <button id="confirmBtn" style="flex:1;padding:.7rem;border-radius:8px;border:none;background:#e24b4a;color:#fff;cursor:pointer;font-size:.9rem;font-weight:600;transition:background .15s">تعطيل</button>
+            <button id="confirmBtn" style="flex:1;padding:.7rem;border-radius:8px;border:none;background:#e24b4a;color:#fff;cursor:pointer;font-size:.9rem;transition:background .15s">تعطيل</button>
         </div>
     </div>
 </div>
@@ -71,7 +71,7 @@ $isAdmin   = $isAdmin ?? false;
     --border:  #3C3F58;
     --primary: #007ACC;
     --text:    #FFFFFF;
-    --muted:   #ffffffb3;
+    --muted:   #ffffff;
 }
 .page--full,
 .page--full * {
@@ -81,7 +81,6 @@ $isAdmin   = $isAdmin ?? false;
     background: var(--bg);
     color: var(--text);
     font-size: 16px;
-    font-weight: bold;
 }
 .filter-panel,
 .card,
@@ -110,7 +109,6 @@ table th {
 }
 .receipt-count-number {
     font-size: 2.6rem;
-    font-weight: 800;
     line-height: 1;
     color: var(--primary);
     letter-spacing: -.03em;
@@ -118,7 +116,6 @@ table th {
 .receipt-count-label {
     font-size: 1rem;
     color: var(--muted);
-    font-weight: 600;
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -164,7 +161,6 @@ table th {
 .filter-group label {
     font-size: .82rem;
     color: var(--muted);
-    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .04em;
 }
@@ -174,12 +170,19 @@ table th {
     border: 1px solid var(--border);
     border-radius: 6px;
     font-size: .92rem;
-    font-weight: 600;
     background: var(--bg);
     color: var(--text);
     width: 100%;
 }
 .filter-group select[multiple] { height: 90px; }
+
+/* Wraps a "from/to" date pair. On tablet/desktop this is transparent to
+   layout (display:contents) so the two .filter-group children behave
+   exactly as before inside the auto-fill grid. On mobile it becomes a
+   2-column grid so "from" and "to" sit on the same line. */
+.filter-pair {
+    display: contents;
+}
 
 .filter-actions {
     display: flex;
@@ -226,7 +229,6 @@ table th {
     border: 1px solid var(--border);
     border-radius: 999px;
     font-size: .84rem;
-    font-weight: 600;
     cursor: pointer;
     user-select: none;
     transition: background .15s, border-color .15s, color .15s;
@@ -234,7 +236,7 @@ table th {
     color: var(--text);
 }
 .tag-check:hover { border-color: var(--primary); color: var(--primary); }
-.tag-check.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.tag-check.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .tag-check input[type="checkbox"] { display: none; }
 
 .tag-clear {
@@ -254,7 +256,6 @@ table th {
     color: #16a34a;
     border: 1px solid #bbf7d0;
     font-size: .75rem;
-    font-weight: 700;
     padding: .15rem .45rem;
     border-radius: 999px;
     margin-right: .3rem;
@@ -299,15 +300,14 @@ table th {
     padding: 0 .55rem;
     border-radius: 6px;
     font-size: .88rem;
-    font-weight: 600;
     border: 1px solid var(--border);
     text-decoration: none;
     color: var(--text);
 }
 .pagination a:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
-.pagination .active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+.pagination .active { background: var(--primary); color: #fff; border-color: var(--primary);}
 .pagination .disabled { opacity: .4; pointer-events: none; }
-.pag-info { font-size: .84rem; font-weight: 600; color: var(--muted); text-align: center; }
+.pag-info { font-size: .84rem; color: var(--muted); text-align: center; }
 
 /* ══════════════════════════════════════════════════════════════════
    TABLE  (borders added)
@@ -329,7 +329,6 @@ table {
 table th {
     white-space: nowrap;
     font-size: .85rem;
-    font-weight: 800;
     color: #fff;
     padding: .65rem .75rem;
     letter-spacing: .02em;
@@ -339,9 +338,9 @@ table td {
     white-space: nowrap;
     color: #fff;
     font-size: 1rem;
-    font-weight: 600;
     padding: .6rem .75rem;
     border: 1px solid var(--border);
+    text-align: center;
 }
 table tbody tr:nth-child(even) {
     background: rgba(255, 255, 255, 0.02);
@@ -353,7 +352,7 @@ table td.wrap-cell {
     white-space: normal;
     min-width: 130px;
 }
-table td strong { color: #fff; font-weight: 800; }
+table td strong { color: #fff;}
 
 /* ══════════════════════════════════════════════════════════════════
    REFUND BADGE
@@ -366,7 +365,6 @@ table td strong { color: #fff; font-weight: 800; }
     color: #c0392b;
     border: 1px solid #f5c6c6;
     font-size: .78rem;
-    font-weight: 800;
     padding: .2rem .55rem;
     border-radius: 999px;
     white-space: nowrap;
@@ -405,7 +403,31 @@ table td strong { color: #fff; font-weight: 800; }
     .filter-group label { font-size: .78rem; }
     .filter-group input, .filter-group select { font-size: .88rem; }
     .tag-check-group { flex-wrap: wrap; gap: .35rem; }
-    .branch-chip-scroll { max-height: none; overflow-y: visible; }
+
+    /* Force each "from/to" date pair onto a single line on mobile */
+    .filter-pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .5rem;
+    }
+    .filter-pair .filter-group label {
+        font-size: .72rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .filter-pair .filter-group input[type="date"] {
+        padding: .4rem .3rem;
+        font-size: .8rem;
+    }
+
+    /* Keep branch chips scrollable on mobile instead of expanding freely */
+    .branch-chip-scroll {
+        max-height: 100px;
+        overflow-y: auto;
+        flex-wrap: wrap;
+    }
+
     .tag-check { font-size: .8rem; padding: .28rem .65rem; }
     .filter-actions { flex-direction: column; gap: .45rem; }
     .filter-actions .btn { width: 100%; text-align: center; }
@@ -480,41 +502,47 @@ table td strong { color: #fff; font-weight: 800; }
             <?php endif; ?>
 
             <?php if ($canFilter('first_session')): ?>
-            <div class="filter-group">
-                <label>أول تمرين — من</label>
-                <input type="date" name="first_session_from"
-                       value="<?= htmlspecialchars($filters['first_session_from'] ?? '') ?>">
-            </div>
-            <div class="filter-group">
-                <label>أول تمرين — إلى</label>
-                <input type="date" name="first_session_to"
-                       value="<?= htmlspecialchars($filters['first_session_to'] ?? '') ?>">
+            <div class="filter-pair">
+                <div class="filter-group">
+                    <label>تاريخ البدايه - من</label>
+                    <input type="date" name="first_session_from"
+                           value="<?= htmlspecialchars($filters['first_session_from'] ?? '') ?>">
+                </div>
+                <div class="filter-group">
+                    <label>تاريخ البدايه — إلى</label>
+                    <input type="date" name="first_session_to"
+                           value="<?= htmlspecialchars($filters['first_session_to'] ?? '') ?>">
+                </div>
             </div>
             <?php endif; ?>
 
             <?php if ($canFilter('last_session')): ?>
-            <div class="filter-group">
-                <label>آخر تمرين — من</label>
-                <input type="date" name="last_session_from"
-                       value="<?= htmlspecialchars($filters['last_session_from'] ?? '') ?>">
-            </div>
-            <div class="filter-group">
-                <label>آخر تمرين — إلى</label>
-                <input type="date" name="last_session_to"
-                       value="<?= htmlspecialchars($filters['last_session_to'] ?? '') ?>">
+            <div class="filter-pair">
+                <div class="filter-group">
+                    <label>تاريخ النهايه — من</label>
+                    <input type="date" name="last_session_from"
+                           value="<?= htmlspecialchars($filters['last_session_from'] ?? '') ?>">
+                </div>
+                <div class="filter-group">
+                    <label>تاريخ النهايه — إلى</label>
+                    <input type="date" name="last_session_to"
+                           value="<?= htmlspecialchars($filters['last_session_to'] ?? '') ?>">
+                </div>
             </div>
             <?php endif; ?>
 
             <?php if ($canFilter('created')): ?>
-            <div class="filter-group">
-                <label>تاريخ الإنشاء — من</label>
-                <input type="date" name="created_from"
-                       value="<?= htmlspecialchars($filters['created_from'] ?? '') ?>">
-            </div>
-            <div class="filter-group">
-                <label>تاريخ الإنشاء — إلى</label>
-                <input type="date" name="created_to"
-                       value="<?= htmlspecialchars($filters['created_to'] ?? '') ?>">
+            <div class="filter-pair">
+                <div class="filter-group">
+                    <label>تاريخ الإنشاء — من</label>
+                    <input type="date" name="created_from"
+                           value="<?= htmlspecialchars($filters['created_from'] ?? '') ?>">
+                </div>
+                <div class="filter-group">
+                    <label>تاريخ الإنشاء — إلى</label>
+                    <input type="date" name="created_to"
+                           value="<?= htmlspecialchars($filters['created_to'] ?? '') ?>">
+                </div>
             </div>
             <?php endif; ?>
 
@@ -605,9 +633,9 @@ table td strong { color: #fff; font-weight: 800; }
                            value="1"
                            <?= !empty($filters['creator_created_only']) ? 'checked' : '' ?>
                            style="width:auto">
-                    <span style="font-size:.84rem;font-weight:600;color:var(--muted)">
+                    <span style="font-size:.84rem;color:var(--muted)">
                         الإيصالات المنشأة فقط
-                        <small style="display:block;font-size:.74rem;font-weight:400;margin-top:.1rem">
+                        <small style="display:block;font-size:.74rem;margin-top:.1rem">
                             بدون تحديد: يشمل التعديلات والمعاملات أيضاً
                         </small>
                     </span>
@@ -622,9 +650,9 @@ table td strong { color: #fff; font-weight: 800; }
                     <input type="checkbox" name="has_updates" value="1"
                            <?= !empty($filters['has_updates']) ? 'checked' : '' ?>
                            style="width:auto">
-                    <span style="font-size:.9rem;font-weight:600">
+                    <span style="font-size:.9rem;">
                         تفعيل
-                        <small style="color:var(--muted);display:block;font-size:.76rem;font-weight:400">
+                        <small style="color:var(--muted);display:block;font-size:.76rem">
                             يُظهر فقط الإيصالات التي تم تعديلها أو لديها مدفوعات
                         </small>
                     </span>
@@ -639,9 +667,9 @@ table td strong { color: #fff; font-weight: 800; }
                     <input type="checkbox" name="has_refund" value="1"
                            <?= !empty($filters['has_refund']) ? 'checked' : '' ?>
                            style="width:auto">
-                    <span style="font-size:.9rem;font-weight:600">
+                    <span style="font-size:.9rem;">
                         تفعيل
-                        <small style="color:var(--muted);display:block;font-size:.76rem;font-weight:400">
+                        <small style="color:var(--muted);display:block;font-size:.76rem;">
                             يُظهر فقط الإيصالات التي تم استرداد مبلغ منها
                         </small>
                     </span>
@@ -698,18 +726,18 @@ table td strong { color: #fff; font-weight: 800; }
                         <tr>
                             <td><?= renewalTypeLabel($r['renewal_type'] ?? null) ?></td>
                             <td><?= $r['client_id'] ?? '—' ?></td>
-                            <td class="wrap-cell"><strong><?= htmlspecialchars($r['client_name'] ?? '—') ?></strong></td>
+                            <td class="wrap-cell"><?= htmlspecialchars($r['client_name'] ?? '—') ?></td>
                             <td style="text-align:center"><?= htmlspecialchars($r['client_age'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($r['client_phone'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($r['exercise_days'] ?? '—') ?></td>
                             <td><?= htmlspecialchars(formatAmPm($r['exercise_time'] ?? '')) ?></td>
                             <td style="text-align:center"><?= htmlspecialchars($r['level'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($r['captain_name'] ?? '—') ?></td>
-                            <td style="font-weight:800;color:#fff"><?= number_format((float)($r['plan_price'] ?? 0)) ?></td>
-                            <td style="color:#4ade80;font-weight:800"><?= number_format((float)($r['total_paid'] ?? 0)) ?></td>
+                            <td style="color:#fff"><?= number_format((float)($r['plan_price'] ?? 0)) ?></td>
+                            <td style="color:#4ade80;"><?= number_format((float)($r['total_paid'] ?? 0)) ?></td>
                             <td><?= htmlspecialchars($r['first_session'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($r['last_session'] ?? '—') ?></td>
-                            <td style="color:#fff;font-size:1rem;font-weight:800">
+                            <td style="color:#fff;font-size:1rem;">
                                 <?= htmlspecialchars($r['receipt_ref'] ?? $r['id']) ?>
                             </td>
                             <?php if ($isAdmin): ?>
@@ -863,18 +891,18 @@ function buildRow(r) {
     return `<tr>
         <td>${renewalTypeLabel(r.renewal_type)}</td>
         <td>${esc(r.client_id)}</td>
-        <td class="wrap-cell"><strong>${esc(r.client_name)}</strong></td>
+        <td class="wrap-cell">${esc(r.client_name)}</td>
         <td style="text-align:center">${esc(r.client_age)}</td>
         <td>${esc(r.client_phone)}</td>
         <td>${esc(r.exercise_days)}</td>
         <td>${fmtTime(r.exercise_time)}</td>
         <td style="text-align:center">${esc(r.level)}</td>
         <td>${esc(r.captain_name)}</td>
-        <td style="font-weight:800;color:#fff">${fmt(r.plan_price)}</td>
-        <td style="color:#4ade80;font-weight:800">${fmt(r.total_paid)}</td>
+        <td style="color:#fff">${fmt(r.plan_price)}</td>
+        <td style="color:#4ade80;">${fmt(r.total_paid)}</td>
         <td>${esc(r.first_session)}</td>
         <td>${esc(r.last_session)}</td>
-        <td style="color:#fff;font-size:1rem;font-weight:800">${receiptRef}</td>
+        <td style="color:#fff;font-size:1rem;">${receiptRef}</td>
         ${creatorCell}
         ${refundedCell}
         <td>

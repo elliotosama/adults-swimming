@@ -26,7 +26,7 @@ require ROOT . '/views/includes/layout_top.php';
     --success: #98C379;
     --danger:  #E06C75;
     --text:    #FFFFFF;
-    --muted:   #ffffffb3;
+    --muted:   #ffffff;
 }
 html, body, .page, .page--full {
     background: var(--bg) !important;
@@ -84,7 +84,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 
 
 
-<div class="page-header">
+<div class="page-header" style="flex-direction: row; margin-top: 20px;">
     <div>
         <h1 class="page-title">🏢 الفروع</h1>
         <p class="breadcrumb">لوحة التحكم · الفروع</p>

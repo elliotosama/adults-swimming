@@ -86,7 +86,6 @@ body {
     background: var(--bg);
     color: var(--text);
     font-size: 16px;
-    font-weight: bold;
     min-height: 100vh;
     direction: rtl;
 }

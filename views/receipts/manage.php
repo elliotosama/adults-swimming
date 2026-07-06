@@ -109,7 +109,6 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
         font-size: 16px;
-        font-weight: bold;
         color: white;
         font-family: 'Cairo', sans-serif;
     }

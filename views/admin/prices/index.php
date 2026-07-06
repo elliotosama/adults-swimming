@@ -80,7 +80,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 <!-- Hidden CSRF for JS-rendered delete forms -->
 <input type="hidden" id="globalCsrfToken" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
 
-<div class="page-header">
+<div class="page-header" style="flex-direction: row; margin-top: 20px;">
     <div>
         <h1 class="page-title">💰 الأسعار</h1>
         <p class="breadcrumb">لوحة التحكم · الأسعار</p>

@@ -118,7 +118,6 @@ if ($receipt) {
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Cairo', sans-serif;
-    font-weight: bold;
     background:
       radial-gradient(ellipse 80% 50% at 20% 80%, #007ACC1a 0%, transparent 60%),
       radial-gradient(ellipse 60% 40% at 80% 20%, #0A3A5C14 0%, transparent 55%),

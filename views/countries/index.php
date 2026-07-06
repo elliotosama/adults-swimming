@@ -51,7 +51,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 </script>
 
 
-<div class="page-header">
+<div class="page-header" style="flex-direction: row; margin-top: 15px;">
     <div>
         <h1 class="page-title">🌍 الدول</h1>
         <p class="breadcrumb">لوحة التحكم · الدول</p>

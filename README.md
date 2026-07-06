@@ -21,11 +21,6 @@ area manager => abdullah.ezzat@gmail.com : PD#pi87h
 customer service => naira.elbanna@gmail.com : 9tYB$4Wv
 branch manager => abdullah.ezaat.2@gmail.com : $mJvM9Fn
 
-
-
-
-
-
 - [x] in refund should appear the last receipt only
 - [x] can not make another payment on a refunded receipt
 - [x] check if this email or phone number has exist aleardy in a new receipt or not if exists rais error message to tell him this client has a new receipt already
@@ -41,6 +36,18 @@ branch manager => abdullah.ezaat.2@gmail.com : $mJvM9Fn
 - [ ] in login make the form more bigger
 
 
+
+
+- [x] session start and session end in receipt page
+- [x] make them white
+- [x] font should be the same in all page
+- [x] admin can change it's password
+
+
+- [ ] change background color
+- [ ] branches drop down in receipt
+- [ ] filters should be in the same line
+- [x] make text in the table in the middle
 -----------------------------
 ------------------------------
 
