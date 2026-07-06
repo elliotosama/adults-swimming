@@ -21,7 +21,7 @@
             --accent-dim:  #0A3A5C;
             --gold:        #D19A66;
             --text:        #FFFFFF;
-            --muted:       rgba(255,255,255,.55);
+            --muted:       #fff;
             --error:       #E06C75;
             --success:     #98C379;
             --warning:     #D19A66;

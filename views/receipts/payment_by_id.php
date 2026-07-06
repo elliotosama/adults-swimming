@@ -1,6 +1,7 @@
 <?php
 // views/receipts/payment_by_id.php
 // Styled to match create.php exactly — same design tokens, section cards, JS validation patterns
+// Color palette / fonts now matched to views/includes/layout_top.php (dashboard theme)
 require ROOT . '/views/includes/layout_top.php';
 
 $db = get_db();
@@ -59,9 +60,9 @@ foreach ($plans as $plan) {
 }
 
 $statusLabels = [
-    'completed'     => ['label' => 'مكتمل',     'color' => '#22c55e'],
-    'not_completed' => ['label' => 'غير مكتمل', 'color' => '#f59e0b'],
-    'pending'       => ['label' => 'معلّق',      'color' => '#4f7cff'],
+    'completed'     => ['label' => 'مكتمل',     'color' => '#98C379'],
+    'not_completed' => ['label' => 'غير مكتمل', 'color' => '#D19A66'],
+    'pending'       => ['label' => 'معلّق',      'color' => '#007ACC'],
 ];
 
 // If receipt loaded, resolve phone parts for the form
@@ -91,30 +92,38 @@ if ($receipt) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= htmlspecialchars($pageTitle) ?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;900&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:          #0f1117;
-    --surface:     #181c27;
-    --surface-2:   #1e2334;
-    --border:      #2a3047;
-    --border-focus:#4f7cff;
-    --accent:      #4f7cff;
-    --accent-dim:  #2a3f7a;
-    --success:     #22c55e;
-    --danger:      #ef4444;
-    --warning:     #f59e0b;
-    --text:        #e8eaf0;
-    --text-muted:  #7a84a0;
-    --text-label:  #a0a9c0;
+    --bg:          #1E1E2D;
+    --surface:     #252736;
+    --surface-2:   #2C2F38;
+    --border:      #3C3F58;
+    --border-focus:#007ACC;
+    --accent:      #007ACC;
+    --accent2:     #0A3A5C;
+    --accent-dim:  #0A3A5C;
+    --gold:        #D19A66;
+    --success:     #98C379;
+    --danger:      #E06C75;
+    --warning:     #D19A66;
+    --highlight:   #61DAFB;
+    --text:        #FFFFFF;
+    --text-muted:  rgba(255,255,255,0.62);
+    --text-label:  rgba(255,255,255,0.78);
     --radius:      10px;
     --transition:  0.2s ease;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Cairo', sans-serif;
-    background: var(accent);
-    color: #fff;
+    font-weight: bold;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 80%, #007ACC1a 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 20%, #0A3A5C14 0%, transparent 55%),
+      var(--bg);
+    color: var(--text);
     min-height: 100vh;
     direction: rtl;
   }
@@ -124,34 +133,38 @@ if ($receipt) {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 32px; padding-bottom: 20px; border-bottom: 1px solid var(--border);
   }
-  .page-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
-  .breadcrumb { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .page-header h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.3px; }
+  .breadcrumb { font-size: 12px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
 
   .btn-back {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 8px 18px; background: var(--surface-2);
     border: 1px solid var(--border); border-radius: var(--radius);
     color: var(--text-muted); font-family: 'Cairo', sans-serif;
-    font-size: 13px; cursor: pointer; text-decoration: none;
+    font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none;
     transition: all var(--transition);
   }
   .btn-back:hover { background: var(--surface); color: var(--text); border-color: var(--accent); }
 
   .alert { padding: 14px 18px; border-radius: var(--radius); margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
-  .alert-error   { background: #2a1515; border: 1px solid #5a2020; color: #fca5a5; }
-  .alert-success { background: #0f2a1a; border: 1px solid #1a5c30; color: #86efac; }
-  .alert-info    { background: #111a2e; border: 1px solid #1e3a6a; color: #93b4f8; }
+  .alert-error   { background: #E06C7518; border: 1px solid #E06C7550; color: var(--danger); }
+  .alert-success { background: #98C37918; border: 1px solid #98C37950; color: var(--success); }
+  .alert-info    { background: #007ACC18; border: 1px solid #007ACC50; color: var(--accent); }
 
   /* ── Search card ── */
   .search-card {
-    background: var(--surface); border: 1px solid var(--border);
+    background: linear-gradient(145deg, #2C2F38, #252736);
+    border: 1px solid var(--border);
     border-radius: 14px; margin-bottom: 20px; overflow: hidden;
+    box-shadow: 0 0 0 1px #007ACC10, 0 24px 60px #00000060, inset 0 1px 0 #ffffff08;
     animation: slideUp 0.3s ease both;
   }
 
   .form-section {
-    background: var(--surface); border: 1px solid var(--border);
+    background: linear-gradient(145deg, #2C2F38, #252736);
+    border: 1px solid var(--border);
     border-radius: 14px; margin-bottom: 20px; overflow: hidden;
+    box-shadow: 0 0 0 1px #007ACC10, 0 24px 60px #00000060, inset 0 1px 0 #ffffff08;
     animation: slideUp 0.35s ease both;
   }
   .form-section:nth-child(2){animation-delay:.05s}
@@ -175,7 +188,7 @@ if ($receipt) {
     background: var(--accent-dim); display: flex;
     align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;
   }
-  .section-title { font-size: 14px; font-weight: 600; }
+  .section-title { font-size: 14px; font-weight: 700; }
   .section-body  { padding: 22px; }
 
   /* ── Receipt summary bar (shown after search) ── */
@@ -187,7 +200,7 @@ if ($receipt) {
   }
   .summary-cell { display: flex; flex-direction: column; gap: 4px; }
   .summary-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
-  .summary-value { font-size: 14px; font-weight: 600; color: var(--text); }
+  .summary-value { font-size: 14px; font-weight: 700; color: var(--text); }
 
   .status-pill {
     display: inline-flex; align-items: center; gap: 5px;
@@ -220,7 +233,7 @@ if ($receipt) {
     border-radius: var(--radius);
   }
   .pay-stat-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-  .pay-stat-value { font-size: 18px; font-weight: 700; }
+  .pay-stat-value { font-size: 18px; font-weight: 900; }
   .pay-stat-value.success { color: var(--success); }
   .pay-stat-value.danger  { color: var(--danger); }
   .pay-stat-value.warning { color: var(--warning); }
@@ -236,62 +249,63 @@ if ($receipt) {
   }
 
   .form-field  { display: flex; flex-direction: column; gap: 7px; }
-  .form-label  { font-size: 12.5px; font-weight: 600; color: var(--text-label); letter-spacing: 0.3px; text-transform: uppercase; }
+  .form-label  { font-size: 12.5px; font-weight: 700; color: var(--text-label); letter-spacing: 0.3px; text-transform: uppercase; }
   .form-label .req { color: var(--danger); margin-right: 3px; }
 
   .form-control {
     width: 100%; padding: 10px 14px;
-    background: var(--surface-2); border: 1px solid var(--border);
+    background: var(--surface-2); border: 1.5px solid var(--border);
     border-radius: var(--radius); color: var(--text);
     font-family: 'Cairo', sans-serif; font-size: 14px;
     outline: none; transition: border-color var(--transition), box-shadow var(--transition);
     appearance: none;
   }
-  .form-control:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(79,124,255,0.15); }
-  .form-control::placeholder { color: var(--text-muted); }
+  .form-control:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(0,122,204,0.20); }
+  .form-control::placeholder { color: rgba(255,255,255,.35); }
   .form-control:disabled { opacity: 0.45; cursor: not-allowed; }
-  .form-control.field-invalid { border-color: var(--danger) !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.15) !important; }
+  .form-control.field-invalid { border-color: var(--danger) !important; box-shadow: 0 0 0 3px rgba(224,108,117,0.18) !important; }
 
   select.form-control {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a84a0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' opacity='0.6'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: left 12px center; padding-left: 34px;
   }
+  select.form-control option { background: var(--surface); }
 
   .phone-row { display: flex; gap: 8px; align-items: stretch; }
   .phone-prefix {
     display: flex; align-items: center; justify-content: center;
     min-width: 68px; padding: 10px 12px;
     background: var(--accent-dim); border: 1px solid var(--border);
-    border-radius: var(--radius); color: var(--accent);
+    border-radius: var(--radius); color: var(--highlight);
     font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700;
     letter-spacing: 0.5px; flex-shrink: 0; white-space: nowrap;
     transition: all var(--transition);
   }
   .phone-row .form-control { flex: 1; }
 
-  .field-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .field-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
 
   .inline-error {
     display: none; align-items: center; gap: 8px;
-    padding: 10px 14px; background: #2a1515;
-    border: 1px solid #5a2020; border-radius: var(--radius);
-    color: #fca5a5; font-size: 13px; margin-top: 8px;
+    padding: 10px 14px; background: #E06C7518;
+    border: 1px solid #E06C7550; border-radius: var(--radius);
+    color: var(--danger); font-size: 13px; margin-top: 8px;
   }
   .inline-error.visible { display: flex; }
 
   .pay-warn {
     display: none; align-items: center; gap: 8px;
-    padding: 10px 14px; background: #2a1a00;
-    border: 1px solid #6b4800; border-radius: var(--radius);
-    color: #fcd34d; font-size: 13px; margin-top: 8px;
+    padding: 10px 14px; background: #D19A6618;
+    border: 1px solid #D19A6650; border-radius: var(--radius);
+    color: var(--warning); font-size: 13px; margin-top: 8px;
   }
   .pay-warn.visible { display: flex; }
 
   .no-plans-notice {
     display: none; align-items: center; gap: 8px;
-    padding: 10px 14px; background: #1a1a2a;
-    border: 1px solid #3a3a6a; border-radius: var(--radius);
-    color: #a0a9ff; font-size: 13px; margin-top: 8px;
+    padding: 10px 14px; background: #007ACC18;
+    border: 1px solid #007ACC50; border-radius: var(--radius);
+    color: var(--accent); font-size: 13px; margin-top: 8px;
   }
   .no-plans-notice.visible { display: flex; }
 
@@ -299,10 +313,10 @@ if ($receipt) {
   #evidence-field.visible { display: flex; }
 
   .computed-field .form-control {
-    background: rgba(79,124,255,0.05);
+    background: rgba(0,122,204,0.06);
     border-color: var(--accent-dim);
-    color: var(--accent);
-    font-weight: 600;
+    color: var(--highlight);
+    font-weight: 700;
   }
 
   .toggle-row {
@@ -325,14 +339,14 @@ if ($receipt) {
   }
   .toggle-row input:checked + .toggle-thumb { background: var(--accent); }
   .toggle-row input:checked + .toggle-thumb::after { transform: translateX(-18px); }
-  .toggle-label { font-size: 13px; color: var(--text-muted); }
+  .toggle-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
 
   /* ── Creator-reassign notice ── */
   .creator-notice {
     display: flex; align-items: flex-start; gap: 12px;
-    padding: 14px 18px; background: #111a2e;
-    border: 1px solid #1e3a6a; border-radius: var(--radius);
-    color: #93b4f8; font-size: 13px; line-height: 1.7; margin-bottom: 20px;
+    padding: 14px 18px; background: #007ACC18;
+    border: 1px solid #007ACC50; border-radius: var(--radius);
+    color: var(--highlight); font-size: 13px; line-height: 1.7; margin-bottom: 20px;
   }
   .creator-notice .cn-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
 
@@ -342,7 +356,7 @@ if ($receipt) {
     color: var(--text-muted);
   }
   .empty-state .es-icon { font-size: 48px; margin-bottom: 16px; }
-  .empty-state p { font-size: 15px; }
+  .empty-state p { font-size: 15px; font-weight: 600; }
 
   /* ── Fully-paid state ── */
   .fully-paid {
@@ -350,28 +364,28 @@ if ($receipt) {
     padding: 40px 20px; text-align: center;
   }
   .fully-paid .fp-icon { font-size: 44px; }
-  .fully-paid p { font-size: 15px; color: var(--text-muted); }
+  .fully-paid p { font-size: 15px; color: var(--text-muted); font-weight: 600; }
 
   .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding: 24px 0 0; flex-wrap: wrap; }
   .btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 11px 26px; border-radius: var(--radius);
-    font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600;
+    font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 700;
     cursor: pointer; border: none; transition: all var(--transition); text-decoration: none;
   }
   .btn-primary {
-    background: var(--accent); color: #fff;
-    box-shadow: 0 4px 20px rgba(79,124,255,0.35);
+    background: linear-gradient(135deg, var(--accent2), var(--accent)); color: #fff;
+    box-shadow: 0 6px 20px #007ACC40;
   }
-  .btn-primary:hover { background: #3a68e8; transform: translateY(-1px); box-shadow: 0 6px 28px rgba(79,124,255,0.45); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px #007ACC60; }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
   .btn-secondary { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
   .btn-secondary:hover { color: var(--text); border-color: var(--accent); }
   .btn-view {
-    background: #0f2a1a; color: #86efac;
-    border: 1px solid #1a5c30;
+    background: #98C37918; color: var(--success);
+    border: 1px solid #98C37950;
   }
-  .btn-view:hover { background: #163d26; border-color: var(--success); transform: translateY(-1px); }
+  .btn-view:hover { background: #98C37930; border-color: var(--success); transform: translateY(-1px); }
 </style>
 </head>
 <body>
@@ -448,7 +462,7 @@ if ($receipt) {
     $planPrice = (float)($receipt['plan_price'] ?? 0);
     $pct       = ($planPrice > 0) ? min(100, round(($ns['netPaid'] / $planPrice) * 100)) : 0;
     $st        = $receipt['receipt_status'] ?? 'not_completed';
-    $stInfo    = $statusLabels[$st] ?? ['label' => $st, 'color' => '#7a84a0'];
+    $stInfo    = $statusLabels[$st] ?? ['label' => $st, 'color' => 'rgba(255,255,255,0.6)'];
 
     // Field values — use POST values when re-rendering after error, otherwise receipt values
     $fv = function(string $key, $fallback = '') use ($receipt) {

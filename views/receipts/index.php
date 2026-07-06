@@ -310,12 +310,14 @@ table th {
 .pag-info { font-size: .84rem; font-weight: 600; color: var(--muted); text-align: center; }
 
 /* ══════════════════════════════════════════════════════════════════
-   TABLE
+   TABLE  (borders added)
 ══════════════════════════════════════════════════════════════════ */
 .table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
 }
 .card { width: 100%; max-width: 100%; }
 
@@ -331,6 +333,7 @@ table th {
     color: #fff;
     padding: .65rem .75rem;
     letter-spacing: .02em;
+    border: 1px solid var(--border);
 }
 table td {
     white-space: nowrap;
@@ -338,6 +341,13 @@ table td {
     font-size: 1rem;
     font-weight: 600;
     padding: .6rem .75rem;
+    border: 1px solid var(--border);
+}
+table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+table tbody tr:hover {
+    background: rgba(0, 122, 204, 0.08);
 }
 table td.wrap-cell {
     white-space: normal;
@@ -849,8 +859,7 @@ function buildRow(r) {
             <input type="hidden" name="csrf_token" value="${esc(CSRF_TOKEN)}">
             <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
         </form>` : '';
-        <?php }?>
-
+    <?php }?>
     return `<tr>
         <td>${renewalTypeLabel(r.renewal_type)}</td>
         <td>${esc(r.client_id)}</td>
