@@ -9,24 +9,50 @@
 - [x] renewal type in receipts page should be in arabic => Done
 - [x] add validation if email exists => Done
 - [x] show the image in the same page in show receipt page => Done
-- [ ] validate missing fields in create receipt page
-- [ ] check renewal type in renewal page
-- [ ] remove delete from read receipt page
-- [ ] check payment page with search => this happends because of renewal type in the database
-- [ ] in refund should appear the last receipt for him
-- [ ] transactions should appear only for the admin
-- [ ] when receipt refunded it can not made another payment on it
-- [ ] appear only in show receipts for any account paid and remaining only
 
-
-
-
-- [ ] headers of the table in receipts => ui rebuild
-- [ ] add cards in dashbaord to show current and previous and new receipts => ui rebuild
-- [ ] scrolling in receipts page => ui rebuild
-- [ ] receipt creation is divided into parts => ui rebuild
-- [ ] dates they fucking does not see them => ui rebuild
-- [ ] rebuild ui => ui rebuild
 
 
 osamaitech123456@gmail.com
+
+
+
+admin => rahma@gmail.com : fJ@S8@UM
+area manager => abdullah.ezzat@gmail.com : PD#pi87h
+customer service => naira.elbanna@gmail.com : 9tYB$4Wv
+branch manager => abdullah.ezaat.2@gmail.com : $mJvM9Fn
+
+
+
+
+
+
+- [x] in refund should appear the last receipt only
+- [x] can not make another payment on a refunded receipt
+- [x] check if this email or phone number has exist aleardy in a new receipt or not if exists rais error message to tell him this client has a new receipt already
+# bugs in pdf
+---
+- [ ] ajax in transactions page
+- [ ] check search page and font in all pages
+- [ ] in login make the form more bigger
+- [ ] in show receipt show remaining and paid amount
+
+
+-----------------------------
+------------------------------
+- [ ] in refund searching using receipt id does not work
+- [ ] check receipt type when renew a receipt "if my last receipt end date is 18/4 and i renewd a receipt in 20/4 it will be current renewal but if the renewed at 21/4 it will be previous renewal becuase my month ends at 21
+
+
+- [ ] in payment search should be phone number or receipt
+
+
+- [ ] upload evidance required in all payment method except cash and don't appear cash in customer service account
+
+16746
++201273521512
+26071255
+
+
+
+
+📅 آخر جلسة: 2026-06-18 => it should be previous renewal because we exceed 21/6 but it gives me the correct is current renewal

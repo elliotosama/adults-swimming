@@ -324,6 +324,67 @@ class ReceiptController {
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // findNewReceiptForClient
+    //
+    // Returns the most recent receipt created via the "new" flow
+    // (renewal_type = 'new') for this client, or null if none exists.
+    // Used by store() to block creating a second "new" receipt for a
+    // client that already has one — this is the actual duplicate-receipt
+    // bug guard (two accounts both hitting /receipt/create for the same
+    // client). See also acquireCreationLock() for the race-condition fix
+    // that closes the gap between this check and the INSERT.
+    // ════════════════════════════════════════════════════════════════════════
+
+    private function findNewReceiptForClient(int $clientId): ?array {
+        $stmt = get_db()->prepare("
+            SELECT id, receipt_ref
+            FROM receipts
+            WHERE client_id = ? AND renewal_type = 'new'
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$clientId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Concurrency guard
+    //
+    // Prevents two simultaneous requests (e.g. two different logged-in
+    // accounts) from both passing the "does this client already have a
+    // blocking / new receipt?" check before either one has actually
+    // inserted its receipt. Without this, two POSTs racing each other
+    // both see "no existing receipt yet" and both succeed, producing
+    // duplicate receipts for the same client.
+    //
+    // Relies on MySQL's session-scoped named locks: the lock is
+    // automatically released when the PHP request's DB connection closes
+    // (i.e. at the end of this request), so as long as get_db() does NOT
+    // hand out a persistent connection, no manual release is required —
+    // even across the various early-return paths in store()/storeRenewal().
+    // If get_db() ever switches to PDO::ATTR_PERSISTENT, RELEASE_LOCK()
+    // must be called explicitly before every exit point instead.
+    // ════════════════════════════════════════════════════════════════════════
+
+    private function creationLockKey(string $identifier): string {
+        $digitsOnly = preg_replace('/\D+/', '', $identifier);
+        $normalized = $digitsOnly !== '' ? $digitsOnly : strtolower(trim($identifier));
+        return 'receipt_create_' . md5($normalized);
+    }
+
+    private function acquireCreationLock(string $lockName, int $timeoutSeconds = 10): void {
+        $db  = get_db();
+        $got = $db->query('SELECT GET_LOCK(' . $db->quote($lockName) . ', ' . (int)$timeoutSeconds . ')')
+                   ->fetchColumn();
+
+        if (!$got) {
+            throw new \RuntimeException(
+                'يوجد طلب آخر قيد المعالجة لنفس العميل حالياً. يرجى الانتظار قليلاً ثم إعادة المحاولة.'
+            );
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // searchClientFlexible
     //
     // $allowedBranchIds: when non-empty (branch_manager with a many-to-many
@@ -496,7 +557,11 @@ class ReceiptController {
         $thisYear  = (int) $today->format('Y');
 
         if ($lastYear === $thisYear && $lastMonth === $thisMonth) {
-            return $lastDay <= 21 ? 'current_renewal' : 'previous_renewal';
+            // Cutoff is based on TODAY's date relative to the 21st of the
+            // month, not the day of the previous last_session. e.g. last
+            // session on the 18th: renewing on the 20th → current_renewal,
+            // renewing on the 21st or later → previous_renewal.
+            return $todayDay < 21 ? 'current_renewal' : 'previous_renewal';
         }
 
         $prevMonth = $thisMonth === 1 ? 12 : $thisMonth - 1;
@@ -870,57 +935,55 @@ public function store(): void {
         }
     }
 
+    // ── Concurrency guard ────────────────────────────────────────────────
+    // Serialize per phone/email so two simultaneous submissions for the
+    // same client (e.g. from two different logged-in accounts) can't both
+    // pass the "does this client already have a new receipt?" check below
+    // before either has actually inserted its row. See acquireCreationLock()
+    // for details.
+    $lockIdentifier = $data['phone'] ?: $data['client_email'];
+    if ($lockIdentifier !== '') {
+        try {
+            $this->acquireCreationLock($this->creationLockKey($lockIdentifier));
+        } catch (\RuntimeException $e) {
+            $this->flash('flash_error', $e->getMessage());
+            $this->redirect('/receipt/create');
+            return;
+        }
+    }
+
     $errors         = $this->validate($data);
     $existingClient = null;
 
-    // ── Phone-existence check ──────────────────────────────────────────
-    if (empty($errors) && !empty($data['phone'])) {
-        $existingClient = $this->findClientByPhone($data['phone']);
-        if ($existingClient) {
-            $check     = $this->checkRenewalEligibility((int)$existingClient['id']);
-            $blockType = $check['block_type'] ?? '';
+    // ── Find the client by phone first, then by email ───────────────────
+    if (empty($errors)) {
+        if (!empty($data['phone'])) {
+            $existingClient = $this->findClientByPhone($data['phone']);
+        }
+        if (!$existingClient && !empty($data['client_email'])) {
+            $existingClient = $this->findClientByEmail($data['client_email']);
+        }
+    }
 
-            if ($blockType === 'not_completed_no_refund') {
-                // Silent allow — previous receipt not completed, no meaningful refund
+    // ── Block if this client already has a "new" receipt ─────────────────
+    if (empty($errors) && $existingClient) {
+        $existingNewReceipt = $this->findNewReceiptForClient((int)$existingClient['id']);
 
-            } elseif ($check['is_new'] ?? false) {
-                // Client exists in DB but has NO receipts yet → silent allow
-
-            } elseif ($blockType === 'full_refund_needs_admin') {
-                // 100% of what they paid was refunded
-                if ($isAdmin) {
-                    // Admin can create a new receipt after full refund → silent allow
-                } else {
-                    $errors[] = $check['message'];
-                }
-
-            } elseif ($blockType === 'academy_fault_partial_refund') {
-                // 50-99% academy-fault refund → block new receipt for everyone
-                $errors[] = sprintf(
-                    'رقم الهاتف "%s" مسجّل مسبقاً باسم "%s". '
-                    . 'تم استرداد %d%% من الإيصال السابق — '
-                    . 'يرجى استخدام صفحة التجديد.',
-                    htmlspecialchars($data['phone']),
-                    htmlspecialchars($existingClient['client_name']),
-                    $check['refund_pct'] ?? 0
-                );
-                }
-            // } else {
-            //     // Client has a completed receipt or ≥30% refund → must renew
-            //     $errors[] = sprintf(
-            //         'رقم الهاتف "%s" مسجّل مسبقاً باسم "%s". '
-            //         . 'يرجى استخدام صفحة التجديد لإنشاء إيصال جديد.',
-            //         htmlspecialchars($data['phone']),
-            //         htmlspecialchars($existingClient['client_name'])
-            //     );
-            // }
+        if ($existingNewReceipt) {
+            $errors[] = sprintf(
+                'هذا العميل ("%s") لديه بالفعل إيصال جديد (#%s). '
+                . 'لا يمكن إنشاء أكثر من إيصال "جديد" لنفس العميل — '
+                . 'يرجى استخدام صفحة التجديد أو صفحة الدفعة بدلاً من ذلك.',
+                htmlspecialchars($existingClient['client_name']),
+                htmlspecialchars($existingNewReceipt['receipt_ref'] ?? (string)$existingNewReceipt['id'])
+            );
         }
     }
 
     // ── Email-existence check ────────────────────────────────────────────
     // Only block if the email belongs to a DIFFERENT client than the one
-    // already matched by phone (or if no phone match exists). A returning
-    // client reusing their own email is fine and shouldn't be blocked here.
+    // already matched (by phone or email) above. A returning client
+    // reusing their own email is fine and shouldn't be blocked here.
     if (empty($errors) && !empty($data['client_email'])) {
         $emailOwner = $this->findClientByEmail($data['client_email']);
         if ($emailOwner && (!$existingClient || (int)$emailOwner['id'] !== (int)$existingClient['id'])) {
@@ -1491,6 +1554,21 @@ public function update(): void {
         if ($existingClient) $clientId = (int)$existingClient['id'];
     }
 
+    // ── Concurrency guard ────────────────────────────────────────────────
+    // Serialize per client (or phone if the client wasn't resolved above)
+    // so two simultaneous renewal submissions for the same client can't
+    // both pass eligibility before either has actually inserted its row.
+    $lockIdentifier = $clientId ? (string)$clientId : $data['phone'];
+    if ($lockIdentifier !== '') {
+        try {
+            $this->acquireCreationLock($this->creationLockKey($lockIdentifier));
+        } catch (\RuntimeException $e) {
+            $this->flash('flash_error', $e->getMessage());
+            $this->redirect('/receipt/renew');
+            return;
+        }
+    }
+
     // branch_manager always uses their own branch
     if ($user['role'] === 'branch_manager') {
         $managerBranchId = $this->receipts->getBranchIdByManager($user['id']);
@@ -1703,7 +1781,7 @@ public function update(): void {
         $search   = trim($_GET['search'] ?? '');
 
         if ($search) {
-            $client = $this->searchClientFlexible($search, $managerBranchIds);
+            $client = $this->searchClientByIdOrPhone($search, $managerBranchIds);
 
             if ($client) {
                 $db = get_db();
@@ -1731,6 +1809,7 @@ public function update(): void {
                     LEFT JOIN branches b ON b.id = r.branch_id
                     WHERE r.client_id = ?
                       AND r.receipt_status = 'not_completed'
+                      AND (r.is_refunded IS NULL OR r.is_refunded = 0)
                       {$branchFilter}
                     ORDER BY r.id DESC
                 ");
@@ -1867,6 +1946,9 @@ public function storePayment(): void {
     $errors  = [];
 
     if (!$receipt)       $errors[] = 'الإيصال غير موجود.';
+    if ($receipt && !empty($receipt['is_refunded'])) {
+        $errors[] = 'لا يمكن إضافة دفعة على إيصال تم استرداد مبلغ منه.';
+    }
     if ($amount <= 0)    $errors[] = 'يجب إدخال مبلغ أكبر من صفر.';
     if (!$paymentMethod) $errors[] = 'يجب اختيار طريقة الدفع.';
 
@@ -1948,15 +2030,60 @@ public function storePayment(): void {
         $search   = trim($_GET['search'] ?? '');
 
         if ($search) {
-            $client = $this->searchClientFlexible($search, $managerBranchIds);
-
-            if ($client) {
-                $receipts = $this->receipts->findByClientWithTotals($client['id']);
-
+            // Direct receipt-ID / ref lookup — return only that one receipt.
+            if (ctype_digit($search) && strlen($search) <= 9) {
+                $branchFilter = '';
+                $params       = [(int)$search, $search];
                 if (!empty($managerBranchIds)) {
-                    $receipts = array_values(array_filter($receipts, function (array $r) use ($managerBranchIds): bool {
-                        return in_array((int)($r['branch_id'] ?? 0), $managerBranchIds, true);
-                    }));
+                    $bph          = implode(',', array_fill(0, count($managerBranchIds), '?'));
+                    $branchFilter = " AND r.branch_id IN ({$bph})";
+                    $params       = array_merge($params, $managerBranchIds);
+                }
+
+                $stmt = get_db()->prepare("
+                    SELECT r.*,
+                           p.price       AS plan_price,
+                           p.description AS plan_name,
+                           b.branch_name,
+                           cl.client_name,
+                           cl.phone,
+                           (SELECT COALESCE(SUM(amount),0) FROM transactions t WHERE t.receipt_id = r.id AND t.type = 'payment') AS gross_paid,
+                           (SELECT COALESCE(SUM(amount),0) FROM transactions t WHERE t.receipt_id = r.id AND t.type = 'refund')  AS total_refunded
+                    FROM receipts r
+                    LEFT JOIN prices   p  ON p.id  = r.plan_id
+                    LEFT JOIN branches b  ON b.id  = r.branch_id
+                    LEFT JOIN clients  cl ON cl.id = r.client_id
+                    WHERE (r.id = ? OR r.receipt_ref = ?) {$branchFilter}
+                    LIMIT 1
+                ");
+                $stmt->execute($params);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($row) {
+                    $client   = ['id' => $row['client_id'], 'client_name' => $row['client_name'], 'phone' => $row['phone']];
+                    $grossPaid     = (float)($row['gross_paid'] ?? 0);
+                    $totalRefunded = (float)($row['total_refunded'] ?? 0);
+                    $receipts = ($grossPaid - $totalRefunded) > 0 ? [$row] : [];
+                }
+            } else {
+                // Phone-number search — client's latest receipt only, not full history.
+                $client = $this->searchClientByIdOrPhone($search, $managerBranchIds);
+
+                if ($client) {
+                    $allReceipts = $this->receipts->findByClientWithTotals($client['id']);
+
+                    if (!empty($managerBranchIds)) {
+                        $allReceipts = array_values(array_filter($allReceipts, function (array $r) use ($managerBranchIds): bool {
+                            return in_array((int)($r['branch_id'] ?? 0), $managerBranchIds, true);
+                        }));
+                    }
+
+                    if (!empty($allReceipts)) {
+                        $latest        = $allReceipts[0]; // findByClientWithTotals is expected to be ORDER BY id DESC
+                        $grossPaid     = (float)($latest['gross_paid'] ?? $latest['total_paid'] ?? 0);
+                        $totalRefunded = (float)($latest['total_refunded'] ?? 0);
+                        $receipts      = ($grossPaid - $totalRefunded) > 0 ? [$latest] : [];
+                    }
                 }
             }
         }
@@ -2148,7 +2275,12 @@ public function paymentByReceiptId(): void {
             $receipt = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
         }
 
-        if (!$receipt) {
+        if ($receipt && !empty($receipt['is_refunded'])) {
+            $errors[] = 'لا يمكن إضافة دفعة على إيصال تم استرداد مبلغ منه.';
+            $receipt  = null;
+        }
+
+        if (!$receipt && !$errors) {
             $errors[] = 'لم يتم العثور على إيصال بهذا الرقم.';
         }
     }
@@ -2184,6 +2316,9 @@ public function storePaymentByReceiptId(): void {
     $errors  = [];
 
     if (!$receipt)       $errors[] = 'الإيصال غير موجود.';
+    if ($receipt && !empty($receipt['is_refunded'])) {
+        $errors[] = 'لا يمكن إضافة دفعة على إيصال تم استرداد مبلغ منه.';
+    }
     if ($amount <= 0)    $errors[] = 'يجب إدخال مبلغ أكبر من صفر.';
     if (!$paymentMethod) $errors[] = 'يجب اختيار طريقة الدفع.';
 
@@ -2348,6 +2483,11 @@ public function manage(): void {
 
     // ════════════════════════════════════════════════════════════════
     // PAYMENT TAB — client search
+    //
+    // Accepts, in order of precedence:
+    //   1. A receipt id or receipt_ref (digits, ≤ 9 chars) — looked up
+    //      directly against the receipts table.
+    //   2. Falls back to the existing client id / phone search.
     // ════════════════════════════════════════════════════════════════
     $paySearch   = trim($_GET['pay_search'] ?? '');
     $payClient   = null;
@@ -2355,62 +2495,114 @@ public function manage(): void {
 
     if ($paySearch) {
         $activeTab = 'payment';
-        $payClient = $this->searchClientFlexible($paySearch, $managerBranchIds);
 
-        if ($payClient) {
+        // ── Direct receipt-ID / receipt-ref lookup ──────────────────────
+        if (ctype_digit($paySearch) && strlen($paySearch) <= 9) {
             $payBranchFilter = '';
-            $payParams       = [$payClient['id']];
+            $payParams       = [(int)$paySearch, $paySearch];
             if (!empty($managerBranchIds)) {
                 $bph              = implode(',', array_fill(0, count($managerBranchIds), '?'));
                 $payBranchFilter  = " AND r.branch_id IN ({$bph})";
                 $payParams        = array_merge($payParams, $managerBranchIds);
             }
 
-$stmt = $db->prepare("
-    SELECT r.*,
-           p.price       AS plan_price,
-           p.description AS plan_name,
-           b.branch_name,
-           COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
-               - COALESCE(SUM(CASE WHEN t.type='refund'  THEN t.amount ELSE 0 END), 0)
-               AS total_paid,
-           COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
-               AS gross_paid,
-           COALESCE(SUM(CASE WHEN t.type='refund'  THEN t.amount ELSE 0 END), 0)
-               AS total_refunded
-    FROM receipts r
-    LEFT JOIN prices       p ON p.id = r.plan_id
-    LEFT JOIN branches     b ON b.id = r.branch_id
-    LEFT JOIN transactions t ON t.receipt_id = r.id
-    WHERE r.client_id = ?
-      AND r.receipt_status = 'not_completed'
-      {$payBranchFilter}
-    GROUP BY r.id
-    HAVING (
-        COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
-        - COALESCE(SUM(CASE WHEN t.type='refund'  THEN t.amount ELSE 0 END), 0)
-    ) < COALESCE(p.price, 0)
-    ORDER BY r.id DESC
-");
+            $stmt = $db->prepare("
+                SELECT r.*,
+                       p.price       AS plan_price,
+                       p.description AS plan_name,
+                       b.branch_name,
+                       c.client_name,
+                       c.phone       AS client_phone,
+                       c.age         AS client_age,
+                       COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
+                           - COALESCE(SUM(CASE WHEN t.type='refund'  THEN t.amount ELSE 0 END), 0)
+                           AS total_paid
+                FROM receipts r
+                LEFT JOIN prices       p ON p.id = r.plan_id
+                LEFT JOIN branches     b ON b.id = r.branch_id
+                LEFT JOIN clients      c ON c.id = r.client_id
+                LEFT JOIN transactions t ON t.receipt_id = r.id
+                WHERE (r.id = ? OR r.receipt_ref = ?)
+                  AND r.receipt_status = 'not_completed'
+                  AND (r.is_refunded IS NULL OR r.is_refunded = 0)
+                  {$payBranchFilter}
+                GROUP BY r.id
+                LIMIT 1
+            ");
             $stmt->execute($payParams);
-            $payReceipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($row) {
+                $payClient = [
+                    'id'          => $row['client_id'],
+                    'client_name' => $row['client_name'],
+                    'phone'       => $row['client_phone'] ?? null,
+                    'age'         => $row['client_age']   ?? null,
+                ];
+                $payReceipts = [$row];
+            }
+        }
+
+        // ── Fallback: client-ID / phone search (existing behavior) ──────
+        if (!$payClient) {
+            $payClient = $this->searchClientByIdOrPhone($paySearch, $managerBranchIds);
+
+            if ($payClient) {
+                $payBranchFilter = '';
+                $payParams       = [$payClient['id']];
+                if (!empty($managerBranchIds)) {
+                    $bph              = implode(',', array_fill(0, count($managerBranchIds), '?'));
+                    $payBranchFilter  = " AND r.branch_id IN ({$bph})";
+                    $payParams        = array_merge($payParams, $managerBranchIds);
+                }
+
+                $stmt = $db->prepare("
+                    SELECT r.*,
+                           p.price       AS plan_price,
+                           p.description AS plan_name,
+                           b.branch_name,
+                           COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
+                               - COALESCE(SUM(CASE WHEN t.type='refund'  THEN t.amount ELSE 0 END), 0)
+                               AS total_paid,
+                           COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
+                               AS gross_paid,
+                           COALESCE(SUM(CASE WHEN t.type='refund'  THEN t.amount ELSE 0 END), 0)
+                               AS total_refunded
+                    FROM receipts r
+                    LEFT JOIN prices       p ON p.id = r.plan_id
+                    LEFT JOIN branches     b ON b.id = r.branch_id
+                    LEFT JOIN transactions t ON t.receipt_id = r.id
+                    WHERE r.client_id = ?
+                      AND r.receipt_status = 'not_completed'
+                      AND (r.is_refunded IS NULL OR r.is_refunded = 0)
+                      {$payBranchFilter}
+                    GROUP BY r.id
+                    HAVING (
+                        COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
+                        - COALESCE(SUM(CASE WHEN t.type='refund'  THEN t.amount ELSE 0 END), 0)
+                    ) < COALESCE(p.price, 0)
+                    ORDER BY r.id DESC
+                ");
+                $stmt->execute($payParams);
+                $payReceipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
         }
     }
 
     // ════════════════════════════════════════════════════════════════
-    // REFUND TAB — client search
+    // REFUND TAB — client search (receipt-id/ref or phone; latest receipt only)
     // ════════════════════════════════════════════════════════════════
     $refundSearch   = trim($_GET['refund_search'] ?? '');
     $refundClient   = null;
     $refundReceipts = [];
 
     if ($refundSearch) {
-        $activeTab    = 'refund';
-        $refundClient = $this->searchClientFlexible($refundSearch, $managerBranchIds);
+        $activeTab = 'refund';
 
-        if ($refundClient) {
+        if (ctype_digit($refundSearch) && strlen($refundSearch) <= 9) {
+            // Direct receipt-ID or receipt_ref lookup
             $refundBranchFilter = '';
-            $refundParams       = [$refundClient['id']];
+            $refundParams       = [(int)$refundSearch, $refundSearch];
             if (!empty($managerBranchIds)) {
                 $bph                 = implode(',', array_fill(0, count($managerBranchIds), '?'));
                 $refundBranchFilter  = " AND r.branch_id IN ({$bph})";
@@ -2423,35 +2615,71 @@ $stmt = $db->prepare("
                        p.description AS plan_name,
                        b.branch_name,
                        c.client_name,
-                       (
-                           SELECT COALESCE(SUM(amount), 0)
-                           FROM transactions t
-                           WHERE t.receipt_id = r.id AND t.type = 'payment'
-                       ) AS gross_paid,
-                       (
-                           SELECT COALESCE(SUM(amount), 0)
-                           FROM transactions t
-                           WHERE t.receipt_id = r.id AND t.type = 'refund'
-                       ) AS total_refunded
+                       (SELECT COALESCE(SUM(amount), 0) FROM transactions t WHERE t.receipt_id = r.id AND t.type = 'payment') AS gross_paid,
+                       (SELECT COALESCE(SUM(amount), 0) FROM transactions t WHERE t.receipt_id = r.id AND t.type = 'refund')  AS total_refunded
                 FROM receipts r
                 LEFT JOIN prices   p ON p.id = r.plan_id
                 LEFT JOIN branches b ON b.id = r.branch_id
                 LEFT JOIN clients  c ON c.id = r.client_id
-                WHERE r.client_id = ?
-                  {$refundBranchFilter}
-                ORDER BY r.id DESC
+                WHERE (r.id = ? OR r.receipt_ref = ?) {$refundBranchFilter}
+                LIMIT 1
             ");
             $stmt->execute($refundParams);
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Only include receipts where there is something to refund
-            $refundReceipts = array_filter($rows, function (array $r): bool {
-                $grossPaid     = (float)($r['gross_paid']      ?? 0);
-                $totalRefunded = (float)($r['total_refunded']  ?? 0);
-                return ($grossPaid - $totalRefunded) > 0;
-            });
+            if ($row) {
+                $refundClient = ['id' => $row['client_id'], 'client_name' => $row['client_name']];
+                $gross    = (float)($row['gross_paid'] ?? 0);
+                $refunded = (float)($row['total_refunded'] ?? 0);
+                $refundReceipts = ($gross - $refunded) > 0 ? [$row] : [];
+            }
+        } else {
+            // Phone-number search — client's latest receipt only
+            $refundClient = $this->searchClientByIdOrPhone($refundSearch, $managerBranchIds);
 
-            $refundReceipts = array_values($refundReceipts);
+            if ($refundClient) {
+                $refundBranchFilter = '';
+                $refundParams       = [$refundClient['id']];
+                if (!empty($managerBranchIds)) {
+                    $bph                 = implode(',', array_fill(0, count($managerBranchIds), '?'));
+                    $refundBranchFilter  = " AND r.branch_id IN ({$bph})";
+                    $refundParams        = array_merge($refundParams, $managerBranchIds);
+                }
+
+                $stmt = $db->prepare("
+                    SELECT r.*,
+                           p.price       AS plan_price,
+                           p.description AS plan_name,
+                           b.branch_name,
+                           c.client_name,
+                           (
+                               SELECT COALESCE(SUM(amount), 0)
+                               FROM transactions t
+                               WHERE t.receipt_id = r.id AND t.type = 'payment'
+                           ) AS gross_paid,
+                           (
+                               SELECT COALESCE(SUM(amount), 0)
+                               FROM transactions t
+                               WHERE t.receipt_id = r.id AND t.type = 'refund'
+                           ) AS total_refunded
+                    FROM receipts r
+                    LEFT JOIN prices   p ON p.id = r.plan_id
+                    LEFT JOIN branches b ON b.id = r.branch_id
+                    LEFT JOIN clients  c ON c.id = r.client_id
+                    WHERE r.client_id = ?
+                      {$refundBranchFilter}
+                    ORDER BY r.id DESC
+                    LIMIT 1
+                ");
+                $stmt->execute($refundParams);
+                $latest = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($latest) {
+                    $gross    = (float)($latest['gross_paid'] ?? 0);
+                    $refunded = (float)($latest['total_refunded'] ?? 0);
+                    $refundReceipts = ($gross - $refunded) > 0 ? [$latest] : [];
+                }
+            }
         }
     }
 

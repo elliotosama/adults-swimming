@@ -122,7 +122,7 @@ require ROOT . '/views/includes/layout_top.php';
             <!-- ── أيام العمل ── -->
             <p class="section-title" style="margin-top:1.6rem">أيام العمل</p>
             <p style="font-size:.82rem;color:var(--muted);margin-bottom:1.2rem">
-                حدّد أيام العمل لكل وردية. اترك الوردية فارغة إن لم تكن مستخدمة.
+                حدّد أيام العمل.
             </p>
 
             <div class="shifts-grid">

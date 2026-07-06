@@ -113,8 +113,8 @@ if ($receipt) {
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Cairo', sans-serif;
-    background: var(--bg);
-    color: var(--text);
+    background: var(accent);
+    color: #fff;
     min-height: 100vh;
     direction: rtl;
   }
@@ -508,7 +508,7 @@ if ($receipt) {
           <span class="summary-value"><?= htmlspecialchars($receipt['plan_name'] ?? '—') ?></span>
         </div>
         <div class="summary-cell">
-          <span class="summary-label">سعر الخطة</span>
+          <span class="summary-label">قيمه الاشتراك</span>
           <span class="summary-value"><?= number_format($planPrice, 2) ?></span>
         </div>
         <div class="summary-cell">

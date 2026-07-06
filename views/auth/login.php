@@ -12,12 +12,12 @@ if (isset($_SESSION['user'])) {
     <title>تسجيل الدخول — أكاديمية السباحة</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg:        #080e14;
+            --bg:        #1E1E2D;
             --surface:   #0d1821;
             --card:      #111d2b;
             --border:    #1a2e42;
@@ -32,13 +32,15 @@ if (isset($_SESSION['user'])) {
 
         html, body {
             height: 100%;
-            font-family: 'Tajawal', sans-serif;
+            font-family: 'Cairo', sans-serif;
             background: var(--bg);
             color: var(--text);
+            font-size: 16px;
+            font-weight: bold;
             overflow: hidden;
         }
 
-        /* ── Animated water background ── */
+        /* ── Water background (static) ── */
         .bg {
             position: fixed; inset: 0; z-index: 0;
             background:
@@ -52,26 +54,17 @@ if (isset($_SESSION['user'])) {
             height: 220px; z-index: 0; overflow: hidden;
         }
 
-        .wave svg { width: 200%; animation: wave-move 8s linear infinite; }
-        .wave.wave2 svg { animation: wave-move 12s linear infinite reverse; opacity: .5; }
+        .wave svg { width: 100%; animation: none; }
+        .wave.wave2 svg { animation: none; opacity: .5; }
 
-        @keyframes wave-move {
-            0%   { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
-
-        /* ── Bubbles ── */
+        /* ── Bubbles (static) ── */
         .bubbles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
         .bubble {
             position: absolute; bottom: -60px;
             border-radius: 50%;
             background: radial-gradient(circle at 35% 35%, #00b4d840, #00b4d810);
             border: 1px solid #00b4d830;
-            animation: rise linear infinite;
-        }
-        @keyframes rise {
-            0%   { transform: translateY(0) scale(1); opacity: .7; }
-            100% { transform: translateY(-110vh) scale(1.3); opacity: 0; }
+            animation: none;
         }
 
         /* ── Layout ── */
@@ -93,11 +86,7 @@ if (isset($_SESSION['user'])) {
                 0 0 0 1px #00b4d810,
                 0 32px 80px #00000080,
                 inset 0 1px 0 #ffffff08;
-            animation: card-in .6s cubic-bezier(.22,1,.36,1) both;
-        }
-        @keyframes card-in {
-            from { opacity: 0; transform: translateY(28px) scale(.97); }
-            to   { opacity: 1; transform: none; }
+            animation: none;
         }
 
         /* ── Logo ── */
@@ -159,7 +148,7 @@ if (isset($_SESSION['user'])) {
             border: 1.5px solid var(--border);
             border-radius: var(--radius);
             color: var(--text);
-            font-family: 'Tajawal', sans-serif;
+            font-family: 'Cairo', sans-serif;
             font-size: .95rem;
             outline: none;
             transition: border-color .25s, box-shadow .25s;
@@ -194,7 +183,7 @@ if (isset($_SESSION['user'])) {
             width: 100%; padding: .95rem;
             background: linear-gradient(135deg, var(--accent2), var(--accent));
             border: none; border-radius: var(--radius);
-            color: #fff; font-family: 'Tajawal', sans-serif;
+            color: #fff; font-family: 'Cairo', sans-serif;
             font-size: 1rem; font-weight: 700;
             cursor: pointer; letter-spacing: .04em;
             position: relative; overflow: hidden;
@@ -239,7 +228,7 @@ if (isset($_SESSION['user'])) {
 
 <div class="bg"></div>
 
-<!-- Water waves -->
+<!-- Water waves (static) -->
 <div class="wave">
     <svg viewBox="0 0 1440 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" height="220">
         <path fill="#00b4d815" d="M0,80 C360,160 720,0 1080,80 C1260,120 1380,60 1440,80 L1440,220 L0,220Z"/>
@@ -252,7 +241,7 @@ if (isset($_SESSION['user'])) {
     </svg>
 </div>
 
-<!-- Bubbles -->
+<!-- Bubbles (static) -->
 <div class="bubbles" id="bubbles"></div>
 
 <div class="page">
@@ -295,13 +284,6 @@ if (isset($_SESSION['user'])) {
                 </div>
             </div>
 
-            <div class="row">
-                <label class="check-label">
-                    <input type="checkbox" name="remember"> تذكّرني
-                </label>
-                <a class="forgot" href="/forgot-password">نسيت كلمة المرور؟</a>
-            </div>
-
             <button type="submit" class="btn">دخول</button>
         </form>
 
@@ -309,7 +291,7 @@ if (isset($_SESSION['user'])) {
 </div>
 
 <script>
-    // Generate bubbles
+    // Generate bubbles (static positions, no rise animation)
     const container = document.getElementById('bubbles');
     for (let i = 0; i < 18; i++) {
         const b = document.createElement('div');
@@ -318,8 +300,7 @@ if (isset($_SESSION['user'])) {
         b.style.cssText = `
             width:${size}px; height:${size}px;
             left:${Math.random()*100}%;
-            animation-duration:${6 + Math.random()*12}s;
-            animation-delay:${Math.random()*10}s;
+            bottom:${Math.random()*100}%;
         `;
         container.appendChild(b);
     }

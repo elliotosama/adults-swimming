@@ -515,7 +515,7 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
             <div class="preview-section-title">💳 الدفع / Payment</div>
             <div class="preview-grid">
                 <div class="preview-item">
-                    <label>سعر الخطة / Plan Price</label>
+                    <label>قيمه الاشتراك / Plan Price</label>
                     <span class="accent"><?= number_format($planPrice, 0) ?></span>
                 </div>
                 <div class="preview-item">

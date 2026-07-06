@@ -69,9 +69,6 @@ require ROOT . '/views/includes/layout_top.php';
         <h1 class="page-title">📋 لوحه تحكم</h1>
         <p class="breadcrumb">مرحباً، <?= htmlspecialchars($_SESSION['username'] ?? '') ?> · <?= date('l، d F Y') ?></p>
     </div>
-    <div style="display:flex;gap:.7rem;flex-wrap:wrap">
-        <a href="<?= APP_URL ?>/receipt/create" class="btn btn-primary">+ إيصال جديد</a>
-    </div>
 </div>
 
 <!-- ══ SECTION: إحصائياتي ══════════════════════════════════════════════ -->

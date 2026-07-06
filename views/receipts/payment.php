@@ -359,7 +359,7 @@ input[type="file"].form-control {
                     <span><?= htmlspecialchars($r['last_session'] ?? '—') ?></span>
                 </div>
                 <div class="rc-item">
-                    <label>سعر الخطة</label>
+                    <label>قيمه الاشتراك</label>
                     <span><?= number_format($planPrice, 0) ?></span>
                 </div>
                 <div class="rc-item">
