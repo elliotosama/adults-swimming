@@ -12,9 +12,9 @@
 
 
 
-- [ ] if i choose cash remove upload
-- [ ] error message appear twice
-- [ ] please login message appear after login
+- [x] if i choose cash remove upload
+- [x] error message appear twice
+- [x] please login message appear after login
 
 osamaitech123456@gmail.com
 

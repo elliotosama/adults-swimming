@@ -870,7 +870,7 @@ private function findOrCreateClient(string $name, string $phone, array $extra = 
     $stmt = $db->prepare("
         INSERT INTO clients
             (client_name, phone, email, age, gender, created_by, created_at)
-        VALUESi
+        VALUES
             (:client_name, :phone, :email, :age, :gender, :created_by, CURDATE())
     ");
     $stmt->execute([
