@@ -65,11 +65,12 @@ public function showDashboard(string $role): void {
         }
 
 
-        auth_login_user($user);
-        $this->users->updateLastLogin($user['id']);
-        log_action('login_success', null, $user['id']);
+auth_login_user($user);
+$this->users->updateLastLogin($user['id']);
+log_action('login_success', null, $user['id']);
 
-        auth_redirect_by_role();
+unset($_SESSION['flash_error']);   // ← clear any stale "please login" message
+auth_redirect_by_role();
     }
 
     // ════════════════════════════════════════════════════════════════════════

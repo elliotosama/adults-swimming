@@ -391,7 +391,7 @@ if ($receipt) {
 <div class="receipt-page">
 
   <!-- ── Page header ── -->
-  <div class="page-header">
+  <div class="page-header" style="flex-direction: row;">
     <div>
       <h1>💳 <?= htmlspecialchars($pageTitle) ?></h1>
       <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>

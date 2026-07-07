@@ -209,6 +209,7 @@
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 22px; }
     .form-grid .full { grid-column: 1 / -1; }
     @media (max-width: 640px) {
+        .btn
         .form-grid { grid-template-columns: 1fr; }
         .form-grid .full { grid-column: 1; }
     }
@@ -499,7 +500,7 @@
         .form-actions { flex-direction: column; gap: 10px; }
         .form-actions .btn { width: 100%; justify-content: center; }
 
-        .page-header { flex-wrap: wrap; gap: 10px; }
+        .page-header { gap: 10px; }
         .page-header h2 { font-size: 17px; }
     }
 
@@ -570,7 +571,6 @@
         </div>
         <button type="button" class="btn-back" onclick="history.back()">← رجوع</button>
       </div>
-
       <?php if (!empty($_SESSION['flash_error'])): ?>
         <div class="alert alert-error">⚠️ <?= $_SESSION['flash_error'] ?></div>
         <?php unset($_SESSION['flash_error']); ?>
@@ -865,9 +865,9 @@
             <form method="GET" action="<?= APP_URL ?>/receipt/manage" style="display:flex;gap:10px;align-items:flex-end;">
               <input type="hidden" name="tab" value="renew">
               <div class="form-field" style="flex:1;">
-                <label class="form-label">ابحث برقم العميل (Client ID) أو رقم الهاتف</label>
+                <label class="form-label">ابحث برقم العضويه (Client ID) أو رقم الهاتف</label>
                 <input type="text" name="renew_search" class="form-control"
-                       placeholder="مثال: 01012345678 أو رقم العميل"
+                       placeholder="مثال: 01012345678 أو رقم العضوية 12345"
                        value="<?= htmlspecialchars($renewSearch ?? '') ?>">
               </div>
               <button type="submit" class="btn btn-primary" style="height:42px;">🔍 بحث</button>
@@ -1130,18 +1130,18 @@
            TAB 3: إضافة دفعة
       ══════════════════════════════════════════════════════════════ -->
       <div class="tab-panel" id="tab-panel-payment" role="tabpanel">
-        <h1>تكمله ايصال</h1>
+        <h1>تكمله الايصال</h1>
         <div class="form-section">
           <div class="section-header"><div class="section-icon">🔍</div><span class="section-title">البحث عن العميل</span></div>
           <div class="section-body">
             <form method="GET" action="<?= APP_URL ?>/receipt/manage" style="display:flex;gap:10px;align-items:flex-end;">
               <input type="hidden" name="tab" value="payment">
               <div class="form-field" style="flex:1;">
-                <label class="form-label">يمكنك البحث برقم العميل، رقم الهاتف، أو رقم الإيصال</label>
+                <label class="form-label">يمكنك البحث برقم العضويه، رقم الهاتف، أو رقم الإيصال</label>
                 <input type="text" name="pay_search" class="form-control"
-                       placeholder="مثال: 01012345678 أو رقم العميل"
+                       placeholder="مثال: 01012345678 أو رقم العضويه"
                        value="<?= htmlspecialchars($paySearch) ?>">
-                <span class="field-hint">البحث في الدفعات يتم برقم العميل أو رقم الهاتف فقط — لا يقبل الاسم. لدفعة على رقم إيصال مباشرة استخدم صفحة "دفعة على إيصال".</span>
+                <span class="field-hint">البحث في الدفعات يتم برقم العضويه أو رقم الهاتف فقط — لا يقبل الاسم. لدفعة على رقم إيصال مباشرة استخدم صفحة "دفعة على إيصال".</span>
               </div>
               <button type="submit" class="btn btn-primary" style="height:42px;">🔍 بحث</button>
             </form>
@@ -2056,6 +2056,50 @@ function getRenRequiredFields() {
         renUpdateDates();
         <?php endif; ?>
     })();
+
+
+const paymentMethod = document.getElementById('new-payment-method');
+const evidenceField = document.getElementById('new-evidence-field');
+const evidenceInput = document.getElementById('new-transaction-evidence');
+
+// Hide initially
+evidenceField.style.display = 'none';
+evidenceInput.required = false;
+
+paymentMethod.addEventListener('change', function () {
+    if (this.value === 'cash') {
+        evidenceField.style.display = 'none';
+        evidenceInput.required = false;
+        evidenceInput.value = ''; // Clear selected file
+    } else if (this.value !== '') {
+        evidenceField.style.display = 'block';
+        evidenceInput.required = true;
+    } else {
+        evidenceField.style.display = 'none';
+        evidenceInput.required = false;
+        evidenceInput.value = '';
+    }
+});
+
+const renPaymentMethod = document.getElementById('ren-payment-method');
+const renEvidenceField = document.getElementById('ren-evidence-field');
+const renEvidenceInput = document.getElementById('ren-transaction-evidence');
+renEvidenceField.style.display = 'none';
+renEvidenceInput.required = false;
+renPaymentMethod.addEventListener('change', function () {
+    if (this.value === 'cash') {
+        renEvidenceField.style.display = 'none';
+        renEvidenceInput.required = false;
+        renEvidenceInput.value = '';
+    } else if (this.value !== '') {
+        renEvidenceField.style.display = 'block';
+        renEvidenceInput.required = true;
+    } else {
+        renEvidenceField.style.display = 'none';
+        renEvidenceInput.required = false;
+        renEvidenceInput.value = '';
+    }
+});
     </script>
 
     <?php require ROOT . '/views/includes/layout_bottom.php'; ?>

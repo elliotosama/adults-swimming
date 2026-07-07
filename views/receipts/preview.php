@@ -387,12 +387,12 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
 <div class="preview-wrap">
 
     <!-- Page header -->
-    <div class="page-header" style="margin-bottom:20px;">
+    <div class="page-header" style="margin-bottom:20px; flex-direction: row;">
         <div>
-            <h1 class="page-title">🧾 معاينة الإيصال</h1>
+            <h1 class="page-title">🧾 تفاصيل الايصال</h1>
             <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
         </div>
-        <a href="<?= APP_URL ?>/receipts" class="btn btn-secondary">→ الإيصالات</a>
+        <a href="<?= APP_URL ?>/receipts" class="btn btn-secondary" style="position: absolute; left: -20px;">→ الإيصالات</a>
     </div>
 
     <!-- Flash messages -->
@@ -435,17 +435,14 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
             <div class="preview-section-title">👤 بيانات العميل</div>
             <div class="preview-grid">
                 <div class="preview-item">
-                    <label>الاسم</label>
-                    <span><?= htmlspecialchars($receipt['client_name']) ?></span>
+                    <span>الاسم : <?= htmlspecialchars($receipt['client_name']) ?></span>
                 </div>
                 <div class="preview-item">
-                    <label>الهاتف</label>
-                    <span><?= htmlspecialchars(($receipt['country_code'] ?? '') . ' ' . ($receipt['phone_number'] ?? '—')) ?></span>
+                    <span>الهاتف : <?= htmlspecialchars(($receipt['country_code'] ?? '') . ' ' . ($receipt['phone_number'] ?? '—')) ?></span>
                 </div>
                 <?php if ($clientEmail): ?>
                 <div class="preview-item">
-                    <label>البريد الإلكتروني</label>
-                    <span class="accent"><?= htmlspecialchars($clientEmail) ?></span>
+                    <span>البريد الإلكتروني : <span class="accent"><?= htmlspecialchars($clientEmail) ?></span></span>
                 </div>
                 <?php endif; ?>
             </div>
@@ -588,26 +585,11 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
         </span>
         <?php endif; ?>
 
-        <!-- Arabic PDF -->
-<!-- Arabic PDF (view) -->
-        <a href="<?= $pdfUrl ?>"
-           target="_blank"
-           class="btn-secondary-link">
-            📄 PDF (عربي)
-        </a>
-
         <!-- Arabic PDF (download) -->
         <a href="<?= $pdfUrl ?>&download=1"
            download="receipt-<?= (int)$receipt['id'] ?>-ar.pdf"
            class="btn-secondary-link">
             ⬇️ تحميل (عربي)
-        </a>
-
-        <!-- English PDF (view) -->
-        <a href="<?= $pdfUrlEn ?>"
-           target="_blank"
-           class="btn-pdf-en">
-            📄 PDF (English)
         </a>
 
         <!-- English PDF (download) -->

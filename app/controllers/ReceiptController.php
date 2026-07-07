@@ -628,21 +628,7 @@ private function checkRenewalEligibility(int $clientId, string $newFirstSession 
         return ['ok' => true, 'is_new' => false, 'is_academy_fault' => false, 'message' => ''];
     }
 
-    // 100% of what they paid was refunded → only admin can proceed
-    if ($ns['grossPaid'] > 0 && $paidRefundRatio >= 1.0) {
-        return [
-            'ok'               => false,
-            'is_new'           => false,
-            'is_academy_fault' => true,
-            'block_type'       => 'full_refund_needs_admin',
-            'prev_receipt_id'  => $prev['id'],
-            'message'          => sprintf(
-                'الإيصال السابق (#%d) تم استرداده بالكامل. '
-                . 'يمكن للمشرف (admin) فقط إنشاء إيصال في هذه الحالة.',
-                $prev['id']
-            ),
-        ];
-    }
+
 
     // 50-99% of what they paid was refunded → academy fault
     // Allow RENEWAL to proceed; block only NEW receipt (handled in store())
@@ -980,7 +966,6 @@ public function store(): void {
     }
 
     if ($errors) {
-        $this->flash('flash_error', implode('<br>', $errors));
         $this->renderView('create', array_merge($this->formDropdowns(), [
             'pageTitle'  => 'إيصال جديد',
             'breadcrumb' => 'لوحة التحكم · الإيصالات · إيصال جديد',
@@ -1667,7 +1652,6 @@ public function storeRenewal(): void {
             $prevLastSession = (string)($prevStmt->fetchColumn() ?: '');
         }
 
-        $this->flash('flash_error', implode('<br>', $errors));
         $this->renderView('create', array_merge($this->formDropdowns(), [
             'pageTitle'       => 'تجديد اشتراك',
             'breadcrumb'      => 'لوحة التحكم · الإيصالات · تجديد',
