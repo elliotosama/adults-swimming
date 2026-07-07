@@ -142,7 +142,6 @@ require ROOT . '/views/includes/layout_top.php';
             $statusMap = [
                 'completed'     => ['badge-success', 'مكتمل'],
                 'not_completed' => ['badge-danger',  'غير مكتمل'],
-                'pending'       => ['badge-warning', 'معلّق'],
             ];
             foreach ($recentReceipts as $r):
                 [$cls, $lbl] = $statusMap[$r['receipt_status']] ?? ['badge-secondary', $r['receipt_status']];
@@ -163,30 +162,6 @@ require ROOT . '/views/includes/layout_top.php';
 
 <!-- ══ Top clients + Employees ════════════════════════════════════════ -->
 <div class="dash-row">
-
-    <div class="dash-card">
-        <div class="dash-card-header">
-            <h3>🥇 أعلى العملاء دفعاً</h3>
-        </div>
-        <?php if (!empty($topClients)): ?>
-        <table>
-            <thead><tr><th>#</th><th>العميل</th><th>إجمالي المدفوع</th><th>الإيصالات</th></tr></thead>
-            <tbody>
-            <?php foreach ($topClients as $i => $cl): ?>
-                <tr>
-                    <td style="color:var(--muted);font-size:.8rem;font-weight:700"><?= $i+1 ?></td>
-                    <td>
-                        <strong><?= htmlspecialchars($cl['client_name']) ?></strong>
-                        <br><small style="color:var(--muted)"><?= htmlspecialchars($cl['phone'] ?? '') ?></small>
-                    </td>
-                    <td style="color:#22c55e;font-weight:800;font-size:1rem"><?= number_format($cl['total_paid'] ?? 0) ?> ج</td>
-                    <td><?= number_format($cl['receipt_count']) ?></td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php else: ?><div class="dash-empty">لا توجد بيانات</div><?php endif; ?>
-    </div>
 
     <div class="dash-card">
         <div class="dash-card-header">

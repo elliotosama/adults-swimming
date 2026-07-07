@@ -121,26 +121,6 @@ require ROOT . '/views/includes/layout_top.php';
         <div class="stat-sub">لم أنشئها أنا</div>
     </div>
 
-    <div class="stat-card accent-green">
-        <div class="stat-icon">💰</div>
-        <div class="stat-label">مدفوعات إيصالاتي</div>
-        <div class="stat-value"><?= number_format($stats['transactions']['total_amount'] ?? 0) ?></div>
-        <div class="stat-sub">جنيه إجمالي</div>
-    </div>
-
-    <div class="stat-card accent-teal">
-        <div class="stat-icon">📆</div>
-        <div class="stat-label">مدفوعات اليوم</div>
-        <div class="stat-value"><?= number_format($stats['transactions']['today_amount'] ?? 0) ?></div>
-        <div class="stat-sub">جنيه اليوم</div>
-    </div>
-
-    <div class="stat-card accent-blue">
-        <div class="stat-icon">🔢</div>
-        <div class="stat-label">معاملات هذا الشهر</div>
-        <div class="stat-value"><?= number_format($stats['transactions']['count'] ?? 0) ?></div>
-        <div class="stat-sub">معاملة مسجّلة</div>
-    </div>
 
 </div>
 
@@ -195,7 +175,6 @@ require ROOT . '/views/includes/layout_top.php';
                     <th>الكابتن</th>
                     <th>أول جلسة</th>
                     <th>آخر جلسة</th>
-                    <th>إجمالي المدفوع</th>
                     <th>الحالة</th>
                     <th></th>
                 </tr>
@@ -205,7 +184,6 @@ require ROOT . '/views/includes/layout_top.php';
             $statusMap = [
                 'completed'     => ['badge-success', 'مكتمل'],
                 'not_completed' => ['badge-danger',  'غير مكتمل'],
-                'pending'       => ['badge-warning', 'معلّق'],
             ];
             foreach ($myReceipts as $r):
                 [$cls, $lbl] = $statusMap[$r['receipt_status']] ?? ['badge-secondary', $r['receipt_status']];
@@ -222,7 +200,6 @@ require ROOT . '/views/includes/layout_top.php';
                     <td style="font-size:.88rem"><?= htmlspecialchars($r['captain_name'] ?? '—') ?></td>
                     <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($r['first_session'] ?? '—') ?></td>
                     <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($r['last_session'] ?? '—') ?></td>
-                    <td style="color:#22c55e;font-weight:800;font-size:1rem"><?= number_format($r['total_paid'] ?? 0) ?> ج</td>
                     <td><span class="badge <?= $cls ?>"><?= $lbl ?></span></td>
                     <td>
                         <a href="<?= APP_URL ?>/receipt/show?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>

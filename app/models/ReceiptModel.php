@@ -369,10 +369,25 @@ public function create(array $data): int {
         $params     = [];
 
         if (!empty($filters['search'])) {
-            $conditions[] = "(c.client_name LIKE :search_name OR c.phone LIKE :search_phone OR r.client_id = :search_id)";
-            $params[':search_name']  = '%' . $filters['search'] . '%';
-            $params[':search_phone'] = '%' . $filters['search'] . '%';
-            $params[':search_id']    = (int) $filters['search'];
+            $searchTerm    = trim((string) $filters['search']);
+            $searchDigits  = ctype_digit($searchTerm) ? (int) $searchTerm : null;
+
+            // Matches, in order: client name, client phone, client's own ID,
+            // the receipt's raw numeric ID, and the formatted receipt_ref
+            // (e.g. "260500042"). A single query so it works uniformly for
+            // both the server-rendered page load and the AJAX live search.
+            $conditions[] = "(
+                c.client_name  LIKE :search_name
+                OR c.phone     LIKE :search_phone
+                OR r.client_id = :search_client_id
+                OR r.id        = :search_receipt_id
+                OR r.receipt_ref LIKE :search_receipt_ref
+            )";
+            $params[':search_name']         = '%' . $searchTerm . '%';
+            $params[':search_phone']        = '%' . $searchTerm . '%';
+            $params[':search_client_id']    = $searchDigits ?? 0;
+            $params[':search_receipt_id']   = $searchDigits ?? 0;
+            $params[':search_receipt_ref']  = '%' . $searchTerm . '%';
         }
 
         if (!empty($filters['first_session_from'])) {

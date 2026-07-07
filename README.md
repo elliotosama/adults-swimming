@@ -65,3 +65,11 @@ when making a receipt [Mon Jul 06 12:45:47.358379 2026] [php:error] [pid 1880044
 
 
 📅 آخر جلسة: 2026-06-18 => it should be previous renewal because we exceed 21/6 but it gives me the correct is current renewal
+
+
+
+- [ ] error message appear twice in the top of create tab
+- [ ] the branch work from 8 PM to 12 am and i choose 8 PM and it appear error message
+- [x] in index search using receipt number and client phone number and client id and client name
+- [x] in index make search in ajax
+- [x] payment and refund and client tabs does not appear

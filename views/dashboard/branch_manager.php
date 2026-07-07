@@ -102,7 +102,6 @@ require ROOT . '/views/includes/layout_top.php';
             $statusMap = [
                 'completed'     => ['badge-success', 'مكتمل'],
                 'not_completed' => ['badge-danger',  'غير مكتمل'],
-                'pending'       => ['badge-warning', 'معلّق'],
             ];
             foreach ($recentReceipts as $r):
                 [$cls, $lbl] = $statusMap[$r['receipt_status']] ?? ['badge-secondary', $r['receipt_status']];
@@ -118,34 +117,6 @@ require ROOT . '/views/includes/layout_top.php';
             </tbody>
         </table>
         <?php else: ?><div class="dash-empty">لا توجد إيصالات حديثة</div><?php endif; ?>
-    </div>
-
-    <div class="dash-card">
-        <div class="dash-card-header">
-            <h3>💳 آخر المعاملات</h3>
-        </div>
-        <?php if (!empty($recentTransactions)): ?>
-        <table>
-            <thead>
-                <tr>
-                    <th>العميل</th>
-                    <th>المبلغ</th>
-                    <th>طريقة الدفع</th>
-                    <th>التاريخ</th>
-                </tr>
-            </thead>
-            <tbody>
-            <?php foreach ($recentTransactions as $t): ?>
-                <tr>
-                    <td><strong><?= htmlspecialchars($t['client_name'] ?? '—') ?></strong></td>
-                    <td style="color:#22c55e;font-weight:800;font-size:1rem"><?= number_format($t['amount'] ?? 0) ?> ج</td>
-                    <td style="font-size:.88rem"><?= htmlspecialchars($t['payment_method'] ?? '—') ?></td>
-                    <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($t['created_at'] ?? '—') ?></td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php else: ?><div class="dash-empty">لا توجد معاملات</div><?php endif; ?>
     </div>
 
 </div>

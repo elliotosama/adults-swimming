@@ -595,7 +595,7 @@
           🔄
           <span class="tab-badge tab-badge-renew">تجديد</span>
         </button>
-        <button class="tab-btn" id="tab-btn-payment
+        <button class="tab-btn" id="tab-btn-payment"
                 onclick="switchTab('payment')" role="tab">
           💳
           <span class="tab-badge tab-badge-payment">بواقي</span>
@@ -1752,6 +1752,20 @@ function getRenRequiredFields() {
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  Working-hours helper — supports overnight ranges (e.g. 20:00–00:00)
+    // ════════════════════════════════════════════════════════════════
+    function isTimeInRange(t, from, to) {
+        if (!from || !to) return true;
+        // Treat a closing time of "00:00" as end-of-day (midnight), so a
+        // range like 20:00–00:00 is read as "20:00 through 23:59", not as
+        // "the same instant" (which would make everything invalid).
+        const normTo = (to === '00:00') ? '24:00' : to;
+        return (from <= normTo)
+            ? (t >= from && t <= normTo)   // same-day range, e.g. 09:00–17:00
+            : (t >= from || t <= normTo);  // overnight range, e.g. 20:00–02:00
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  TAB 1 — إيصال جديد
     // ════════════════════════════════════════════════════════════════
     function newBranchChanged() {
@@ -1800,7 +1814,7 @@ function getRenRequiredFields() {
         const t = document.getElementById('new-exercise-time').value, el = document.getElementById('new-time-error');
         el.classList.remove('visible'); if (!t) return;
         const meta = branchMeta(getBranchId('new')); if (!meta?.working_time_from) return;
-        if (t < meta.working_time_from || t > meta.working_time_to) {
+        if (!isTimeInRange(t, meta.working_time_from, meta.working_time_to)) {
             document.getElementById('new-time-error-msg').textContent = `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
           el.classList.add('visible');
         }
@@ -1886,7 +1900,7 @@ function getRenRequiredFields() {
         const t = document.getElementById('ren-exercise-time').value, el = document.getElementById('ren-time-error');
         el.classList.remove('visible'); if (!t) return;
         const meta = branchMeta(getBranchId('ren')); if (!meta?.working_time_from) return;
-        if (t < meta.working_time_from || t > meta.working_time_to) {
+        if (!isTimeInRange(t, meta.working_time_from, meta.working_time_to)) {
             document.getElementById('ren-time-error-msg').textContent = `يجب أن يكون بين ${to12h(meta.working_time_from)} و ${to12h(meta.working_time_to)}`;
           el.classList.add('visible');
         }

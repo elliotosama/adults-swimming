@@ -432,19 +432,19 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
         <div class="preview-body">
 
             <!-- § Client -->
-            <div class="preview-section-title">👤 بيانات العميل / Client</div>
+            <div class="preview-section-title">👤 بيانات العميل</div>
             <div class="preview-grid">
                 <div class="preview-item">
-                    <label>الاسم / Name</label>
+                    <label>الاسم</label>
                     <span><?= htmlspecialchars($receipt['client_name']) ?></span>
                 </div>
                 <div class="preview-item">
-                    <label>الهاتف / Phone</label>
+                    <label>الهاتف</label>
                     <span><?= htmlspecialchars(($receipt['country_code'] ?? '') . ' ' . ($receipt['phone_number'] ?? '—')) ?></span>
                 </div>
                 <?php if ($clientEmail): ?>
                 <div class="preview-item">
-                    <label>البريد الإلكتروني / Email</label>
+                    <label>البريد الإلكتروني</label>
                     <span class="accent"><?= htmlspecialchars($clientEmail) ?></span>
                 </div>
                 <?php endif; ?>
@@ -453,31 +453,30 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
             <hr class="divider">
 
             <!-- § Subscription -->
-            <div class="preview-section-title">📋 تفاصيل الاشتراك / Subscription</div>
+            <div class="preview-section-title">📋 تفاصيل الاشتراك</div>
             <div class="preview-grid">
                 <div class="preview-item">
-                    <label>الفرع / Branch</label>
+                    <label>الفرع</label>
                     <span><?= $branchName ?></span>
                 </div>
                 <div class="preview-item">
-                    <label>الكابتن / Captain</label>
+                    <label>الكابتن</label>
                     <span><?= $captainName ?></span>
                 </div>
                 <div class="preview-item">
-                    <label>الخطة / Plan</label>
+                    <label>الخطة</label>
                     <span class="accent"><?= $planName ?></span>
                 </div>
                 <div class="preview-item">
-                    <label>المستوى / Level</label>
+                    <label>المستوي</label>
                     <span><?= htmlspecialchars((string)$level) ?></span>
                 </div>
                 <div class="preview-item">
-                    <label>الحالة / Status</label>
+                    <label>الحالة</label>
                     <?php
                         $statusLabels = [
-                            'completed'     => 'مكتمل / Completed',
-                            'not_completed' => 'غير مكتمل / Incomplete',
-                            'pending'       => 'معلّق / Pending',
+                            'completed'     => 'مكتمل',
+                            'not_completed' => 'غير مكتمل',
                         ];
                         $st = $receipt['receipt_status'] ?? 'not_completed';
                     ?>
@@ -488,7 +487,7 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
                     </span>
                 </div>
                 <div class="preview-item">
-                    <label>وقت التمرين / Time</label>
+                    <label>وقت التمرين</label>
                     <span><?= htmlspecialchars($exTime) ?></span>
                 </div>
             </div>
@@ -496,18 +495,18 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
             <hr class="divider">
 
             <!-- § Sessions -->
-            <div class="preview-section-title">📅 الجلسات / Sessions</div>
+            <div class="preview-section-title">📅 مواعيد التمرين</div>
             <div class="preview-grid">
                 <div class="preview-item">
-                    <label>أول جلسة / First</label>
+                    <label>أول تمرين</label>
                     <span><?= htmlspecialchars($firstSess) ?></span>
                 </div>
                 <div class="preview-item">
-                    <label>آخر جلسة / Last</label>
+                    <label>آخر تمرين</label>
                     <span><?= htmlspecialchars($lastSess) ?></span>
                 </div>
                 <div class="preview-item">
-                    <label>جلسة التجديد / Renewal</label>
+                    <label>جلسة التجديد</label>
                     <span class="accent"><?= htmlspecialchars($renewalSess) ?></span>
                 </div>
             </div>
@@ -515,23 +514,23 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
             <hr class="divider">
 
             <!-- § Payment -->
-            <div class="preview-section-title">💳 الدفع / Payment</div>
+            <div class="preview-section-title">💳 الدفع</div>
             <div class="preview-grid">
                 <div class="preview-item">
-                    <label>قيمه الاشتراك / Plan Price</label>
+                    <label>قيمه الاشتراك</label>
                     <span class="accent"><?= number_format($planPrice, 0) ?></span>
                 </div>
                 <div class="preview-item">
-                    <label>إجمالي المدفوع / Total Paid</label>
+                    <label>إجمالي المدفوع</label>
                     <span class="success"><?= number_format($totalPaidCalc, 0) ?></span>
                 </div>
 <div class="preview-item">
-    <label>المتبقي / Remaining</label>
+    <label>المتبقي</label>
     <span class="<?= $remainingCalc > 0 ? 'danger' : 'success' ?>"><?= number_format($remainingCalc, 0) ?></span>
 </div>
 <?php if (!empty($receipt['is_refunded']) && $grossPaidCalc > 0): ?>
 <div class="preview-item">
-    <label>نسبة الاسترداد / Refunded %</label>
+    <label>نسبة الاسترداد %</label>
     <span class="danger"><?= $refundPctCalc ?>%</span>
     <span class="muted" style="display:block;font-size:11px;margin-top:2px;">
         (<?= number_format($totalRefunded, 0) ?> من <?= number_format($grossPaidCalc, 0) ?> مدفوع)
@@ -539,12 +538,12 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
 </div>
 <?php endif; ?>
                 <div class="preview-item">
-                    <label>طريقة الدفع / Method</label>
+                    <label>طريقة الدفع</label>
                     <span><?= htmlspecialchars($receipt['payment_method'] ?? '—') ?></span>
                 </div>
                 <?php if (!empty($receipt['notes'])): ?>
                 <div class="preview-item" style="grid-column:1/-1">
-                    <label>ملاحظات / Notes</label>
+                    <label>ملاحظات</label>
                     <span class="muted"><?= htmlspecialchars($receipt['notes']) ?></span>
                 </div>
                 <?php endif; ?>

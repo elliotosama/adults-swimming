@@ -436,7 +436,7 @@ table td strong { color: #fff;}
     table { min-width: 1180px; }
     table th { font-size: .76rem; padding: .5rem .55rem; }
     table td { font-size: .88rem; padding: .5rem .55rem; }
-    .td-actions { flex-direction: row; flex-wrap: wrap; gap: .25rem; min-width: 200px; }
+    .td-actions { flex-direction: row; flex-wrap: wrap; gap: .25rem; min-width: 120px; }
     .td-actions .btn { width: auto; padding: .28rem .55rem; font-size: .75rem; }
     .pagination a, .pagination span { min-width: 1.8rem; height: 1.8rem; font-size: .8rem; padding: 0 .4rem; }
     .pag-info { font-size: .78rem; }
@@ -491,11 +491,11 @@ table td strong { color: #fff;}
 
             <?php if ($canFilter('search')): ?>
             <div class="filter-group" style="grid-column:span 2">
-                <label>🔍 بحث (اسم / هاتف / رقم العميل)</label>
+                <label>🔍 بحث (اسم / هاتف / رقم العميل / رقم الإيصال)</label>
                 <div class="search-wrap">
                     <input type="text" name="search" id="liveSearch"
                            value="<?= htmlspecialchars($filters['search'] ?? '') ?>"
-                           placeholder="ابحث..." autocomplete="off">
+                           placeholder="ابحث بالاسم، الهاتف، رقم العميل، أو رقم الإيصال..." autocomplete="off">
                     <span class="search-spinner" id="searchSpinner"></span>
                 </div>
             </div>
@@ -879,7 +879,6 @@ function buildRow(r) {
         ? `<td><span class="badge-refund">↩️ مسترد</span></td>`
         : `<td><span style="color:var(--muted)">—</span></td>`;
 
-    // Mirrors the PHP `<?php if($_SESSION['user']['role'] === 'admin') { ?>` guard
     // around the "تعطيل" button — without this check the delete button appeared
     // for every role once a live search/filter request ran, even though the
     // initial server-rendered page correctly hid it for non-admins.
@@ -889,7 +888,7 @@ function buildRow(r) {
             <input type="hidden" name="csrf_token" value="${esc(CSRF_TOKEN)}">
             <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
         </form>` : '';
-    <?php }?>
+
     return `<tr>
         <td>${renewalTypeLabel(r.renewal_type)}</td>
         <td>${esc(r.client_id)}</td>
@@ -909,9 +908,7 @@ function buildRow(r) {
         ${refundedCell}
         <td>
             <div class="td-actions">
-            <?php if($_SESSION['user']['role'] === 'admin') { ?>
-                <a href="${BASE_URL}/receipt/show?id=${esc(r.id)}" class="btn btn-sm btn-secondary">عرض</a>
-            <?php }?>
+                ${IS_ADMIN ? `<a href="${BASE_URL}/receipt/show?id=${esc(r.id)}" class="btn btn-sm btn-secondary">عرض</a>` : ''}
                 <a href="${BASE_URL}/receipt/preview?id=${esc(r.id)}" class="btn btn-sm btn-secondary">تفاصيل</a>
                 <a href="${BASE_URL}/receipt/edit?id=${esc(r.id)}" class="btn btn-sm btn-warning">تعديل</a>
                 ${deleteForm}

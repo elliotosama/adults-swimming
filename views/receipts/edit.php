@@ -103,6 +103,7 @@ body {
     margin-bottom: 32px;
     padding-bottom: 20px;
     border-bottom: 1px solid var(--border);
+    min-width: 0;
 }
 .page-header h1 { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
 .breadcrumb     { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
@@ -134,6 +135,7 @@ body {
     cursor: pointer;
     text-decoration: none;
     transition: all var(--transition);
+    flex-shrink: 0;
 }
 .btn-back:hover { background: var(--surface); color: var(--text); border-color: var(--accent); }
 
@@ -150,6 +152,14 @@ body {
 .alert-error   { background: #2D1E20; border: 1px solid #5C3C40; color: #F0A8AD; }
 .alert-success { background: #1E2D1E; border: 1px solid #3C5C3F; color: #C0DBA0; }
 .alert-info    { background: rgba(0,122,204,0.08); border: 1px solid var(--accent-dim); color: var(--text-muted); }
+
+/* Guard against <strong> visually merging with adjacent Arabic words —
+   RTL bidi + line-wrapped source whitespace can otherwise collapse the
+   gap between a word and a following/preceding bold span. */
+.alert strong {
+    margin: 0 3px;
+    unicode-bidi: isolate;
+}
 
 .form-section {
     background: var(--surface);
@@ -171,6 +181,7 @@ body {
     padding: 16px 22px;
     border-bottom: 1px solid var(--border);
     background: var(--surface-2);
+    min-width: 0;
 }
 .section-icon  {
     width: 32px; height: 32px;
@@ -179,7 +190,7 @@ body {
     display: flex; align-items: center; justify-content: center;
     font-size: 15px; flex-shrink: 0;
 }
-.section-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.section-title { font-size: 14px; font-weight: 600; color: var(--text); flex-shrink: 0; }
 
 .section-lock {
     margin-right: auto;
@@ -191,18 +202,15 @@ body {
     background: var(--border);
     padding: 3px 10px;
     border-radius: 999px;
+    white-space: nowrap;
 }
 
 .section-body  { padding: 22px; }
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 22px; }
 .form-grid .full { grid-column: 1 / -1; }
-@media (max-width: 640px) {
-    .form-grid       { grid-template-columns: 1fr; }
-    .form-grid .full { grid-column: 1; }
-}
 
-.form-field { display: flex; flex-direction: column; gap: 7px; }
+.form-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 
 .form-label {
     font-size: 12.5px;
@@ -323,7 +331,7 @@ select.form-control:disabled {
     border-radius: var(--radius);
     margin-bottom: 20px;
 }
-.pay-summary-item { display: flex; flex-direction: column; gap: 3px; }
+.pay-summary-item { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .pay-summary-item .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
 .pay-summary-item .value { font-size: 16px; font-weight: 700; }
 .pay-summary-item .value.green  { color: var(--success); }
@@ -351,6 +359,51 @@ select.form-control:disabled {
 .btn-primary:hover { background: #3399FF; transform: translateY(-1px); }
 .btn-secondary { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
 .btn-secondary:hover { color: var(--text); border-color: var(--accent); }
+
+/* ══════════════════════════════════════════
+   Responsive fixes (mobile)
+   ══════════════════════════════════════════ */
+@media (max-width: 640px) {
+    .form-grid       { grid-template-columns: 1fr; }
+    .form-grid .full { grid-column: 1; }
+
+    /* Header stacks instead of overlapping/clipping on narrow screens */
+    .page-header {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .btn-back { align-self: flex-start; }
+
+    /* Section header: let the lock badge wrap onto its own line
+       instead of pushing the row wider than the viewport */
+    .section-header {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+    .section-lock {
+        margin-right: 0;   /* auto-margin was what forced horizontal overflow */
+        width: 100%;       /* push it onto its own line */
+        white-space: normal;
+        line-height: 1.5;
+    }
+
+    /* Form actions stack full-width on mobile instead of cramping */
+    .form-actions {
+        flex-direction: column-reverse;
+    }
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Payment summary items wrap two-per-row instead of overflowing */
+    .pay-summary {
+        gap: 12px;
+    }
+    .pay-summary-item {
+        flex: 1 1 calc(50% - 12px);
+    }
+}
 </style>
 
 <div class="receipt-page">
@@ -377,12 +430,9 @@ select.form-control:disabled {
     <?php if (!$isAdmin): ?>
     <div class="alert alert-info">
         <?php if ($isCustomerService): ?>
-            ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الخطة</strong>، بالإضافة إلى
-            <strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>الكابتن</strong>،
-            وبيانات <strong>الدفع</strong>. بيانات العميل وباقي الحقول للقراءة فقط.
+            <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الخطة</strong>، بالإضافة إلى <strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>الكابتن</strong>، وبيانات <strong>الدفع</strong>. بيانات العميل وباقي الحقول للقراءة فقط.</span>
         <?php else: ?>
-            ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الخطة</strong> وبيانات <strong>الدفع</strong> فقط.
-            بيانات العميل، المستوى، تاريخ أول جلسة، والكابتن للقراءة فقط.
+            <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الخطة</strong> وبيانات <strong>الدفع</strong> فقط. بيانات العميل، المستوى، تاريخ أول جلسة، والكابتن للقراءة فقط.</span>
         <?php endif; ?>
     </div>
     <?php endif; ?>
