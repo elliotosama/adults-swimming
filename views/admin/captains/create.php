@@ -6,11 +6,11 @@ require ROOT . '/views/includes/layout_top.php';
 <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
     <div style="background:var(--card,#111d2b);border-radius:16px;border:0.5px solid var(--border);padding:2rem 2rem 1.5rem;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.45);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);font-family:'Cairo',sans-serif;">
         <div style="width:52px;height:52px;border-radius:50%;background:#e05c5c20;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:24px;">⚠️</div>
-        <h2 style="text-align:center;font-size:1.15rem;font-weight:600;margin:0 0 .5rem;color:var(--text,#e0eaf4);font-family:'Cairo',sans-serif;">تعطيل الكابتن</h2>
-        <p style="text-align:center;color:var(--muted,#5a7a96);font-size:.9rem;margin:0 0 1.75rem;line-height:1.6;font-family:'Cairo',sans-serif;">هل أنت متأكد من تعطيل هذا الكابتن؟<br>يمكنك إعادة تفعيله لاحقاً.</p>
+        <h2 style="text-align:center;font-size:1.15rem;font-weight:600;margin:0 0 .5rem;color:var(--text,#e0eaf4);font-family:'Cairo',sans-serif;">حذف الكابتن</h2>
+        <p style="text-align:center;color:var(--muted,#5a7a96);font-size:.9rem;margin:0 0 1.75rem;line-height:1.6;font-family:'Cairo',sans-serif;">هل أنت متأكد من حذف هذا الكابتن؟<br>يمكنك إعادة تفعيله لاحقاً.</p>
         <div style="display:flex;gap:.75rem;">
             <button onclick="closeModal()" style="flex:1;padding:.7rem;border-radius:8px;border:0.5px solid var(--border);background:transparent;cursor:pointer;font-size:.9rem;color:var(--text,#e0eaf4);font-family:'Cairo',sans-serif;transition:background .15s">إلغاء</button>
-            <button id="confirmBtn" style="flex:1;padding:.7rem;border-radius:8px;border:none;background:#e24b4a;color:#fff;cursor:pointer;font-size:.9rem;font-weight:600;font-family:'Cairo',sans-serif;transition:background .15s">تعطيل</button>
+            <button id="confirmBtn" style="flex:1;padding:.7rem;border-radius:8px;border:none;background:#e24b4a;color:#fff;cursor:pointer;font-size:.9rem;font-weight:600;font-family:'Cairo',sans-serif;transition:background .15s">حذف</button>
         </div>
     </div>
 </div>
@@ -177,7 +177,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
                                               onsubmit="event.preventDefault(); showDeleteModal(this);">
                                             <input type="hidden" name="csrf_token"
                                                    value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                            <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+                                            <button type="submit" class="btn btn-sm btn-danger">حذف</button>
                                         </form>
                                         <?php endif; ?>
                                     </div>
@@ -228,7 +228,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
                   style="display:inline"
                   onsubmit="event.preventDefault(); showDeleteModal(this);">
                 <input type="hidden" name="csrf_token" value="${csrf}">
-                <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+                <button type="submit" class="btn btn-sm btn-danger">حذف</button>
             </form>` : '';
 
         return `

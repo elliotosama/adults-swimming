@@ -318,7 +318,7 @@ class EmployeeController {
 
         // Prevent admin from deactivating themselves
         if ($id === (int) auth_user()['id']) {
-            $this->flash('flash_error', 'لا يمكنك تعطيل حسابك الخاص.');
+            $this->flash('flash_error', 'لا يمكنك حذف حسابك الخاص.');
             $this->redirect('/admin/users');
             return;
         }
@@ -326,7 +326,7 @@ class EmployeeController {
         $this->users->hide($id);
         log_action('deactivated_user', "id: {$id}, username: {$user['username']}", auth_user()['id']);
 
-        $this->flash('flash_success', 'تم تعطيل المستخدم "' . htmlspecialchars($user['username']) . '" بنجاح.');
+        $this->flash('flash_success', 'تم حذف المستخدم "' . htmlspecialchars($user['username']) . '" بنجاح.');
         $this->redirect('/admin/users');
     }
 

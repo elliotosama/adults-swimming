@@ -85,11 +85,11 @@ $days = [
     <!-- ── منطقة الخطر ── -->
     <?php if ($branch['visible']): ?>
         <div class="danger-zone">
-            <p>⚠️ تعطيل هذا الفرع سيُخفيه من جميع القوائم.</p>
+            <p>⚠️ حذف هذا الفرع سيُخفيه من جميع القوائم.</p>
             <form method="POST" action="<?= APP_URL ?>/admin/branch/delete?id=<?= $branch['id'] ?>"
-                  onsubmit="return confirm('هل أنت متأكد من تعطيل هذا الفرع؟')">
+                  onsubmit="return confirm('هل أنت متأكد من حذف هذا الفرع؟')">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                <button type="submit" class="btn btn-danger">🗑️ تعطيل الفرع</button>
+                <button type="submit" class="btn btn-danger">🗑️ حذف الفرع</button>
             </form>
         </div>
     <?php else: ?>

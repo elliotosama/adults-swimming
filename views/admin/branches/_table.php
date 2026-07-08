@@ -77,10 +77,10 @@
                                 <form method="POST"
                                       action="<?= APP_URL ?>/admin/branch/delete?id=<?= $b['id'] ?>"
                                       style="display:inline"
-                                      onsubmit="return confirm('هل أنت متأكد من تعطيل هذا الفرع؟')">
+                                      onsubmit="return confirm('هل أنت متأكد من حذف هذا الفرع؟')">
                                     <input type="hidden" name="csrf_token"
                                            value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+                                    <button type="submit" class="btn btn-sm btn-danger">حذف</button>
                                 </form>
                             </div>
                         </td>

@@ -179,24 +179,28 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
 }
 
 .preview-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 32px;
     margin-bottom: 24px;
 }
 
-@media (max-width: 500px) {
-    .preview-grid { grid-template-columns: 1fr; }
+.preview-item {
+    display: flex;
+    align-items: baseline;
+    flex: 0 1 auto;
+    gap: 6px;
+    white-space: nowrap;
 }
 
 .preview-item label {
-    display: block;
+    flex-shrink: 0;
     font-size: 11px;
     color: var(--text-muted);
     font-weight: 600;
-    margin-bottom: 3px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
+    white-space: nowrap;
 }
 
 .preview-item span {
@@ -392,7 +396,7 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
             <h1 class="page-title">🧾 تفاصيل الايصال</h1>
             <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
         </div>
-        <a href="<?= APP_URL ?>/receipts" class="btn btn-secondary" style="position: absolute; left: -20px;">→ الإيصالات</a>
+        <a href="<?= APP_URL ?>/receipts" class="btn btn-secondary" style="position: absolute; left: -30px;">→ الإيصالات</a>
     </div>
 
     <!-- Flash messages -->
@@ -406,15 +410,88 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
         <?php unset($_SESSION['flash_error']); ?>
     <?php endif; ?>
 
-    <?php if (!empty($refundData)): ?>
-<div style="background:#1a0a0a;border:1px solid #c0392b;border-radius:14px;padding:20px 24px;margin-bottom:24px;">
-<div style="font-size:15px;font-weight:700;color:#fca5a5;margin-bottom:16px;">↩️ تفاصيل الاسترداد</div>
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
-<div><div style="font-size:11px;color:#7a84a0;">إجمالي المدفوع</div><div style="font-size:20px;font-weight:800;color:#4f7cff;"><?= number_format($refundData['gross_paid'],0) ?></div></div>
-<div><div style="font-size:11px;color:#7a84a0;">المبلغ المسترد</div><div style="font-size:20px;font-weight:800;color:#ef4444;"><?= number_format($refundData['total_refunded'],0) ?></div></div>
-<div><div style="font-size:11px;color:#7a84a0;">المتبقي</div><div style="font-size:20px;font-weight:800;color:<?= $refundData['remaining']<=0?'#22c55e':'#f59e0b' ?>;"><?= number_format($refundData['remaining'],0) ?></div></div>
-<div><div style="font-size:11px;color:#7a84a0;">نسبة الاسترداد</div><div style="font-size:20px;font-weight:800;color:#f97316;"><?= $refundData['refund_pct'] ?>%</div></div>
-</div></div>
+<?php if (!empty($refundData)): ?>
+<div style="
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+">
+
+    <div style="
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        margin-bottom:16px;
+        padding-bottom:12px;
+        border-bottom:1px solid var(--border);
+    ">
+        <span style="
+            color:#fff;
+            font-size:18px;
+            font-weight:700;
+        ">
+            ↩️ تفاصيل الاسترداد
+        </span>
+
+        <span style="
+            color:var(--text-muted);
+            font-size:13px;
+        ">
+            Refund Summary
+        </span>
+    </div>
+
+    <div style="
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:20px;
+    ">
+
+        <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
+                إجمالي المدفوع
+            </div>
+            <div style="font-size:24px;font-weight:700;color:#fff;">
+                <?= number_format($refundData['gross_paid'],0) ?>
+            </div>
+        </div>
+
+        <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
+                المبلغ المسترد
+            </div>
+            <div style="font-size:24px;font-weight:700;color:var(--danger);">
+                <?= number_format($refundData['total_refunded'],0) ?>
+            </div>
+        </div>
+
+        <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
+                المتبقي
+            </div>
+            <div style="
+                font-size:24px;
+                font-weight:700;
+                color:<?= $refundData['remaining'] <= 0 ? 'var(--success)' : '#fbbf24' ?>;
+            ">
+                <?= number_format($refundData['remaining'],0) ?>
+            </div>
+        </div>
+
+        <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
+                نسبة الاسترداد
+            </div>
+            <div style="font-size:24px;font-weight:700;color:#fff;">
+                <?= $refundData['refund_pct'] ?>%
+            </div>
+        </div>
+
+    </div>
+
+</div>
 <?php endif; ?>
 
     <!-- Receipt card -->
@@ -435,14 +512,17 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
             <div class="preview-section-title">👤 بيانات العميل</div>
             <div class="preview-grid">
                 <div class="preview-item">
-                    <span>الاسم : <?= htmlspecialchars($receipt['client_name']) ?></span>
+                    <label>الاسم</label>
+                    <span><?= htmlspecialchars($receipt['client_name']) ?></span>
                 </div>
                 <div class="preview-item">
-                    <span>الهاتف : <?= htmlspecialchars(($receipt['country_code'] ?? '') . ' ' . ($receipt['phone_number'] ?? '—')) ?></span>
+                    <label>الهاتف</label>
+                    <span><?= htmlspecialchars(($receipt['country_code'] ?? '') . ' ' . ($receipt['phone_number'] ?? '—')) ?></span>
                 </div>
                 <?php if ($clientEmail): ?>
                 <div class="preview-item">
-                    <span>البريد الإلكتروني : <span class="accent"><?= htmlspecialchars($clientEmail) ?></span></span>
+                    <label>البريد الإلكتروني</label>
+                    <span class="accent"><?= htmlspecialchars($clientEmail) ?></span>
                 </div>
                 <?php endif; ?>
             </div>
@@ -514,32 +594,33 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
             <div class="preview-section-title">💳 الدفع</div>
             <div class="preview-grid">
                 <div class="preview-item">
-                    <label>قيمه الاشتراك</label>
+                    <label>قيمة الاشتراك</label>
                     <span class="accent"><?= number_format($planPrice, 0) ?></span>
                 </div>
                 <div class="preview-item">
                     <label>إجمالي المدفوع</label>
-                    <span class="success"><?= number_format($totalPaidCalc, 0) ?></span>
+                    <span class="success"><?= number_format($grossPaidCalc, 0) ?></span>
                 </div>
+<?php if (!empty($receipt['is_refunded']) && $grossPaidCalc > 0): ?>
+                <div class="preview-item">
+                    <label>المسترد</label>
+                    <span class="danger"><?= number_format($totalRefunded, 0) ?></span>
+                </div>
+                <div class="preview-item">
+                    <label>نسبة الاسترداد</label>
+                    <span class="danger"><?= $refundPctCalc ?>%</span>
+                </div>
+<?php endif; ?>
 <div class="preview-item">
     <label>المتبقي</label>
     <span class="<?= $remainingCalc > 0 ? 'danger' : 'success' ?>"><?= number_format($remainingCalc, 0) ?></span>
 </div>
-<?php if (!empty($receipt['is_refunded']) && $grossPaidCalc > 0): ?>
-<div class="preview-item">
-    <label>نسبة الاسترداد %</label>
-    <span class="danger"><?= $refundPctCalc ?>%</span>
-    <span class="muted" style="display:block;font-size:11px;margin-top:2px;">
-        (<?= number_format($totalRefunded, 0) ?> من <?= number_format($grossPaidCalc, 0) ?> مدفوع)
-    </span>
-</div>
-<?php endif; ?>
                 <div class="preview-item">
                     <label>طريقة الدفع</label>
                     <span><?= htmlspecialchars($receipt['payment_method'] ?? '—') ?></span>
                 </div>
                 <?php if (!empty($receipt['notes'])): ?>
-                <div class="preview-item" style="grid-column:1/-1">
+                <div class="preview-item" style="flex-basis:100%; white-space:normal;">
                     <label>ملاحظات</label>
                     <span class="muted"><?= htmlspecialchars($receipt['notes']) ?></span>
                 </div>
@@ -598,10 +679,11 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
            class="btn-pdf-en">
             ⬇️ Download (English)
         </a>
-
+            <?php if($_SESSION['user']['role'] === 'admin') { ?>
         <a href="<?= APP_URL ?>/receipt/show?id=<?= $receipt['id'] ?>" class="btn-secondary-link">
             👁 عرض الإيصال الكامل
         </a>
+        <? }?>
         <?php if (!empty($receipt['is_refunded'])): ?>
     <a href="<?= APP_URL ?>/receipt/refund-pdf?id=<?= $receipt['id'] ?>" target="_blank" class="btn btn-secondary">
       ↩️ إيصال الاسترداد

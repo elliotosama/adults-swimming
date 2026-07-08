@@ -235,7 +235,7 @@ class PriceController {
         $this->prices->hide($id);
         log_action('hidden_price', "id: {$id}, description: {$price['description']}", auth_user()['id']);
 
-        $this->flash('flash_success', 'تم تعطيل السعر "' . htmlspecialchars($price['description']) . '" بنجاح.');
+        $this->flash('flash_success', 'تم حذف السعر "' . htmlspecialchars($price['description']) . '" بنجاح.');
         $this->redirect('/admin/prices');
     }
 

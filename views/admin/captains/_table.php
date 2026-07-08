@@ -43,9 +43,9 @@
                                 <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
                                 <form method="POST" action="<?= APP_URL ?>/admin/captains/delete?id=<?= $c['id'] ?>"
                                       style="display:inline"
-                                      onsubmit="return confirm('هل أنت متأكد من تعطيل هذا الكابتن؟')">
+                                      onsubmit="return confirm('هل أنت متأكد من حذف هذا الكابتن؟')">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+                                    <button type="submit" class="btn btn-sm btn-danger">حذف</button>
                                 </form>
                             </div>
                         </td>

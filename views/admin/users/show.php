@@ -118,11 +118,11 @@ $initials = mb_strtoupper(mb_substr($user['username'], 0, 2));
     <?php if ($user['id'] !== (int)(auth_user()['id'] ?? 0)): ?>
         <?php if ($user['is_active'] || $user['visible']): ?>
             <div class="danger-zone">
-                <p>⚠️ تعطيل هذا المستخدم سيمنعه من تسجيل الدخول.</p>
+                <p>⚠️ حذف هذا المستخدم سيمنعه من تسجيل الدخول.</p>
                 <form method="POST" action="<?= APP_URL ?>/admin/user/delete?id=<?= $user['id'] ?>"
-                      onsubmit="return confirm('هل أنت متأكد من تعطيل هذا المستخدم؟')">
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا المستخدم؟')">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                    <button type="submit" class="btn btn-danger">🗑️ تعطيل المستخدم</button>
+                    <button type="submit" class="btn btn-danger">🗑️ حذف المستخدم</button>
                 </form>
             </div>
         <?php else: ?>

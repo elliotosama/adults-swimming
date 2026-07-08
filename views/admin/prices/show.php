@@ -84,11 +84,11 @@ require ROOT . '/views/includes/layout_top.php';
     <!-- ── منطقة الخطر ── -->
     <?php if ($price['visible']): ?>
         <div class="danger-zone">
-            <p>⚠️ تعطيل هذا السعر سيُخفيه عن العملاء.</p>
+            <p>⚠️ حذفذا السعر سيُخفيه عن العملاء.</p>
             <form method="POST" action="<?= APP_URL ?>/admin/price/delete?id=<?= (int)$price['id'] ?>"
-                  onsubmit="return confirm('هل أنت متأكد من تعطيل هذا السعر؟')">
+                  onsubmit="return confirm('هل أنت متأكد من حذف هذا السعر؟')">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                <button type="submit" class="btn btn-danger">🗑️ تعطيل السعر</button>
+                <button type="submit" class="btn btn-danger">🗑️ حذف السعر</button>
             </form>
         </div>
     <?php else: ?>

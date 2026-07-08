@@ -54,11 +54,11 @@ $isAdmin   = $isAdmin ?? false;
 <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
     <div style="background:var(--color-background-primary,#fff);border-radius:16px;border:0.5px solid var(--color-border-tertiary);padding:2rem 2rem 1.5rem;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.18);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);">
         <div style="width:52px;height:52px;border-radius:50%;background:#fff0f0;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:24px;">⚠️</div>
-        <h2 style="text-align:center;font-size:1.15rem;margin:0 0 .5rem;color:black">تعطيل الإيصال</h2>
-        <p style="text-align:center;color:black;font-size:.9rem;margin:0 0 1.75rem;line-height:1.6">هل أنت متأكد من تعطيل هذا الإيصال؟<br>يمكنك إعادة تفعيله لاحقاً.</p>
+        <h2 style="text-align:center;font-size:1.15rem;margin:0 0 .5rem;color:black">حذف الإيصال</h2>
+        <p style="text-align:center;color:black;font-size:.9rem;margin:0 0 1.75rem;line-height:1.6">هل أنت متأكد من حذف هذا الإيصال؟<br>يمكنك إعادة تفعيله لاحقاً.</p>
         <div style="display:flex;gap:.75rem;">
             <button onclick="closeModal()" style="flex:1;padding:.7rem;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;font-size:.9rem;color:black;transition:background .15s">إلغاء</button>
-            <button id="confirmBtn" style="flex:1;padding:.7rem;border-radius:8px;border:none;background:#e24b4a;color:#fff;cursor:pointer;font-size:.9rem;transition:background .15s">تعطيل</button>
+            <button id="confirmBtn" style="flex:1;padding:.7rem;border-radius:8px;border:none;background:#e24b4a;color:#fff;cursor:pointer;font-size:.9rem;transition:background .15s">حذف</button>
         </div>
     </div>
 </div>
@@ -764,7 +764,7 @@ table td strong { color: #fff;}
                                           onsubmit="event.preventDefault(); showDeleteModal(this);">
                                         <input type="hidden" name="csrf_token"
                                                value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+                                        <button type="submit" class="btn btn-sm btn-danger">حذف</button>
                                     </form>
                                     <?php }?>
                                 </div>
@@ -879,14 +879,14 @@ function buildRow(r) {
         ? `<td><span class="badge-refund">↩️ مسترد</span></td>`
         : `<td><span style="color:var(--muted)">—</span></td>`;
 
-    // around the "تعطيل" button — without this check the delete button appeared
+    // around the "حذف" button — without this check the delete button appeared
     // for every role once a live search/filter request ran, even though the
     // initial server-rendered page correctly hid it for non-admins.
     const deleteForm = IS_ADMIN ? `
         <form method="POST" action="${BASE_URL}/receipt/delete?id=${esc(r.id)}" style="display:inline"
               onsubmit="event.preventDefault(); showDeleteModal(this);">
             <input type="hidden" name="csrf_token" value="${esc(CSRF_TOKEN)}">
-            <button type="submit" class="btn btn-sm btn-danger">تعطيل</button>
+            <button type="submit" class="btn btn-sm btn-danger">حذف</button>
         </form>` : '';
 
     return `<tr>
