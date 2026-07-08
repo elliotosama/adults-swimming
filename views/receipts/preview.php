@@ -667,7 +667,8 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
         <?php endif; ?>
 
         <!-- Arabic PDF (download) -->
-        <a href="<?= $pdfUrl ?>&download=1"
+	<div style="display: flex; gap:10px;">
+	<a href="<?= $pdfUrl ?>&download=1"
            download="receipt-<?= (int)$receipt['id'] ?>-ar.pdf"
            class="btn-secondary-link">
             ⬇️ تحميل (عربي)
@@ -679,7 +680,11 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
            class="btn-pdf-en">
             ⬇️ Download (English)
         </a>
+<<<<<<< HEAD
             <?php if($_SESSION['user']['role'] === 'admin') { ?>
+=======
+	</div>
+>>>>>>> f52df1e (adding from server)
         <a href="<?= APP_URL ?>/receipt/show?id=<?= $receipt['id'] ?>" class="btn-secondary-link">
             👁 عرض الإيصال الكامل
         </a>
