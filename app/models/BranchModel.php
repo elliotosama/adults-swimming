@@ -23,39 +23,41 @@ class BranchModel {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-public function findAll(array $filters = []): array {
-    $where  = ['1=1'];
+public function findAll(array $filters = []): array
+{
+    $where = ['1=1', 'b.visible = 1'];
     $params = [];
 
     if (!empty($filters['search'])) {
-        $where[]          = 'b.branch_name LIKE :search';
+        $where[] = 'b.branch_name LIKE :search';
         $params['search'] = '%' . $filters['search'] . '%';
     }
+
     if (!empty($filters['country_id'])) {
-        $where[]              = 'b.country_id = :country_id';
+        $where[] = 'b.country_id = :country_id';
         $params['country_id'] = (int) $filters['country_id'];
     }
-    if (($filters['visibility'] ?? '') === 'visible') {
-        $where[] = 'b.visible = 1';
-    } elseif (($filters['visibility'] ?? '') === 'hidden') {
-        $where[] = 'b.visible = 0';
-    }
 
-    // ← ADD THIS
     if (!empty($filters['area_manager_id'])) {
-        $where[]                    = 'b.id IN (SELECT branch_id FROM user_branch WHERE user_id = :area_manager_id)';
-        $params['area_manager_id']  = (int) $filters['area_manager_id'];
+        $where[] = 'b.id IN (
+            SELECT branch_id
+            FROM user_branch
+            WHERE user_id = :area_manager_id
+        )';
+        $params['area_manager_id'] = (int) $filters['area_manager_id'];
     }
 
-    $sql  = '
+    $sql = '
         SELECT b.*, c.country
         FROM branches b
         LEFT JOIN countries c ON c.id = b.country_id
         WHERE ' . implode(' AND ', $where) . '
         ORDER BY b.id DESC
     ';
+
     $stmt = $this->db->prepare($sql);
     $stmt->execute($params);
+
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 

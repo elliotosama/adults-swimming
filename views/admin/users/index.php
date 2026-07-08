@@ -9,7 +9,7 @@ $roleLabels = [
 ];
 ?>
 
-<!-- Custom Confirm Modal -->
+<!-- Custom Confirm Modal (delete) -->
 <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
     <div style="background:var(--color-background-primary,#fff);border-radius:16px;border:0.5px solid var(--color-border-tertiary);padding:2rem 2rem 1.5rem;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.18);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);">
         <div style="width:52px;height:52px;border-radius:50%;background:#fff0f0;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:24px;">⚠️</div>
@@ -22,13 +22,23 @@ $roleLabels = [
     </div>
 </div>
 
+<!-- View / Edit Modal — content is fetched via AJAX and injected here -->
+<div id="viewModal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:2rem 1rem;">
+    <div id="viewModalPanel" style="background:linear-gradient(145deg,#151f2c,#0d1621);border:1px solid var(--border);border-radius:18px;max-width:820px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.35);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);position:relative;">
+        <div id="viewModalContent" style="min-height:200px;">
+            <div class="modal-loading" style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--muted);font-size:.9rem;">جارٍ التحميل...</div>
+        </div>
+    </div>
+</div>
+
 <style>
 @keyframes modalIn {
     from { opacity:0; transform:scale(.92) translateY(8px); }
     to   { opacity:1; transform:scale(1) translateY(0); }
 }
-#confirmModal.open { display:flex; }
-#userTableWrap     { transition: opacity .15s ease; }
+#confirmModal.open,
+#viewModal.open       { display:flex; }
+#userTableWrap         { transition: opacity .15s ease; }
 
 .role-admin        { background:#7c3aed20; color:#a78bfa;        border:1px solid #7c3aed40; }
 .role-manager      { background:#00b4d820; color:var(--accent);   border:1px solid #00b4d840; }
@@ -69,6 +79,7 @@ $roleLabels = [
 </style>
 
 <script>
+// ── Delete confirm modal (unchanged) ──────────────────────────────────────
 let _pendingForm = null;
 
 function showDeleteModal(form) {
@@ -93,12 +104,111 @@ document.getElementById('confirmBtn').addEventListener('click', function () {
 document.getElementById('confirmModal').addEventListener('click', function (e) {
     if (e.target === this) closeModal();
 });
+
+// ── View / Edit modal ──────────────────────────────────────────────────────
+// Injects HTML fetched via AJAX into #viewModalContent, and re-executes any
+// <script> tags in it — innerHTML alone does NOT run scripts.
+function insertHtmlWithScripts(container, html) {
+    container.innerHTML = html;
+    const scripts = container.querySelectorAll('script');
+    scripts.forEach(function (oldScript) {
+        const newScript = document.createElement('script');
+        if (oldScript.src) {
+            newScript.src = oldScript.src;
+        } else {
+            newScript.textContent = oldScript.textContent;
+        }
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+    });
+}
+
+function openViewModal(url) {
+    const modal   = document.getElementById('viewModal');
+    const content = document.getElementById('viewModalContent');
+
+    content.innerHTML = '<div class="modal-loading" style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--muted);font-size:.9rem;">جارٍ التحميل...</div>';
+    modal.classList.add('open');
+    modal.style.display = 'flex';
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.text(); })
+        .then(function (html) {
+            insertHtmlWithScripts(content, html);
+        })
+        .catch(function () {
+            content.innerHTML = '<p style="padding:2rem;color:var(--error)">حدث خطأ أثناء التحميل.</p>';
+        });
+}
+
+function closeViewModal() {
+    const modal = document.getElementById('viewModal');
+    modal.classList.remove('open');
+    modal.style.display = 'none';
+    document.getElementById('viewModalContent').innerHTML = '';
+}
+
+document.getElementById('viewModal').addEventListener('click', function (e) {
+    if (e.target === this) closeViewModal();
+});
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        closeViewModal();
+        closeModal();
+    }
+});
+
+// Delegated submit handler — catches the #userForm that gets injected into
+// the modal by openViewModal(), and posts it via fetch instead of navigating.
+document.addEventListener('submit', function (e) {
+    if (!e.target || e.target.id !== 'userForm') return;
+    e.preventDefault();
+
+    const form    = e.target;
+    const content = document.getElementById('viewModalContent');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(form)
+    })
+    .then(function (r) {
+        const isJson = (r.headers.get('content-type') || '').includes('application/json');
+        return r.text().then(function (text) {
+            return { isJson: isJson, text: text };
+        });
+    })
+    .then(function (result) {
+        if (result.isJson) {
+            let data;
+            try { data = JSON.parse(result.text); } catch (err) { data = null; }
+            if (data && data.success) {
+                closeViewModal();
+                if (typeof window.fetchUsers === 'function') window.fetchUsers();
+                return;
+            }
+        }
+        // Validation errors (or unexpected response) — re-render the form in place
+        insertHtmlWithScripts(content, result.text);
+    })
+    .catch(function () {
+        if (submitBtn) submitBtn.disabled = false;
+        alert('حدث خطأ غير متوقع، حاول مرة أخرى.');
+    });
+});
 </script>
 
 <!-- Page header -->
 <div class="page-header" style="flex-direction: row; margin-top: 20px;">
     <div>
-        <h1 class="page-title">👥 الموظفين</h1>
+        <h1 class="page-title">
+            👥 الموظفين
+                <span id="branchCountBadge" class="badge" style="background:#00b4d815;color:var(--accent);border:1px solid #00b4d830;font-size:.75rem;vertical-align:middle;margin-inline-start:.5rem">
+                <?= count($users) ?> موظف
+            </span>
+        </h1>
         <p class="breadcrumb">لوحة التحكم · الموظفين</p>
     </div>
     <a href="<?= APP_URL ?>/admin/user/create" class="btn btn-primary">+ إضافة مستخدم</a>
@@ -246,9 +356,11 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
                                 </td>
                                 <td>
                                     <div class="td-actions">
-                                        <a href="<?= APP_URL ?>/admin/user/show?id=<?= $u['id'] ?>"
+                                        <a href="javascript:void(0)"
+                                           onclick="openViewModal('<?= APP_URL ?>/admin/user/show?id=<?= $u['id'] ?>')"
                                            class="btn btn-sm btn-secondary">عرض</a>
-                                        <a href="<?= APP_URL ?>/admin/user/edit?id=<?= $u['id'] ?>"
+                                        <a href="javascript:void(0)"
+                                           onclick="openViewModal('<?= APP_URL ?>/admin/user/edit?id=<?= $u['id'] ?>')"
                                            class="btn btn-sm btn-warning">تعديل</a>
                                         <?php if ($u['id'] !== (int)($_SESSION['user']['id'] ?? 0)): ?>
                                         <form method="POST"
@@ -326,14 +438,15 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 
         return `
             <div class="td-actions">
-                <a href="${APP_URL}/admin/user/show?id=${u.id}" class="btn btn-sm btn-secondary">عرض</a>
-                <a href="${APP_URL}/admin/user/edit?id=${u.id}" class="btn btn-sm btn-warning">تعديل</a>
+                <a href="javascript:void(0)" onclick="openViewModal('${APP_URL}/admin/user/show?id=${u.id}')" class="btn btn-sm btn-secondary">عرض</a>
+                <a href="javascript:void(0)" onclick="openViewModal('${APP_URL}/admin/user/edit?id=${u.id}')" class="btn btn-sm btn-warning">تعديل</a>
                 ${deleteBtn}
             </div>`;
     }
 
     // ── Render users array into #userTableWrap ───────────────────────────
     function renderTable(users) {
+        updateCountBadge(users.length)
         if (!users.length) {
             wrap.innerHTML = `
                 <div class="empty-state">
@@ -394,7 +507,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
     }
 
     // ── Fetch from AJAX endpoint ─────────────────────────────────────────
-function fetchUsers() {
+    function fetchUsers() {
         const params = new URLSearchParams({
             search:    searchInput.value.trim(),
             role:      roleSelect.value,
@@ -418,6 +531,10 @@ function fetchUsers() {
             wrap.style.opacity = '1';
         });
     }
+
+    // Expose so the view/edit modal's success handler can refresh the table
+    // in place after a create/update without a full page reload.
+    window.fetchUsers = fetchUsers;
 
     // ── Live search — debounced 300 ms ───────────────────────────────────
     searchInput.addEventListener('input', function () {
@@ -444,6 +561,13 @@ function fetchUsers() {
         fetchUsers();
     });
 })();
+
+const countBadge = document.getElementById('branchCountBadge');
+
+function updateCountBadge(n) {
+    countBadge.textContent = `${n} فرع`;
+}
+
 </script>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>

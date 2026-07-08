@@ -18,7 +18,20 @@ class EmployeeController {
         exit;
     }
 
+    /**
+     * Detects whether the current request came from our fetch()-based
+     * modal JS on the index page (vs. a normal full-page navigation).
+     */
+    private function isAjax(): bool {
+        return (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest');
+    }
+
     private function renderView(string $view, array $data = []): void {
+        // Every view in this controller knows how to render itself either
+        // as a full page (with layout) or as a bare fragment for the modal,
+        // based on $ajaxMode. Default it to the current request type unless
+        // the caller explicitly overrode it.
+        $data['ajaxMode'] = $data['ajaxMode'] ?? $this->isAjax();
         extract($data);
         require ROOT . "/views/admin/users/{$view}.php";
     }
@@ -72,15 +85,6 @@ class EmployeeController {
     // ════════════════════════════════════════════════════════════════════════
     // INDEX  —  GET /admin/users
     // ════════════════════════════════════════════════════════════════════════
-
-
-
-
-
-
-    // ════════════════════════════════════════════════════════════════════════
-    // INDEX  —  GET /admin/users
-    // ════════════════════════════════════════════════════════════════════════
     public function index(): void {
         auth_require(['admin']);
 
@@ -95,9 +99,9 @@ class EmployeeController {
         ];
 
         $users       = $this->users->findFiltered($filters);
-        
+
         // Pass an empty array here so we get *all* unfiltered users for the counter blocks
-        $allUsers    = $this->users->findAll([]); 
+        $allUsers    = $this->users->findAll([]);
         $activeUsers = count(array_filter($allUsers, fn($u) => $u['is_active'] && $u['visible']));
 
         $roleCounts = [];
@@ -174,6 +178,20 @@ class EmployeeController {
             $errors[] = 'البريد الإلكتروني مستخدم بالفعل.';
 
         if ($errors) {
+            if ($this->isAjax()) {
+                http_response_code(422);
+                $this->renderView('create', [
+                    'pageTitle'  => 'مستخدم جديد',
+                    'breadcrumb' => 'لوحة التحكم · المستخدمون · مستخدم جديد',
+                    'user'       => $data,
+                    'errors'     => $errors,
+                    'branches'   => $this->allBranches(),
+                    'assignedIds'=> $data['branch_ids'],
+                    'isEdit'     => false,
+                ]);
+                return;
+            }
+
             $this->flash('flash_error', implode('<br>', $errors));
             $this->renderView('create', [
                 'pageTitle'  => 'مستخدم جديد',
@@ -191,7 +209,16 @@ class EmployeeController {
         $this->users->syncBranches($newId, $data['branch_ids']);
 
         log_action('created_user', "id: {$newId}, username: {$data['username']}", auth_user()['id']);
-        $this->flash('flash_success', 'تم إنشاء المستخدم "' . htmlspecialchars($data['username']) . '" بنجاح.');
+
+        $message = 'تم إنشاء المستخدم "' . htmlspecialchars($data['username']) . '" بنجاح.';
+
+        if ($this->isAjax()) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'message' => $message]);
+            exit;
+        }
+
+        $this->flash('flash_success', $message);
         $this->redirect('/admin/users');
     }
 
@@ -206,6 +233,11 @@ class EmployeeController {
         $user = $this->users->findById($id);
 
         if (!$user) {
+            if ($this->isAjax()) {
+                http_response_code(404);
+                echo '<p style="padding:2rem;color:var(--error)">المستخدم غير موجود.</p>';
+                exit;
+            }
             $this->flash('flash_error', 'المستخدم غير موجود.');
             $this->redirect('/admin/users');
             return;
@@ -230,6 +262,11 @@ class EmployeeController {
         $user = $this->users->findById($id);
 
         if (!$user) {
+            if ($this->isAjax()) {
+                http_response_code(404);
+                echo '<p style="padding:2rem;color:var(--error)">المستخدم غير موجود.</p>';
+                exit;
+            }
             $this->flash('flash_error', 'المستخدم غير موجود.');
             $this->redirect('/admin/users');
             return;
@@ -257,6 +294,11 @@ class EmployeeController {
         $user = $this->users->findById($id);
 
         if (!$user) {
+            if ($this->isAjax()) {
+                http_response_code(404);
+                echo '<p style="padding:2rem;color:var(--error)">المستخدم غير موجود.</p>';
+                exit;
+            }
             $this->flash('flash_error', 'المستخدم غير موجود.');
             $this->redirect('/admin/users');
             return;
@@ -272,6 +314,20 @@ class EmployeeController {
             $errors[] = 'البريد الإلكتروني مستخدم بالفعل.';
 
         if ($errors) {
+            if ($this->isAjax()) {
+                http_response_code(422);
+                $this->renderView('edit', [
+                    'pageTitle'  => 'تعديل المستخدم',
+                    'breadcrumb' => 'لوحة التحكم · المستخدمون · تعديل',
+                    'user'       => array_merge($user, $data),
+                    'errors'     => $errors,
+                    'branches'   => $this->allBranches(),
+                    'assignedIds'=> $data['branch_ids'],
+                    'isEdit'     => true,
+                ]);
+                return;
+            }
+
             $this->flash('flash_error', implode('<br>', $errors));
             $this->renderView('edit', [
                 'pageTitle'  => 'تعديل المستخدم',
@@ -295,7 +351,16 @@ class EmployeeController {
         $this->users->syncBranches($id, $data['branch_ids']);
 
         log_action('updated_user', "id: {$id}, username: {$data['username']}", auth_user()['id']);
-        $this->flash('flash_success', 'تم تحديث المستخدم "' . htmlspecialchars($data['username']) . '" بنجاح.');
+
+        $message = 'تم تحديث المستخدم "' . htmlspecialchars($data['username']) . '" بنجاح.';
+
+        if ($this->isAjax()) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'message' => $message]);
+            exit;
+        }
+
+        $this->flash('flash_success', $message);
         $this->redirect('/admin/users');
     }
 

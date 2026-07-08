@@ -680,15 +680,12 @@ $waLink = "https://wa.me/{$clientPhone}?text={$waMessage}";
            class="btn-pdf-en">
             ⬇️ Download (English)
         </a>
-<<<<<<< HEAD
             <?php if($_SESSION['user']['role'] === 'admin') { ?>
-=======
 	</div>
->>>>>>> f52df1e (adding from server)
         <a href="<?= APP_URL ?>/receipt/show?id=<?= $receipt['id'] ?>" class="btn-secondary-link">
             👁 عرض الإيصال الكامل
         </a>
-        <? }?>
+        <?php }?>
         <?php if (!empty($receipt['is_refunded'])): ?>
     <a href="<?= APP_URL ?>/receipt/refund-pdf?id=<?= $receipt['id'] ?>" target="_blank" class="btn btn-secondary">
       ↩️ إيصال الاسترداد

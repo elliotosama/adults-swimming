@@ -25,6 +25,39 @@ class PriceController {
         $_SESSION[$key] = $msg;
     }
 
+    private function isAjax(): bool {
+        return isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+            && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    }
+
+    /**
+     * Render a view into a string instead of echoing it directly —
+     * used to embed the re-rendered form (with errors) inside a JSON
+     * response for the AJAX modal.
+     */
+    private function renderViewToString(string $view, array $data = []): string {
+        extract($data);
+        ob_start();
+        require ROOT . "/views/admin/prices/{$view}.php";
+        return ob_get_clean();
+    }
+
+    private function jsonResponse(array $payload): void {
+        header('Content-Type: application/json');
+        echo json_encode($payload);
+        exit;
+    }
+
+    /**
+     * Small standalone error fragment for AJAX GET requests (show/edit)
+     * when the record isn't found — the modal just injects this as HTML.
+     */
+    private function ajaxNotFoundHtml(string $message): void {
+        header('Content-Type: text/html');
+        echo '<div style="text-align:center;padding:2rem;color:#e24b4a">⚠️ ' . htmlspecialchars($message) . '</div>';
+        exit;
+    }
+
     private function parseForm(): array {
         return [
             'description'        => trim($_POST['description']        ?? ''),
@@ -106,22 +139,39 @@ class PriceController {
         $errors = $this->validate($data);
 
         if ($errors) {
-            $this->flash('flash_error', implode('<br>', $errors));
             $countries = (new CountryModel())->findVisible();
-            $this->renderView('create', [
+            $viewData = [
                 'pageTitle'  => 'إضافة سعر',
                 'breadcrumb' => 'لوحة التحكم · الأسعار · إضافة سعر',
                 'price'      => $data,
                 'errors'     => $errors,
                 'isEdit'     => false,
                 'countries'  => $countries,
-            ]);
+            ];
+
+            if ($this->isAjax()) {
+                $html = $this->renderViewToString('create', $viewData);
+                $this->jsonResponse(['success' => false, 'html' => $html]);
+                return;
+            }
+
+            $this->flash('flash_error', implode('<br>', $errors));
+            $this->renderView('create', $viewData);
             return;
         }
 
         $newId = $this->prices->create($data);
 
         log_action('created_price', "id: {$newId}, description: {$data['description']}", auth_user()['id']);
+
+        if ($this->isAjax()) {
+            $this->jsonResponse([
+                'success' => true,
+                'message' => 'تم إضافة السعر "' . $data['description'] . '" بنجاح.',
+            ]);
+            return;
+        }
+
         $this->flash('flash_success', 'تم إضافة السعر "' . htmlspecialchars($data['description']) . '" بنجاح.');
         $this->redirect('/admin/prices');
     }
@@ -137,6 +187,10 @@ class PriceController {
         $price = $this->prices->findById($id);
 
         if (!$price) {
+            if ($this->isAjax()) {
+                $this->ajaxNotFoundHtml('السعر غير موجود.');
+                return;
+            }
             $this->flash('flash_error', 'السعر غير موجود.');
             $this->redirect('/admin/prices');
             return;
@@ -160,6 +214,10 @@ class PriceController {
         $price = $this->prices->findById($id);
 
         if (!$price) {
+            if ($this->isAjax()) {
+                $this->ajaxNotFoundHtml('السعر غير موجود.');
+                return;
+            }
             $this->flash('flash_error', 'السعر غير موجود.');
             $this->redirect('/admin/prices');
             return;
@@ -187,6 +245,10 @@ class PriceController {
         $price = $this->prices->findById($id);
 
         if (!$price) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'html' => '<div style="text-align:center;padding:2rem;color:#e24b4a">⚠️ السعر غير موجود.</div>']);
+                return;
+            }
             $this->flash('flash_error', 'السعر غير موجود.');
             $this->redirect('/admin/prices');
             return;
@@ -196,22 +258,39 @@ class PriceController {
         $errors = $this->validate($data);
 
         if ($errors) {
-            $this->flash('flash_error', implode('<br>', $errors));
             $countries = (new CountryModel())->findVisible();
-            $this->renderView('edit', [
+            $viewData = [
                 'pageTitle'  => 'تعديل السعر',
                 'breadcrumb' => 'لوحة التحكم · الأسعار · تعديل',
                 'price'      => array_merge($price, $data),
                 'errors'     => $errors,
                 'isEdit'     => true,
                 'countries'  => $countries,
-            ]);
+            ];
+
+            if ($this->isAjax()) {
+                $html = $this->renderViewToString('edit', $viewData);
+                $this->jsonResponse(['success' => false, 'html' => $html]);
+                return;
+            }
+
+            $this->flash('flash_error', implode('<br>', $errors));
+            $this->renderView('edit', $viewData);
             return;
         }
 
         $this->prices->update($id, $data);
 
         log_action('updated_price', "id: {$id}, description: {$data['description']}", auth_user()['id']);
+
+        if ($this->isAjax()) {
+            $this->jsonResponse([
+                'success' => true,
+                'message' => 'تم تحديث السعر "' . $data['description'] . '" بنجاح.',
+            ]);
+            return;
+        }
+
         $this->flash('flash_success', 'تم تحديث السعر "' . htmlspecialchars($data['description']) . '" بنجاح.');
         $this->redirect('/admin/prices');
     }
@@ -227,6 +306,10 @@ class PriceController {
         $price = $this->prices->findById($id);
 
         if (!$price) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'السعر غير موجود.']);
+                return;
+            }
             $this->flash('flash_error', 'السعر غير موجود.');
             $this->redirect('/admin/prices');
             return;
@@ -235,23 +318,31 @@ class PriceController {
         $this->prices->hide($id);
         log_action('hidden_price', "id: {$id}, description: {$price['description']}", auth_user()['id']);
 
+        if ($this->isAjax()) {
+            $this->jsonResponse([
+                'success' => true,
+                'message' => 'تم حذف السعر "' . $price['description'] . '" بنجاح.',
+            ]);
+            return;
+        }
+
         $this->flash('flash_success', 'تم حذف السعر "' . htmlspecialchars($price['description']) . '" بنجاح.');
         $this->redirect('/admin/prices');
     }
 
 
-public function ajaxSearch(): void {
-    auth_require(['admin']);
+    public function ajaxSearch(): void {
+        auth_require(['admin']);
 
-    header('Content-Type: application/json');
+        header('Content-Type: application/json');
 
-    $filters = [
-        'search'     => trim($_GET['search']     ?? ''),
-        'country_id' => trim($_GET['country_id'] ?? ''),
-        'visible'    => $_GET['visible']          ?? '',
-    ];
+        $filters = [
+            'search'     => trim($_GET['search']     ?? ''),
+            'country_id' => trim($_GET['country_id'] ?? ''),
+            'visible'    => $_GET['visible']          ?? '',
+        ];
 
-    echo json_encode($this->prices->findAll($filters));
-    exit;
-}
+        echo json_encode($this->prices->findAll($filters));
+        exit;
+    }
 }

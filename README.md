@@ -78,7 +78,7 @@ when making a receipt [Mon Jul 06 12:45:47.358379 2026] [php:error] [pid 1880044
 - [x] in index make search in ajax
 - [x] payment and refund and client tabs does not appear
 
-- [ ] remove disabled branches from all screens
+- [x] remove disabled branches from all screens
 - [ ] make branches section scrollable in captains page
 - [ ] taking any action in receipt index page got blank screen
 - [ ] show total count of results in all pages

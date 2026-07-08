@@ -1156,6 +1156,49 @@ public function show(): void {
         'ns'           => $ns, // ← now also carries remaining + totalRefunded for the view
     ]);
 }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // VIEW MODAL — GET /receipt/view-modal?id=x
+    //
+    // Renders the bare views/receipts/_view_modal.php fragment (no layout —
+    // that view never includes layout_top/bottom to begin with) for the
+    // index page's single "عرض" button, which fetch()es this endpoint and
+    // injects the HTML into an overlay above the table. The fragment itself
+    // already contains the client/subscription/session/payment details,
+    // uploaded payment-evidence thumbnails, and the edit / delete / PDF /
+    // WhatsApp / email action buttons.
+    // ════════════════════════════════════════════════════════════════════════
+
+    public function viewModal(): void {
+        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
+
+        $id      = (int) ($_GET['id'] ?? 0);
+        $receipt = $this->receipts->findById($id);
+
+        if (!$receipt) {
+            http_response_code(404);
+            echo '<p style="padding:2rem;color:#E06C75">الإيصال غير موجود.</p>';
+            exit;
+        }
+
+        $transactions = $this->transactions->findByReceipt($id);
+        $planPrice    = (float) ($receipt['plan_price'] ?? 0);
+        $ns           = $this->getReceiptNetStatus($id, $planPrice);
+
+        $db        = get_db();
+        $emailStmt = $db->prepare("SELECT email FROM clients WHERE id = ? LIMIT 1");
+        $emailStmt->execute([$receipt['client_id']]);
+        $clientEmail = $emailStmt->fetchColumn() ?: null;
+
+        $this->renderView('_view_modal', [
+            'receipt'      => $receipt,
+            'transactions' => $transactions,
+            'ns'           => $ns,
+            'clientEmail'  => $clientEmail,
+            'isAdmin'      => (auth_user()['role'] === 'admin'),
+        ]);
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // EDIT
     // ════════════════════════════════════════════════════════════════════════
@@ -2013,8 +2056,8 @@ public function storePayment(): void {
                            b.branch_name,
                            cl.client_name,
                            cl.phone,
-                           (SELECT COALESCE(SUM(amount),0) FROM transactions t WHERE t.receipt_id = r.id AND t.type = 'payment') AS gross_paid,
-                           (SELECT COALESCE(SUM(amount),0) FROM transactions t WHERE t.receipt_id = r.id AND t.type = 'refund')  AS total_refunded
+                           (SELECT COALESCE(SUM(amount), 0) FROM transactions t WHERE t.receipt_id = r.id AND t.type = 'payment') AS gross_paid,
+                           (SELECT COALESCE(SUM(amount), 0) FROM transactions t WHERE t.receipt_id = r.id AND t.type = 'refund')  AS total_refunded
                     FROM receipts r
                     LEFT JOIN prices   p  ON p.id  = r.plan_id
                     LEFT JOIN branches b  ON b.id  = r.branch_id

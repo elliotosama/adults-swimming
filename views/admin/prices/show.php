@@ -1,6 +1,11 @@
 <?php
 // views/admin/prices/show.php
-require ROOT . '/views/includes/layout_top.php';
+$isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])
+    && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+
+if (!$isAjax) {
+    require ROOT . '/views/includes/layout_top.php';
+}
 ?>
 <style>
     .profile-header {
@@ -23,23 +28,30 @@ require ROOT . '/views/includes/layout_top.php';
     }
 </style>
 
-<div class="page-header">
-    <div>
-        <h1 class="page-title">🏷️ <?= htmlspecialchars($price['description'] ?? 'تفاصيل السعر') ?></h1>
-        <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
+<?php if ($isAjax): ?>
+    <div class="modal-header">
+        <h2 class="modal-title">🏷️ <?= htmlspecialchars($price['description'] ?? 'تفاصيل السعر') ?></h2>
+        <button type="button" class="modal-close" onclick="closeAjaxModal()">&times;</button>
     </div>
-    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-        <a href="<?= APP_URL ?>/admin/price/edit?id=<?= (int)$price['id'] ?>" class="btn btn-warning">✏️ تعديل</a>
-        <a href="<?= APP_URL ?>/admin/prices" class="btn btn-secondary">← رجوع</a>
+<?php else: ?>
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">🏷️ <?= htmlspecialchars($price['description'] ?? 'تفاصيل السعر') ?></h1>
+            <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
+        </div>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+            <a href="<?= APP_URL ?>/admin/price/edit?id=<?= (int)$price['id'] ?>" class="btn btn-warning">✏️ تعديل</a>
+            <a href="<?= APP_URL ?>/admin/prices" class="btn btn-secondary">← رجوع</a>
+        </div>
     </div>
-</div>
+<?php endif; ?>
 
 <?php if (!empty($_SESSION['flash_success'])): ?>
     <div class="alert alert-success">✅ <?= htmlspecialchars($_SESSION['flash_success']) ?></div>
     <?php unset($_SESSION['flash_success']); ?>
 <?php endif; ?>
 
-<div class="card">
+<div class="card" style="<?= $isAjax ? 'box-shadow:none;border:none;' : '' ?>">
 
     <!-- ── رأس البطاقة ── -->
     <div class="profile-header">
@@ -81,12 +93,21 @@ require ROOT . '/views/includes/layout_top.php';
         </div>
     </div>
 
+    <!-- ── الإجراءات (تظهر فقط داخل المودال) ── -->
+    <?php if ($isAjax): ?>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;padding:0 1.2rem 1.2rem">
+            <a href="<?= APP_URL ?>/admin/price/edit?id=<?= (int)$price['id'] ?>"
+               class="btn btn-warning" data-modal-url="<?= APP_URL ?>/admin/price/edit?id=<?= (int)$price['id'] ?>">✏️ تعديل</a>
+        </div>
+    <?php endif; ?>
+
     <!-- ── منطقة الخطر ── -->
     <?php if ($price['visible']): ?>
         <div class="danger-zone">
-            <p>⚠️ حذفذا السعر سيُخفيه عن العملاء.</p>
+            <p>⚠️ حذف هذا السعر سيُخفيه عن العملاء.</p>
             <form method="POST" action="<?= APP_URL ?>/admin/price/delete?id=<?= (int)$price['id'] ?>"
-                  onsubmit="return confirm('هل أنت متأكد من حذف هذا السعر؟')">
+                  data-ajax-delete
+                  onsubmit="event.preventDefault(); showDeleteModal(this);">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                 <button type="submit" class="btn btn-danger">🗑️ حذف السعر</button>
             </form>
@@ -94,10 +115,13 @@ require ROOT . '/views/includes/layout_top.php';
     <?php else: ?>
         <div class="danger-zone">
             <p>🔓 هذا السعر معطّل. يمكنك إعادة تفعيله من خلال التعديل.</p>
-            <a href="<?= APP_URL ?>/admin/price/edit?id=<?= (int)$price['id'] ?>" class="btn btn-success">✅ إعادة تفعيل</a>
+            <a href="<?= APP_URL ?>/admin/price/edit?id=<?= (int)$price['id'] ?>"
+               class="btn btn-success" data-modal-url="<?= APP_URL ?>/admin/price/edit?id=<?= (int)$price['id'] ?>">✅ إعادة تفعيل</a>
         </div>
     <?php endif; ?>
 
 </div>
 
-<?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+<?php if (!$isAjax) {
+    require ROOT . '/views/includes/layout_bottom.php';
+} ?>

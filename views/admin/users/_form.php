@@ -1,8 +1,13 @@
 <?php
 // views/admin/users/_form.php
 // Required: $user, $errors, $isEdit, $action, $pageTitle, $breadcrumb, $branches, $assignedIds
+// Optional: $ajaxMode (true when rendered inside the show/edit modal via fetch())
 
-require ROOT . '/views/includes/layout_top.php';
+$ajaxMode = $ajaxMode ?? false;
+
+if (!$ajaxMode) {
+    require ROOT . '/views/includes/layout_top.php';
+}
 
 $roles = [
     'admin'            => 'مدير النظام',
@@ -44,7 +49,9 @@ $roles = [
 </style>
 
 <!-- FIX: layout_top.php closes <div class="page"> immediately,
-     so we re-open the wrapper here to contain all page content. -->
+     so we re-open the wrapper here to contain all page content.
+     (In ajaxMode there is no layout_top.php at all, so this div
+     simply becomes the modal's own content wrapper.) -->
 <div class="page">
 
 <div class="page-header">
@@ -52,7 +59,11 @@ $roles = [
         <h1 class="page-title"><?= $isEdit ? '✏️ تعديل المستخدم' : '➕ مستخدم جديد' ?></h1>
         <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
     </div>
-    <a href="<?= APP_URL ?>/admin/users" class="btn btn-secondary">← رجوع</a>
+    <?php if ($ajaxMode): ?>
+        <button type="button" class="btn btn-secondary" onclick="closeViewModal()">✕ إغلاق</button>
+    <?php else: ?>
+        <a href="<?= APP_URL ?>/admin/users" class="btn btn-secondary">← رجوع</a>
+    <?php endif; ?>
 </div>
 
 <?php if (!empty($errors)): ?>
@@ -60,7 +71,7 @@ $roles = [
         ⚠️ <?= implode('<br>', array_map('htmlspecialchars', $errors)) ?>
     </div>
 <?php endif; ?>
-<?php if (!empty($_SESSION['flash_error'])): ?>
+<?php if (!$ajaxMode && !empty($_SESSION['flash_error'])): ?>
     <div class="alert alert-error">⚠️ <?= $_SESSION['flash_error'] ?></div>
     <?php unset($_SESSION['flash_error']); ?>
 <?php endif; ?>
@@ -193,7 +204,11 @@ $roles = [
                 <button type="submit" class="btn btn-primary">
                     <?= $isEdit ? '💾 حفظ التعديلات' : '✅ إنشاء المستخدم' ?>
                 </button>
-                <a href="<?= APP_URL ?>/admin/users" class="btn btn-secondary">إلغاء</a>
+                <?php if ($ajaxMode): ?>
+                    <button type="button" class="btn btn-secondary" onclick="closeViewModal()">إلغاء</button>
+                <?php else: ?>
+                    <a href="<?= APP_URL ?>/admin/users" class="btn btn-secondary">إلغاء</a>
+                <?php endif; ?>
             </div>
 
         </div>
@@ -238,12 +253,17 @@ $roles = [
     emailInput.addEventListener('input', function () { validateEmail(false); });
     emailInput.addEventListener('blur', function () { validateEmail(true); });
 
+    // NOTE: submit handling / preventDefault for the AJAX modal flow is done
+    // by the delegated listener in index.php (submitUserForm). This local
+    // listener only blocks submission client-side when the email is invalid,
+    // whether we're in the modal or on the standalone page.
     form.addEventListener('submit', function (e) {
         var val = emailInput.value.trim();
         var ok = val !== '' && EMAIL_RE.test(val);
 
         if (!ok) {
             e.preventDefault();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
             emailWrap.classList.add('has-error');
             emailWrap.classList.remove('is-valid');
             emailError.classList.add('show');
@@ -253,4 +273,6 @@ $roles = [
 })();
 </script>
 
-<?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+<?php if (!$ajaxMode): ?>
+    <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+<?php endif; ?>

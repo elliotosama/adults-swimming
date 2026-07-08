@@ -1,6 +1,12 @@
 <?php
 // views/admin/users/show.php
-require ROOT . '/views/includes/layout_top.php';
+// Optional: $ajaxMode (true when rendered inside the modal via fetch())
+
+$ajaxMode = $ajaxMode ?? false;
+
+if (!$ajaxMode) {
+    require ROOT . '/views/includes/layout_top.php';
+}
 
 $roleLabels = [
     'admin'            => ['label' => 'مدير النظام',  'color' => 'role-admin'],
@@ -45,12 +51,18 @@ $initials = mb_strtoupper(mb_substr($user['username'], 0, 2));
         <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
     </div>
     <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-        <a href="<?= APP_URL ?>/admin/user/edit?id=<?= $user['id'] ?>" class="btn btn-warning">✏️ تعديل</a>
-        <a href="<?= APP_URL ?>/admin/users" class="btn btn-secondary">← رجوع</a>
+        <?php if ($ajaxMode): ?>
+            <button type="button" class="btn btn-warning"
+                    onclick="openViewModal('<?= APP_URL ?>/admin/user/edit?id=<?= $user['id'] ?>')">✏️ تعديل</button>
+            <button type="button" class="btn btn-secondary" onclick="closeViewModal()">✕ إغلاق</button>
+        <?php else: ?>
+            <a href="<?= APP_URL ?>/admin/user/edit?id=<?= $user['id'] ?>" class="btn btn-warning">✏️ تعديل</a>
+            <a href="<?= APP_URL ?>/admin/users" class="btn btn-secondary">← رجوع</a>
+        <?php endif; ?>
     </div>
 </div>
 
-<?php if (!empty($_SESSION['flash_success'])): ?>
+<?php if (!$ajaxMode && !empty($_SESSION['flash_success'])): ?>
     <div class="alert alert-success">✅ <?= htmlspecialchars($_SESSION['flash_success']) ?></div>
     <?php unset($_SESSION['flash_success']); ?>
 <?php endif; ?>
@@ -128,11 +140,18 @@ $initials = mb_strtoupper(mb_substr($user['username'], 0, 2));
         <?php else: ?>
             <div class="danger-zone">
                 <p>🔓 هذا المستخدم معطّل. يمكنك إعادة تفعيله من خلال التعديل.</p>
-                <a href="<?= APP_URL ?>/admin/user/edit?id=<?= $user['id'] ?>" class="btn btn-success">✅ إعادة تفعيل</a>
+                <?php if ($ajaxMode): ?>
+                    <button type="button" class="btn btn-success"
+                            onclick="openViewModal('<?= APP_URL ?>/admin/user/edit?id=<?= $user['id'] ?>')">✅ إعادة تفعيل</button>
+                <?php else: ?>
+                    <a href="<?= APP_URL ?>/admin/user/edit?id=<?= $user['id'] ?>" class="btn btn-success">✅ إعادة تفعيل</a>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
     <?php endif; ?>
 
 </div>
 
-<?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+<?php if (!$ajaxMode): ?>
+    <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+<?php endif; ?>
