@@ -90,6 +90,8 @@ $isAdmin   = $isAdmin ?? false;
 }
 table th {
     background: var(--primary);
+    font-weight: bold;
+    text-align: center;
 }
 
 @keyframes modalIn {
@@ -337,7 +339,7 @@ table th {
 table td {
     white-space: nowrap;
     color: #fff;
-    font-size: 1rem;
+    font-size: 1.2rem;
     padding: .6rem .75rem;
     border: 1px solid var(--border);
     text-align: center;
@@ -353,6 +355,12 @@ table td.wrap-cell {
     min-width: 130px;
 }
 table td strong { color: #fff;}
+
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    background-color: #fff
+}
+
 
 /* ══════════════════════════════════════════════════════════════════
    REFUND BADGE

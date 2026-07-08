@@ -147,9 +147,9 @@ $routes = [
     ['POST', '/receipt/send-email', fn () => $receipt->sendEmail()],
     ['GET', '/receipt/payment-by-id',        fn() => $receipt->paymentByReceiptId()],
     ['POST', '/receipt/payment-by-id/store', fn() => $receipt->storePaymentByReceiptId()],
-    ['GET', '/receipt/view-modal', $receipt->viewModal()],
-    ['GET', '/receipt/edit-modal', $receipt->editModal()],
-    ['GET', '/receipt/logs-modal', $receipt->logsModal()],
+    ['GET', '/receipt/view-modal', fn() => $receipt->viewModal()],
+    ['GET', '/receipt/edit-modal', fn() => $receipt->editModal()],
+    ['GET', '/receipt/logs-modal', fn() => $receipt->logsModal()],
 
     ['GET',  '/transactions',        fn () => $transaction->index()],
     ['GET',  '/transaction/show',        fn () => $transaction->show()],

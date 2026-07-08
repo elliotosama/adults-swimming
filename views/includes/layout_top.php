@@ -86,7 +86,7 @@
         /* ── Page wrapper ── */
         .page {
             position: relative; z-index: 10;
-            max-width: 1300px; margin: 0 auto;
+            max-width: 98%; margin: 0 auto;
             padding: 2rem 1.5rem 6rem;
         }
 
