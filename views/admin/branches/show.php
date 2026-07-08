@@ -1,6 +1,12 @@
 <?php
 // views/admin/branches/show.php
-require ROOT . '/views/includes/layout_top.php';
+// Optional: $ajaxPartial — when true, renders without page chrome (SPA modal)
+
+$ajaxPartial = $ajaxPartial ?? false;
+
+if (!$ajaxPartial) {
+    require ROOT . '/views/includes/layout_top.php';
+}
 
 $days = [
     'Sunday'    => 'الأحد',
@@ -20,7 +26,11 @@ $days = [
     </div>
     <div style="display:flex;gap:.6rem;flex-wrap:wrap">
         <a href="<?= APP_URL ?>/admin/branch/edit?id=<?= $branch['id'] ?>" class="btn btn-warning">✏️ تعديل</a>
-        <a href="<?= APP_URL ?>/admin/branches" class="btn btn-secondary">← رجوع</a>
+        <?php if ($ajaxPartial): ?>
+            <button type="button" class="btn btn-secondary js-modal-close">← رجوع</button>
+        <?php else: ?>
+            <a href="<?= APP_URL ?>/admin/branches" class="btn btn-secondary">← رجوع</a>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -86,11 +96,20 @@ $days = [
     <?php if ($branch['visible']): ?>
         <div class="danger-zone">
             <p>⚠️ حذف هذا الفرع سيُخفيه من جميع القوائم.</p>
-            <form method="POST" action="<?= APP_URL ?>/admin/branch/delete?id=<?= $branch['id'] ?>"
-                  onsubmit="return confirm('هل أنت متأكد من حذف هذا الفرع؟')">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                <button type="submit" class="btn btn-danger">🗑️ حذف الفرع</button>
-            </form>
+            <?php if ($ajaxPartial): ?>
+                <button type="button"
+                        class="btn btn-danger js-delete-branch"
+                        data-id="<?= (int) $branch['id'] ?>"
+                        data-name="<?= htmlspecialchars($branch['branch_name']) ?>">
+                    🗑️ حذف الفرع
+                </button>
+            <?php else: ?>
+                <form method="POST" action="<?= APP_URL ?>/admin/branch/delete?id=<?= $branch['id'] ?>"
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا الفرع؟')">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                    <button type="submit" class="btn btn-danger">🗑️ حذف الفرع</button>
+                </form>
+            <?php endif; ?>
         </div>
     <?php else: ?>
         <div class="danger-zone">
@@ -101,4 +120,6 @@ $days = [
 
 </div>
 
-<?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+<?php if (!$ajaxPartial): ?>
+    <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+<?php endif; ?>

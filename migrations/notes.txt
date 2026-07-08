@@ -1,0 +1,20 @@
+users => from production database
+branches => from production database
+user_branch => check it with script
+captains => from production database
+captain_branch => from production database
+countries => no need to update
+prices => from production database
+
+receipts => write script
+receipt_audit_log => from activies [
+    action => تعديل ايصال
+    from receipts table => edit_history
+]
+transactions [
+    action => دفع ايصال
+]
+
+
+اضافه عميل => create receipt
+تجديد عميل => renew receipt

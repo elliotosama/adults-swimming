@@ -25,6 +25,18 @@ class BranchController {
         $_SESSION[$key] = $msg;
     }
 
+    private function isAjax(): bool {
+        return isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+            && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    }
+
+    private function jsonResponse(array $payload, int $statusCode = 200): void {
+        http_response_code($statusCode);
+        header('Content-Type: application/json');
+        echo json_encode($payload);
+        exit;
+    }
+
     private function parseForm(): array {
         return [
             'branch_name'       => trim($_POST['branch_name']       ?? ''),
@@ -110,6 +122,7 @@ class BranchController {
             'isEdit'        => false,
             'isAreaManager' => false,
             'countries'     => $countries,
+            'ajaxPartial'   => $this->isAjax(),
         ]);
     }
 
@@ -128,6 +141,11 @@ class BranchController {
         }
 
         if ($errors) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'errors' => $errors], 422);
+                return;
+            }
+
             $countries = (new CountryModel())->findVisible();
             $this->flash('flash_error', implode('<br>', $errors));
             $this->renderView('create', [
@@ -145,7 +163,15 @@ class BranchController {
         $newId = $this->branches->create($data);
 
         log_action('created_branch', "id: {$newId}, name: {$data['branch_name']}", auth_user()['id']);
-        $this->flash('flash_success', 'Branch "' . htmlspecialchars($data['branch_name']) . '" created successfully.');
+
+        $message = 'Branch "' . htmlspecialchars($data['branch_name']) . '" created successfully.';
+
+        if ($this->isAjax()) {
+            $this->jsonResponse(['success' => true, 'message' => $message, 'id' => $newId]);
+            return;
+        }
+
+        $this->flash('flash_success', $message);
         $this->redirect('/admin/branches');
     }
 
@@ -160,6 +186,10 @@ class BranchController {
         $branch = $this->branches->findById($id);
 
         if (!$branch) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'Branch not found.'], 404);
+                return;
+            }
             $this->flash('flash_error', 'Branch not found.');
             $this->redirect('/admin/branches');
             return;
@@ -169,15 +199,20 @@ class BranchController {
 
         // area_manager may only view their own branches
         if ($user['role'] === 'area_manager' && !$this->branches->isManagedBy($id, $user['id'])) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'Access denied.'], 403);
+                return;
+            }
             $this->flash('flash_error', 'Access denied.');
             $this->redirect('/admin/branches');
             return;
         }
 
         $this->renderView('show', [
-            'pageTitle'  => htmlspecialchars($branch['branch_name']),
-            'breadcrumb' => 'Admin · Branches · ' . htmlspecialchars($branch['branch_name']),
-            'branch'     => $branch,
+            'pageTitle'   => htmlspecialchars($branch['branch_name']),
+            'breadcrumb'  => 'Admin · Branches · ' . htmlspecialchars($branch['branch_name']),
+            'branch'      => $branch,
+            'ajaxPartial' => $this->isAjax(),
         ]);
     }
 
@@ -193,6 +228,10 @@ class BranchController {
         $branch    = $this->branches->findById($id);
 
         if (!$branch) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'Branch not found.'], 404);
+                return;
+            }
             $this->flash('flash_error', 'Branch not found.');
             $this->redirect('/admin/branches');
             return;
@@ -202,6 +241,10 @@ class BranchController {
 
         // area_manager may only edit their own branches
         if ($user['role'] === 'area_manager' && !$this->branches->isManagedBy($id, $user['id'])) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'Access denied.'], 403);
+                return;
+            }
             $this->flash('flash_error', 'Access denied.');
             $this->redirect('/admin/branches');
             return;
@@ -215,6 +258,7 @@ class BranchController {
             'isEdit'        => true,
             'isAreaManager' => $user['role'] === 'area_manager',
             'countries'     => $countries,
+            'ajaxPartial'   => $this->isAjax(),
         ]);
     }
 
@@ -229,6 +273,10 @@ class BranchController {
         $branch = $this->branches->findById($id);
 
         if (!$branch) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'Branch not found.'], 404);
+                return;
+            }
             $this->flash('flash_error', 'Branch not found.');
             $this->redirect('/admin/branches');
             return;
@@ -238,6 +286,10 @@ class BranchController {
 
         // area_manager may only update their own branches
         if ($user['role'] === 'area_manager' && !$this->branches->isManagedBy($id, $user['id'])) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'Access denied.'], 403);
+                return;
+            }
             $this->flash('flash_error', 'Access denied.');
             $this->redirect('/admin/branches');
             return;
@@ -261,6 +313,11 @@ class BranchController {
         }
 
         if ($errors) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'errors' => $errors], 422);
+                return;
+            }
+
             $countries = (new CountryModel())->findVisible();
             $this->flash('flash_error', implode('<br>', $errors));
             $this->renderView('edit', [
@@ -278,7 +335,15 @@ class BranchController {
         $this->branches->update($id, $data);
 
         log_action('updated_branch', "id: {$id}, name: {$data['branch_name']}", $user['id']);
-        $this->flash('flash_success', 'Branch "' . htmlspecialchars($data['branch_name']) . '" updated successfully.');
+
+        $message = 'Branch "' . htmlspecialchars($data['branch_name']) . '" updated successfully.';
+
+        if ($this->isAjax()) {
+            $this->jsonResponse(['success' => true, 'message' => $message, 'id' => $id]);
+            return;
+        }
+
+        $this->flash('flash_success', $message);
         $this->redirect('/admin/branches');
     }
 
@@ -294,6 +359,10 @@ class BranchController {
         $branch = $this->branches->findById($id);
 
         if (!$branch) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'Branch not found.'], 404);
+                return;
+            }
             $this->flash('flash_error', 'Branch not found.');
             $this->redirect('/admin/branches');
             return;
@@ -302,37 +371,42 @@ class BranchController {
         $this->branches->hide($id);
         log_action('hidden_branch', "id: {$id}, name: {$branch['branch_name']}", auth_user()['id']);
 
-        $this->flash('flash_success', 'Branch "' . htmlspecialchars($branch['branch_name']) . '" has been deactivated.');
+        $message = 'Branch "' . htmlspecialchars($branch['branch_name']) . '" has been deactivated.';
+
+        if ($this->isAjax()) {
+            $this->jsonResponse(['success' => true, 'message' => $message]);
+            return;
+        }
+
+        $this->flash('flash_success', $message);
         $this->redirect('/admin/branches');
     }
-    
-
 
     // ════════════════════════════════════════════════════════════════════════
-// AJAX SEARCH  —  GET /admin/branches/search
-// Returns JSON array of branches for the filter bar
-// ════════════════════════════════════════════════════════════════════════
+    // AJAX SEARCH  —  GET /admin/branches/search
+    // Returns JSON array of branches for the filter bar
+    // ════════════════════════════════════════════════════════════════════════
 
-public function ajaxSearch(): void {
-    auth_require(['admin', 'area_manager']);
+    public function ajaxSearch(): void {
+        auth_require(['admin', 'area_manager']);
 
-    header('Content-Type: application/json');
+        header('Content-Type: application/json');
 
-    $user = auth_user();
+        $user = auth_user();
 
-    $filters = [
-        'search'     => trim($_GET['search']     ?? ''),
-        'country_id' => trim($_GET['country_id'] ?? ''),
-        'visibility' => trim($_GET['visibility'] ?? ''),
-    ];
+        $filters = [
+            'search'     => trim($_GET['search']     ?? ''),
+            'country_id' => trim($_GET['country_id'] ?? ''),
+            'visibility' => trim($_GET['visibility'] ?? ''),
+        ];
 
-    if ($user['role'] === 'area_manager') {
-        $filters['area_manager_id'] = $user['id'];
+        if ($user['role'] === 'area_manager') {
+            $filters['area_manager_id'] = $user['id'];
+        }
+
+        $branches = $this->branches->findAll($filters);
+
+        echo json_encode($branches);
+        exit;
     }
-
-    $branches = $this->branches->findAll($filters);
-
-    echo json_encode($branches);
-    exit;
-}
 }

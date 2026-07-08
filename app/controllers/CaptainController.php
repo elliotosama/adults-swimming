@@ -27,6 +27,18 @@ class CaptainController {
         $_SESSION[$key] = $msg;
     }
 
+    private function isAjax(): bool {
+        return isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+            && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    }
+
+    private function jsonResponse(array $payload, int $statusCode = 200): void {
+        http_response_code($statusCode);
+        header('Content-Type: application/json');
+        echo json_encode($payload);
+        exit;
+    }
+
     private function parseForm(): array {
         return [
             'captain_name' => trim($_POST['captain_name'] ?? ''),
@@ -98,6 +110,7 @@ class CaptainController {
             'isEdit'      => false,
             'branches'    => $this->branchModel->findAll(),
             'assignedIds' => [],
+            'ajaxPartial' => $this->isAjax(),
         ]);
     }
 
@@ -114,6 +127,11 @@ class CaptainController {
         }
 
         if ($errors) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'errors' => $errors], 422);
+                return;
+            }
+
             $this->flash('flash_error', implode('<br>', $errors));
             $this->renderView('create', [
                 'pageTitle'   => 'كابتن جديد',
@@ -131,7 +149,15 @@ class CaptainController {
         $this->captains->syncBranches($newId, $data['branch_ids']);
 
         log_action('created_captain', "id: {$newId}, name: {$data['captain_name']}", auth_user()['id']);
-        $this->flash('flash_success', 'تم إضافة الكابتن "' . htmlspecialchars($data['captain_name']) . '" بنجاح.');
+
+        $message = 'تم إضافة الكابتن "' . htmlspecialchars($data['captain_name']) . '" بنجاح.';
+
+        if ($this->isAjax()) {
+            $this->jsonResponse(['success' => true, 'message' => $message, 'id' => $newId]);
+            return;
+        }
+
+        $this->flash('flash_success', $message);
         $this->redirect('/admin/captains');
     }
 
@@ -145,6 +171,10 @@ class CaptainController {
         $captain = $this->captains->findById($id);
 
         if (!$captain) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'الكابتن غير موجود.'], 404);
+                return;
+            }
             $this->flash('flash_error', 'الكابتن غير موجود.');
             $this->redirect('/admin/captains');
             return;
@@ -152,6 +182,10 @@ class CaptainController {
 
         if ($user['role'] === 'area_manager' &&
             !$this->captains->isManagedBy($id, $user['id'])) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'ليس لديك صلاحية عرض هذا الكابتن.'], 403);
+                return;
+            }
             $this->flash('flash_error', 'ليس لديك صلاحية عرض هذا الكابتن.');
             $this->redirect('/admin/captains');
             return;
@@ -170,6 +204,7 @@ class CaptainController {
             'breadcrumb'       => 'الإدارة · الكباتن · ' . htmlspecialchars($captain['captain_name']),
             'captain'          => $captain,
             'assignedBranches' => $assignedBranches,
+            'ajaxPartial'      => $this->isAjax(),
         ]);
     }
 
@@ -183,6 +218,10 @@ class CaptainController {
         $captain = $this->captains->findById($id);
 
         if (!$captain) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'الكابتن غير موجود.'], 404);
+                return;
+            }
             $this->flash('flash_error', 'الكابتن غير موجود.');
             $this->redirect('/admin/captains');
             return;
@@ -190,6 +229,10 @@ class CaptainController {
 
         if ($user['role'] === 'area_manager' &&
             !$this->captains->isManagedBy($id, $user['id'])) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'ليس لديك صلاحية تعديل هذا الكابتن.'], 403);
+                return;
+            }
             $this->flash('flash_error', 'ليس لديك صلاحية تعديل هذا الكابتن.');
             $this->redirect('/admin/captains');
             return;
@@ -203,6 +246,7 @@ class CaptainController {
             'isEdit'      => true,
             'branches'    => $this->branchModel->findAll($this->branchFilters($user)),
             'assignedIds' => $captain['branch_ids'],
+            'ajaxPartial' => $this->isAjax(),
         ]);
     }
 
@@ -216,6 +260,10 @@ class CaptainController {
         $captain = $this->captains->findById($id);
 
         if (!$captain) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'الكابتن غير موجود.'], 404);
+                return;
+            }
             $this->flash('flash_error', 'الكابتن غير موجود.');
             $this->redirect('/admin/captains');
             return;
@@ -223,6 +271,10 @@ class CaptainController {
 
         if ($user['role'] === 'area_manager' &&
             !$this->captains->isManagedBy($id, $user['id'])) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'ليس لديك صلاحية تعديل هذا الكابتن.'], 403);
+                return;
+            }
             $this->flash('flash_error', 'ليس لديك صلاحية تعديل هذا الكابتن.');
             $this->redirect('/admin/captains');
             return;
@@ -236,6 +288,11 @@ class CaptainController {
         }
 
         if ($errors) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'errors' => $errors], 422);
+                return;
+            }
+
             $this->flash('flash_error', implode('<br>', $errors));
             $this->renderView('edit', [
                 'pageTitle'   => 'تعديل الكابتن',
@@ -253,7 +310,15 @@ class CaptainController {
         $this->captains->syncBranches($id, $data['branch_ids']);
 
         log_action('updated_captain', "id: {$id}, name: {$data['captain_name']}", $user['id']);
-        $this->flash('flash_success', 'تم تحديث بيانات الكابتن "' . htmlspecialchars($data['captain_name']) . '" بنجاح.');
+
+        $message = 'تم تحديث بيانات الكابتن "' . htmlspecialchars($data['captain_name']) . '" بنجاح.';
+
+        if ($this->isAjax()) {
+            $this->jsonResponse(['success' => true, 'message' => $message, 'id' => $id]);
+            return;
+        }
+
+        $this->flash('flash_success', $message);
         $this->redirect('/admin/captains');
     }
 
@@ -266,6 +331,10 @@ class CaptainController {
         $captain = $this->captains->findById($id);
 
         if (!$captain) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'message' => 'الكابتن غير موجود.'], 404);
+                return;
+            }
             $this->flash('flash_error', 'الكابتن غير موجود.');
             $this->redirect('/admin/captains');
             return;
@@ -274,31 +343,35 @@ class CaptainController {
         $this->captains->hide($id);
         log_action('hidden_captain', "id: {$id}, name: {$captain['captain_name']}", auth_user()['id']);
 
-        $this->flash('flash_success', 'تم إخفاء الكابتن "' . htmlspecialchars($captain['captain_name']) . '".');
+        $message = 'تم إخفاء الكابتن "' . htmlspecialchars($captain['captain_name']) . '".';
+
+        if ($this->isAjax()) {
+            $this->jsonResponse(['success' => true, 'message' => $message]);
+            return;
+        }
+
+        $this->flash('flash_success', $message);
         $this->redirect('/admin/captains');
     }
 
-    
-
     public function ajaxSearch(): void {
-    auth_require(['admin', 'area_manager']);
+        auth_require(['admin', 'area_manager']);
 
-    header('Content-Type: application/json');
+        header('Content-Type: application/json');
 
-    $user = auth_user();
+        $user = auth_user();
 
-    $filters = [
-        'search'    => trim($_GET['search']    ?? ''),
-        'branch_id' => (int) ($_GET['branch_id'] ?? 0) ?: '',
-        'visible'   => $_GET['visibility'] ?? '',
-    ];
+        $filters = [
+            'search'    => trim($_GET['search']    ?? ''),
+            'branch_id' => (int) ($_GET['branch_id'] ?? 0) ?: '',
+            'visible'   => $_GET['visibility'] ?? '',
+        ];
 
-    if ($user['role'] === 'area_manager') {
-        $filters['area_manager_id'] = $user['id'];
+        if ($user['role'] === 'area_manager') {
+            $filters['area_manager_id'] = $user['id'];
+        }
+
+        echo json_encode($this->captains->findAll($filters));
+        exit;
     }
-
-    echo json_encode($this->captains->findAll($filters));
-    exit;
-}
-
 }

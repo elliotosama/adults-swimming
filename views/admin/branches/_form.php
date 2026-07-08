@@ -1,6 +1,7 @@
 <?php
 // views/admin/branches/_form.php
 // Required vars: $branch, $errors, $isEdit, $action, $countries, $isAreaManager
+// Optional: $ajaxPartial — when true, renders without the page chrome (used inside the SPA modal)
 
 $days = [
     'Sunday'    => 'الأحد',
@@ -19,8 +20,11 @@ function dayChecked(mixed $field, string $day): bool {
 }
 
 $isAreaManager = $isAreaManager ?? false;
+$ajaxPartial   = $ajaxPartial ?? false;
 
-require ROOT . '/views/includes/layout_top.php';
+if (!$ajaxPartial) {
+    require ROOT . '/views/includes/layout_top.php';
+}
 ?>
 
 <div class="page-header">
@@ -28,7 +32,11 @@ require ROOT . '/views/includes/layout_top.php';
         <h1 class="page-title"><?= $isEdit ? '✏️ تعديل الفرع' : '➕ فرع جديد' ?></h1>
         <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
     </div>
-    <a href="<?= APP_URL ?>/admin/branches" class="btn btn-secondary">← رجوع</a>
+    <?php if ($ajaxPartial): ?>
+        <button type="button" class="btn btn-secondary js-modal-close">← رجوع</button>
+    <?php else: ?>
+        <a href="<?= APP_URL ?>/admin/branches" class="btn btn-secondary">← رجوع</a>
+    <?php endif; ?>
 </div>
 
 <?php if (!empty($errors)): ?>
@@ -43,7 +51,7 @@ require ROOT . '/views/includes/layout_top.php';
 <?php endif; ?>
 
 <div class="card">
-    <form method="POST" action="<?= APP_URL . $action ?>">
+    <form method="POST" action="<?= APP_URL . $action ?>" class="js-branch-form">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
 
         <div class="form-body">
@@ -181,11 +189,17 @@ require ROOT . '/views/includes/layout_top.php';
                 <button type="submit" class="btn btn-primary">
                     <?= $isEdit ? '💾 حفظ التعديلات' : '✅ إنشاء الفرع' ?>
                 </button>
-                <a href="<?= APP_URL ?>/admin/branches" class="btn btn-secondary">إلغاء</a>
+                <?php if ($ajaxPartial): ?>
+                    <button type="button" class="btn btn-secondary js-modal-close">إلغاء</button>
+                <?php else: ?>
+                    <a href="<?= APP_URL ?>/admin/branches" class="btn btn-secondary">إلغاء</a>
+                <?php endif; ?>
             </div>
 
         </div>
     </form>
 </div>
 
-<?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+<?php if (!$ajaxPartial): ?>
+    <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+<?php endif; ?>

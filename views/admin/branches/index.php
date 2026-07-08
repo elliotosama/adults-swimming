@@ -2,16 +2,27 @@
 require ROOT . '/views/includes/layout_top.php';
 ?>
 
-<!-- Custom Confirm Modal -->
+<!-- Confirm Modal (used for delete confirmation) -->
 <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
     <div style="background:var(--color-background-primary,#fff);border-radius:16px;border:0.5px solid var(--color-border-tertiary);padding:2rem 2rem 1.5rem;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.18);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);">
         <div style="width:52px;height:52px;border-radius:50%;background:#fff0f0;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:24px;">⚠️</div>
         <h2 style="text-align:center;font-size:1.15rem;font-weight:600;margin:0 0 .5rem;color:black">حذف الفرع</h2>
-        <p style="text-align:center;color:black;font-size:.9rem;margin:0 0 1.75rem;line-height:1.6">هل أنت متأكد من حذف هذا الفرع؟<br>يمكنك إعادة تفعيله لاحقاً.</p>
+        <p id="confirmModalText" style="text-align:center;color:black;font-size:.9rem;margin:0 0 1.75rem;line-height:1.6">هل أنت متأكد من حذف هذا الفرع؟<br>يمكنك إعادة تفعيله لاحقاً.</p>
         <div style="display:flex;gap:.75rem;">
-            <button onclick="closeModal()" style="flex:1;padding:.7rem;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;font-size:.9rem;color:black;transition:background .15s">إلغاء</button>
+            <button id="confirmCancelBtn" style="flex:1;padding:.7rem;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;font-size:.9rem;color:black;transition:background .15s">إلغاء</button>
             <button id="confirmBtn" style="flex:1;padding:.7rem;border-radius:8px;border:none;background:#e24b4a;color:#fff;cursor:pointer;font-size:.9rem;font-weight:600;transition:background .15s">حذف</button>
         </div>
+    </div>
+</div>
+
+<!-- Branch Modal (create / edit / show — loaded via AJAX) -->
+<div id="branchModal" class="branch-modal-overlay">
+    <div class="branch-modal-panel">
+        <div style="display:flex;justify-content:flex-end">
+            <button type="button" id="branchModalCloseX" class="js-modal-close"
+                    style="background:transparent;border:none;font-size:1.3rem;cursor:pointer;color:var(--text);line-height:1">✕</button>
+        </div>
+        <div id="branchModalBody"></div>
     </div>
 </div>
 
@@ -53,40 +64,40 @@ body {
 #branchTableWrap {
     transition: opacity .15s ease;
 }
+
+.branch-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+}
+.branch-modal-overlay.open { display: flex; }
+.branch-modal-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 92%;
+    margin-top: 60px;
+    max-width: 760px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: .5rem 1.5rem 1.5rem;
+    animation: modalIn .2s cubic-bezier(.34,1.56,.64,1);
+}
 </style>
-
-<script>
-let _pendingForm = null;
-
-function showDeleteModal(form) {
-    _pendingForm = form;
-    const modal = document.getElementById('confirmModal');
-    modal.classList.add('open');
-    modal.style.display = 'flex';
-}
-
-function closeModal() {
-    const modal = document.getElementById('confirmModal');
-    modal.classList.remove('open');
-    modal.style.display = 'none';
-    _pendingForm = null;
-}
-
-document.getElementById('confirmBtn').addEventListener('click', function () {
-    if (_pendingForm) _pendingForm.submit();
-    closeModal();
-});
-
-document.getElementById('confirmModal').addEventListener('click', function (e) {
-    if (e.target === this) closeModal();
-});
-</script>
-
-
 
 <div class="page-header" style="flex-direction: row; margin-top: 20px;">
     <div>
-        <h1 class="page-title">🏢 الفروع</h1>
+        <h1 class="page-title">
+            🏢 الفروع
+            <span id="branchCountBadge" class="badge" style="background:#00b4d815;color:var(--accent);border:1px solid #00b4d830;font-size:.75rem;vertical-align:middle;margin-inline-start:.5rem">
+                <?= count($branches) ?> فرع
+            </span>
+        </h1>
         <p class="breadcrumb">لوحة التحكم · الفروع</p>
     </div>
     <?php if ($_SESSION['user']['role'] === 'admin'): ?>
@@ -105,7 +116,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
     <?php unset($_SESSION['flash_error']); ?>
 <?php endif; ?>
 
-<!-- Hidden CSRF token for JS-rendered delete forms -->
+<!-- Hidden CSRF token for JS-rendered delete/create/edit requests -->
 <input type="hidden" id="globalCsrfToken" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
 
 <!-- Filters -->
@@ -232,14 +243,10 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
                                         <a href="<?= APP_URL ?>/admin/branch/edit?id=<?= $b['id'] ?>"
                                            class="btn btn-sm btn-warning">تعديل</a>
                                         <?php if ($_SESSION['user']['role'] === 'admin'): ?>
-                                        <form method="POST"
-                                              action="<?= APP_URL ?>/admin/branch/delete?id=<?= $b['id'] ?>"
-                                              style="display:inline"
-                                              onsubmit="event.preventDefault(); showDeleteModal(this);">
-                                            <input type="hidden" name="csrf_token"
-                                                   value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                            <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-                                        </form>
+                                        <button type="button"
+                                                class="btn btn-sm btn-danger js-delete-branch"
+                                                data-id="<?= $b['id'] ?>"
+                                                data-name="<?= htmlspecialchars($b['branch_name']) ?>">حذف</button>
                                         <?php endif; ?>
                                     </div>
                                 </td>
@@ -268,7 +275,16 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
     const visibilitySelect = document.getElementById('filterVisibility');
     const clearBtn         = document.getElementById('clearFiltersBtn');
 
-    let debounceTimer = null;
+    const confirmModal     = document.getElementById('confirmModal');
+    const confirmModalText = document.getElementById('confirmModalText');
+    const confirmBtn       = document.getElementById('confirmBtn');
+    const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+
+    const branchModal     = document.getElementById('branchModal');
+    const branchModalBody = document.getElementById('branchModalBody');
+
+    let debounceTimer     = null;
+    let _pendingDeleteId  = null;
 
     // ── XSS guard ────────────────────────────────────────────────────────
     function esc(str) {
@@ -277,6 +293,22 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    // ── Toast ────────────────────────────────────────────────────────────
+    function showToast(message, type) {
+        type = type || 'success';
+        const el = document.createElement('div');
+        el.className = 'alert alert-' + type;
+        el.style.position  = 'fixed';
+        el.style.top       = '20px';
+        el.style.left      = '50%';
+        el.style.transform = 'translateX(-50%)';
+        el.style.zIndex    = '10001';
+        el.style.boxShadow = '0 8px 24px rgba(0,0,0,.25)';
+        el.textContent = (type === 'success' ? '✅ ' : '⚠️ ') + message;
+        document.body.appendChild(el);
+        setTimeout(function () { el.remove(); }, 3500);
     }
 
     // ── Day-badge colour sets ────────────────────────────────────────────
@@ -296,16 +328,9 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 
     // ── Build action buttons for each row ────────────────────────────────
     function actionButtons(b) {
-        const csrf = esc(document.getElementById('globalCsrfToken').value);
-
-        const deleteBtn = isAdmin ? `
-            <form method="POST"
-                  action="${APP_URL}/admin/branch/delete?id=${b.id}"
-                  style="display:inline"
-                  onsubmit="event.preventDefault(); showDeleteModal(this);">
-                <input type="hidden" name="csrf_token" value="${csrf}">
-                <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-            </form>` : '';
+        const deleteBtn = isAdmin
+            ? `<button type="button" class="btn btn-sm btn-danger js-delete-branch" data-id="${b.id}" data-name="${esc(b.branch_name)}">حذف</button>`
+            : '';
 
         return `
             <div class="td-actions">
@@ -317,6 +342,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 
     // ── Render branches array into #branchTableWrap ───────────────────────
     function renderTable(branches) {
+        updateCountBadge(branches.length);
         if (!branches.length) {
             wrap.innerHTML = `
                 <div class="empty-state">
@@ -399,17 +425,14 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
         debounceTimer = setTimeout(fetchBranches, 300);
     });
 
-    // ── Instant update on select change ─────────────────────────────────
     countrySelect.addEventListener('change', fetchBranches);
     visibilitySelect.addEventListener('change', fetchBranches);
 
-    // ── Intercept form submit (keeps normal fallback working too) ─────────
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         fetchBranches();
     });
 
-    // ── Clear button: reset inputs then fetch ────────────────────────────
     clearBtn.addEventListener('click', function (e) {
         e.preventDefault();
         searchInput.value      = '';
@@ -417,7 +440,161 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
         visibilitySelect.value = '';
         fetchBranches();
     });
+
+    // ══════════════════════════════════════════════════════════════════
+    // Branch modal (create / edit / show)
+    // ══════════════════════════════════════════════════════════════════
+
+    function openBranchModal(url) {
+        branchModalBody.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted)">جارِ التحميل...</div>';
+        branchModal.classList.add('open');
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.text())
+            .then(html => { branchModalBody.innerHTML = html; })
+            .catch(() => {
+                branchModalBody.innerHTML = '<div style="padding:2rem;color:var(--danger)">تعذر تحميل البيانات.</div>';
+            });
+    }
+
+    function closeBranchModal() {
+        branchModal.classList.remove('open');
+        branchModalBody.innerHTML = '';
+    }
+
+    function showFormErrors(formEl, errors) {
+        let box = formEl.querySelector('.js-form-errors');
+        if (!box) {
+            box = document.createElement('div');
+            box.className = 'alert alert-error js-form-errors';
+            box.style.marginBottom = '1rem';
+            formEl.insertBefore(box, formEl.firstChild);
+        }
+        box.innerHTML = '⚠️ ' + errors.map(esc).join('<br>');
+    }
+
+    // Intercept clicks anywhere (table rows, modal content, "+ إضافة" button)
+    document.addEventListener('click', function (e) {
+        const link = e.target.closest('a[href]');
+        if (link) {
+            const href = link.getAttribute('href') || '';
+            if (href.includes('/admin/branch/create') ||
+                href.includes('/admin/branch/edit')   ||
+                href.includes('/admin/branch/show')) {
+                e.preventDefault();
+                openBranchModal(link.href);
+                return;
+            }
+        }
+
+        if (e.target.closest('.js-modal-close')) {
+            e.preventDefault();
+            closeBranchModal();
+            return;
+        }
+
+        const delBtn = e.target.closest('.js-delete-branch');
+        if (delBtn) {
+            e.preventDefault();
+            _pendingDeleteId = delBtn.dataset.id;
+            const name = delBtn.dataset.name || '';
+            confirmModalText.innerHTML = name
+                ? `هل أنت متأكد من حذف الفرع "${esc(name)}"؟<br>يمكنك إعادة تفعيله لاحقاً.`
+                : 'هل أنت متأكد من حذف هذا الفرع؟<br>يمكنك إعادة تفعيله لاحقاً.';
+            confirmModal.classList.add('open');
+        }
+    });
+
+    // Click outside the branch modal panel closes it
+    branchModal.addEventListener('click', function (e) {
+        if (e.target === branchModal) closeBranchModal();
+    });
+
+    // Intercept the create/edit form submit wherever it's injected
+    document.addEventListener('submit', function (e) {
+        const formEl = e.target;
+        if (!formEl.classList || !formEl.classList.contains('js-branch-form')) return;
+
+        e.preventDefault();
+        const submitBtn = formEl.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        fetch(formEl.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(formEl),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                closeBranchModal();
+                fetchBranches();
+                showToast(data.message || 'تم الحفظ بنجاح.', 'success');
+            } else {
+                showFormErrors(formEl, data.errors || [data.message].filter(Boolean));
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        })
+        .catch(() => {
+            showFormErrors(formEl, ['حدث خطأ في الاتصال بالخادم.']);
+            if (submitBtn) submitBtn.disabled = false;
+        });
+    });
+
+    // ── Delete confirm modal buttons ──────────────────────────────────────
+    confirmCancelBtn.addEventListener('click', function () {
+        confirmModal.classList.remove('open');
+        _pendingDeleteId = null;
+    });
+
+    confirmModal.addEventListener('click', function (e) {
+        if (e.target === this) {
+            confirmModal.classList.remove('open');
+            _pendingDeleteId = null;
+        }
+    });
+
+    confirmBtn.addEventListener('click', function () {
+        if (!_pendingDeleteId) {
+            confirmModal.classList.remove('open');
+            return;
+        }
+        const id    = _pendingDeleteId;
+        const csrf  = document.getElementById('globalCsrfToken').value;
+
+        fetch(`${APP_URL}/admin/branch/delete?id=${id}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `csrf_token=${encodeURIComponent(csrf)}`,
+        })
+        .then(r => r.json())
+        .then(data => {
+            confirmModal.classList.remove('open');
+            _pendingDeleteId = null;
+            if (data.success) {
+                closeBranchModal();
+                fetchBranches();
+                showToast(data.message || 'تم الحذف بنجاح.', 'success');
+            } else {
+                showToast(data.message || 'حدث خطأ أثناء الحذف.', 'error');
+            }
+        })
+        .catch(() => {
+            confirmModal.classList.remove('open');
+            _pendingDeleteId = null;
+            showToast('حدث خطأ أثناء الحذف.', 'error');
+        });
+    });
 })();
+
+
+const countBadge = document.getElementById('branchCountBadge');
+
+function updateCountBadge(n) {
+    countBadge.textContent = `${n} فرع`;
+}
 </script>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
