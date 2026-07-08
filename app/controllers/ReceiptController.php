@@ -1199,6 +1199,29 @@ public function show(): void {
         ]);
     }
 
+    public function logsModal(): void {
+        auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
+
+        $id      = (int) ($_GET['id'] ?? 0);
+        $receipt = $this->receipts->findById($id);
+
+        if (!$receipt) {
+            http_response_code(404);
+            echo '<p style="padding:2rem;color:#E06C75">الإيصال غير موجود.</p>';
+            exit;
+        }
+
+        $this->renderView('_logs_modal', [
+            'receipt'      => $receipt,
+            'transactions' => $this->transactions->findByReceipt($id),
+            'auditLogs'    => $this->auditLog->findByReceipt($id),
+        ]);
+    }
+
+    public function editModal(): void {
+        $this->edit();
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // EDIT
     // ════════════════════════════════════════════════════════════════════════

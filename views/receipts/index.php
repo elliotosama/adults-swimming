@@ -386,6 +386,124 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   RECEIPT OVERLAYS
+══════════════════════════════════════════════════════════════════ */
+.receipt-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9500;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 18px;
+    background: rgba(8, 10, 18, .72);
+    backdrop-filter: blur(6px);
+    overflow-y: auto;
+}
+.receipt-overlay.open { display: flex; }
+.receipt-overlay-panel {
+    margin-top: 60px;
+    width: min(1120px, 100%);
+    max-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 24px 80px rgba(0,0,0,.32);
+    overflow: hidden;
+}
+.receipt-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    background: #1E1E2D;
+    border-bottom: 1px solid var(--border);
+}
+.receipt-overlay-title {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text);
+}
+.receipt-overlay-close {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+}
+.receipt-overlay-close:hover {
+    border-color: var(--primary);
+    color: #fff;
+}
+.receipt-overlay-body {
+    padding: 18px;
+    overflow: auto;
+}
+.receipt-overlay-body.loading,
+.receipt-overlay-body.error {
+    min-height: 180px;
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+}
+.receipt-edit-frame {
+    width: 100%;
+    height: calc(100vh - 150px);
+    min-height: 560px;
+    border: 0;
+    background: var(--bg);
+}
+.receipt-evidence-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9800;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0,0,0,.84);
+}
+.receipt-evidence-lightbox.open { display: flex; }
+.receipt-evidence-box {
+    position: relative;
+    max-width: min(92vw, 920px);
+    max-height: 88vh;
+}
+.receipt-evidence-box img {
+    display: block;
+    max-width: 100%;
+    max-height: 88vh;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #111;
+    box-shadow: 0 18px 70px rgba(0,0,0,.55);
+}
+.receipt-evidence-close {
+    position: absolute;
+    top: -16px;
+    left: -16px;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: #fff;
+    color: #111;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+/* ══════════════════════════════════════════════════════════════════
    RESPONSIVE — TABLET (≤ 900px)
 ══════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
@@ -446,6 +564,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     table td { font-size: .88rem; padding: .5rem .55rem; }
     .td-actions { flex-direction: row; flex-wrap: wrap; gap: .25rem; min-width: 120px; }
     .td-actions .btn { width: auto; padding: .28rem .55rem; font-size: .75rem; }
+    .receipt-overlay { padding: 12px 8px; }
+    .receipt-overlay-panel { max-height: calc(100vh - 24px); }
+    .receipt-overlay-body { padding: 12px; }
+    .receipt-edit-frame { height: calc(100vh - 92px); min-height: 520px; }
     .pagination a, .pagination span { min-width: 1.8rem; height: 1.8rem; font-size: .8rem; padding: 0 .4rem; }
     .pag-info { font-size: .78rem; }
     #confirmModal > div { width: 95% !important; padding: 1.5rem 1.1rem 1.1rem !important; }
@@ -760,21 +882,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
                                 </td>
                             <td>
                                 <div class="td-actions">
-                                    <?php if($_SESSION['user']['role'] === 'admin') { ?>
-                                    <a href="<?= APP_URL ?>/receipt/show?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
-                                    <?php }?>
-                                    <a href="<?= APP_URL ?>/receipt/preview?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary">تفاصيل</a>
-                                    <a href="<?= APP_URL ?>/receipt/edit?id=<?= $r['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
-                                    <?php if($_SESSION['user']['role'] === 'admin') { ?>
-                                    <form method="POST"
-                                          action="<?= APP_URL ?>/receipt/delete?id=<?= $r['id'] ?>"
-                                          style="display:inline"
-                                          onsubmit="event.preventDefault(); showDeleteModal(this);">
-                                        <input type="hidden" name="csrf_token"
-                                               value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-                                    </form>
-                                    <?php }?>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="loadReceiptModal(<?= (int)$r['id'] ?>)">عرض الإيصال</button>
+                                    <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal(<?= (int)$r['id'] ?>)">المعاملات والتعديلات</button>
                                 </div>
                             </td>
                         </tr>
@@ -824,6 +933,43 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     <?php endif; ?>
 </div>
 
+<div class="receipt-overlay" id="receiptViewOverlay" aria-hidden="true">
+    <div class="receipt-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="receiptViewTitle">
+        <div class="receipt-overlay-header">
+            <h2 class="receipt-overlay-title" id="receiptViewTitle">عرض الإيصال</h2>
+            <button type="button" class="receipt-overlay-close" onclick="closeReceiptOverlay('receiptViewOverlay')" aria-label="إغلاق">✕</button>
+        </div>
+        <div class="receipt-overlay-body" id="receiptViewBody"></div>
+    </div>
+</div>
+
+<div class="receipt-overlay" id="receiptLogsOverlay" aria-hidden="true">
+    <div class="receipt-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="receiptLogsTitle">
+        <div class="receipt-overlay-header">
+            <h2 class="receipt-overlay-title" id="receiptLogsTitle">المعاملات والتعديلات</h2>
+            <button type="button" class="receipt-overlay-close" onclick="closeReceiptOverlay('receiptLogsOverlay')" aria-label="إغلاق">✕</button>
+        </div>
+        <div class="receipt-overlay-body" id="receiptLogsBody"></div>
+    </div>
+</div>
+
+<div class="receipt-overlay" id="receiptEditOverlay" aria-hidden="true">
+    <div class="receipt-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="receiptEditTitle">
+        <div class="receipt-overlay-header">
+            <h2 class="receipt-overlay-title" id="receiptEditTitle">تحديث الإيصال</h2>
+            <button type="button" class="receipt-overlay-close" onclick="closeReceiptOverlay('receiptEditOverlay')" aria-label="إغلاق">✕</button>
+        </div>
+        <iframe class="receipt-edit-frame" id="receiptEditFrame" title="تحديث الإيصال"></iframe>
+    </div>
+</div>
+
+<div class="receipt-evidence-lightbox" id="receiptEvidenceLightbox" aria-hidden="true">
+    <div class="receipt-evidence-box" role="dialog" aria-modal="true" aria-label="إثبات الدفع">
+        <button type="button" class="receipt-evidence-close" onclick="closeReceiptEvidence()" aria-label="إغلاق">✕</button>
+        <img id="receiptEvidenceImage" src="" alt="إثبات الدفع">
+    </div>
+</div>
+
 <!-- ════════════════════════════════════════════════════════════════════
      LIVE SEARCH / DYNAMIC TABLE
 ════════════════════════════════════════════════════════════════════ -->
@@ -837,7 +983,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     const tableCard = document.getElementById('tableCard');
 
     const BASE_URL   = <?= json_encode(APP_URL) ?>;
-    const CSRF_TOKEN = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;
     const IS_ADMIN   = <?= json_encode($isAdmin) ?>;
     const PER_PAGE   = <?= (int) ($perPage ?? 25) ?>;
 
@@ -887,16 +1032,6 @@ function buildRow(r) {
         ? `<td><span class="badge-refund">↩️ مسترد</span></td>`
         : `<td><span style="color:var(--muted)">—</span></td>`;
 
-    // around the "حذف" button — without this check the delete button appeared
-    // for every role once a live search/filter request ran, even though the
-    // initial server-rendered page correctly hid it for non-admins.
-    const deleteForm = IS_ADMIN ? `
-        <form method="POST" action="${BASE_URL}/receipt/delete?id=${esc(r.id)}" style="display:inline"
-              onsubmit="event.preventDefault(); showDeleteModal(this);">
-            <input type="hidden" name="csrf_token" value="${esc(CSRF_TOKEN)}">
-            <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-        </form>` : '';
-
     return `<tr>
         <td>${renewalTypeLabel(r.renewal_type)}</td>
         <td>${esc(r.client_id)}</td>
@@ -916,10 +1051,8 @@ function buildRow(r) {
         ${refundedCell}
         <td>
             <div class="td-actions">
-                ${IS_ADMIN ? `<a href="${BASE_URL}/receipt/show?id=${esc(r.id)}" class="btn btn-sm btn-secondary">عرض</a>` : ''}
-                <a href="${BASE_URL}/receipt/preview?id=${esc(r.id)}" class="btn btn-sm btn-secondary">تفاصيل</a>
-                <a href="${BASE_URL}/receipt/edit?id=${esc(r.id)}" class="btn btn-sm btn-warning">تعديل</a>
-                ${deleteForm}
+                <button type="button" class="btn btn-sm btn-secondary" onclick="loadReceiptModal('${esc(r.id)}')">عرض الإيصال</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal('${esc(r.id)}')">المعاملات والتعديلات</button>
             </div>
         </td>
     </tr>`;
@@ -1206,6 +1339,147 @@ document.getElementById('confirmBtn').addEventListener('click', function () {
 document.getElementById('confirmModal').addEventListener('click', function (e) {
     if (e.target === this) closeModal();
 });
+
+(function () {
+    const BASE_URL   = <?= json_encode(APP_URL) ?>;
+    const CSRF_TOKEN = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;
+
+    function openOverlay(id) {
+        const overlay = document.getElementById(id);
+        if (!overlay) return;
+        overlay.classList.add('open');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    window.closeReceiptOverlay = function(id) {
+        const overlay = document.getElementById(id);
+        if (!overlay) return;
+        overlay.classList.remove('open');
+        overlay.setAttribute('aria-hidden', 'true');
+        if (!document.querySelector('.receipt-overlay.open')) {
+            document.body.style.overflow = '';
+        }
+        if (id === 'receiptEditOverlay') {
+            document.getElementById('receiptEditFrame').src = 'about:blank';
+        }
+    };
+
+    async function loadFragment(url, overlayId, bodyId) {
+        const body = document.getElementById(bodyId);
+        body.className = 'receipt-overlay-body loading';
+        body.innerHTML = 'جاري التحميل...';
+        openOverlay(overlayId);
+
+        try {
+            const response = await fetch(url, { headers: { 'X-Requested-With': 'fetch' } });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            body.className = 'receipt-overlay-body';
+            body.innerHTML = await response.text();
+            bindReceiptOverlayActions(body);
+        } catch (error) {
+            body.className = 'receipt-overlay-body error';
+            body.innerHTML = 'تعذر تحميل البيانات. حاول مرة أخرى.';
+            console.error(error);
+        }
+    }
+
+    window.loadReceiptModal = function(id) {
+        loadFragment(`${BASE_URL}/receipt/view-modal?id=${encodeURIComponent(id)}`, 'receiptViewOverlay', 'receiptViewBody');
+    };
+
+    window.loadLogsModal = function(id) {
+        loadFragment(`${BASE_URL}/receipt/logs-modal?id=${encodeURIComponent(id)}`, 'receiptLogsOverlay', 'receiptLogsBody');
+    };
+
+    window.loadEditModal = function(id) {
+        const frame = document.getElementById('receiptEditFrame');
+        frame.src = `${BASE_URL}/receipt/edit?id=${encodeURIComponent(id)}`;
+        openOverlay('receiptEditOverlay');
+    };
+
+    function bindReceiptOverlayActions(root) {
+        root.querySelectorAll('[data-rm-evidence]').forEach(button => {
+            button.addEventListener('click', () => openReceiptEvidence(button.dataset.rmEvidence));
+        });
+
+        const emailBtn = root.querySelector('#rm-send-email-btn');
+        if (emailBtn) {
+            emailBtn.addEventListener('click', async () => {
+                const message = root.querySelector('#rm-email-msg');
+                emailBtn.disabled = true;
+                const oldText = emailBtn.textContent;
+                emailBtn.textContent = 'جاري الإرسال...';
+                if (message) message.textContent = '';
+
+                const formData = new FormData();
+                formData.append('receipt_id', emailBtn.dataset.receiptId || '');
+                formData.append('csrf_token', CSRF_TOKEN);
+
+                try {
+                    const response = await fetch(`${BASE_URL}/receipt/send-email`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    if (message) {
+                        message.style.color = data.success ? '#98C379' : '#E06C75';
+                        message.textContent = data.success
+                            ? 'تم إرسال البريد الإلكتروني بنجاح.'
+                            : (data.message || 'تعذر إرسال البريد الإلكتروني.');
+                    }
+                } catch (error) {
+                    if (message) {
+                        message.style.color = '#E06C75';
+                        message.textContent = 'حدث خطأ أثناء إرسال البريد الإلكتروني.';
+                    }
+                    console.error(error);
+                } finally {
+                    emailBtn.disabled = false;
+                    emailBtn.textContent = oldText;
+                }
+            });
+        }
+    }
+
+    document.querySelectorAll('.receipt-overlay').forEach(overlay => {
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay) closeReceiptOverlay(overlay.id);
+        });
+    });
+
+    window.openReceiptEvidence = function(url) {
+        const lightbox = document.getElementById('receiptEvidenceLightbox');
+        const image = document.getElementById('receiptEvidenceImage');
+        if (!lightbox || !image) return;
+        image.src = url;
+        lightbox.classList.add('open');
+        lightbox.setAttribute('aria-hidden', 'false');
+    };
+
+    window.closeReceiptEvidence = function() {
+        const lightbox = document.getElementById('receiptEvidenceLightbox');
+        const image = document.getElementById('receiptEvidenceImage');
+        if (!lightbox || !image) return;
+        lightbox.classList.remove('open');
+        lightbox.setAttribute('aria-hidden', 'true');
+        image.src = '';
+    };
+
+    document.getElementById('receiptEvidenceLightbox')?.addEventListener('click', event => {
+        if (event.target === event.currentTarget) closeReceiptEvidence();
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        if (document.getElementById('receiptEvidenceLightbox')?.classList.contains('open')) {
+            closeReceiptEvidence();
+            return;
+        }
+        const open = [...document.querySelectorAll('.receipt-overlay.open')].pop();
+        if (open) closeReceiptOverlay(open.id);
+    });
+})();
 </script>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>

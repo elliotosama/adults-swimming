@@ -9,6 +9,7 @@ function rmFormatAmPm(string $time): string {
 function rmEvidenceUrl(string $raw): string {
     if (empty($raw)) return '';
     if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) return $raw;
+    if (str_starts_with($raw, '/uploads/')) return APP_URL . $raw;
     return APP_URL . '/uploads/evidence/' . basename($raw);
 }
 
@@ -22,6 +23,25 @@ $refundPct     = $grossPaid > 0 ? round(($totalRefunded / $grossPaid) * 100) : 0
 $clientPhone = preg_replace('/\s+/', '', ($receipt['country_code'] ?? '') . ($receipt['phone_number'] ?? $receipt['phone'] ?? ''));
 $waMessage   = rawurlencode("شكراً لاشتراكك، يمكنك تحميل الإيصال من خلال هذا الرابط:\n") . APP_URL . '/receipt/pdf?id=' . $receipt['id'];
 $waLink      = "https://wa.me/{$clientPhone}?text={$waMessage}";
+
+$paymentMethodLabels = [
+    'cash'          => 'نقداً',
+    'instapay'      => 'InstaPay',
+    'vodafone_cash' => 'Vodafone Cash',
+    'bank_transfer' => 'تحويل بنكي',
+];
+$transactionMethods = [];
+foreach (($transactions ?? []) as $t) {
+    $method = trim((string)($t['payment_method'] ?? ''));
+    if ($method !== '') {
+        $transactionMethods[] = $paymentMethodLabels[$method] ?? $method;
+    }
+}
+$transactionMethods = array_values(array_unique($transactionMethods));
+$receiptMethod = trim((string)($receipt['payment_method'] ?? ''));
+$paymentMethodText = $transactionMethods
+    ? implode('، ', $transactionMethods)
+    : ($paymentMethodLabels[$receiptMethod] ?? ($receiptMethod ?: '—'));
 ?>
 <div class="rm-view">
 <style>
@@ -47,8 +67,14 @@ $waLink      = "https://wa.me/{$clientPhone}?text={$waMessage}";
 .rm-pay-item .rm-num.red    { color: var(--v-danger); }
 .rm-pay-item .rm-num.yellow { color: var(--v-warning); }
 .rm-evidence-list { display: flex; flex-wrap: wrap; gap: .5rem; }
-.rm-evidence-thumb { width: 60px; height: 60px; border-radius: 8px; overflow: hidden; border: 1px solid var(--v-border); cursor: pointer; background: none; padding: 0; }
+.rm-evidence-thumb { width: 74px; height: 74px; border-radius: 8px; overflow: hidden; border: 1px solid var(--v-border); cursor: pointer; background: none; padding: 0; }
 .rm-evidence-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.rm-evidence-link {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 74px; height: 74px; padding: 0 .7rem; border-radius: 8px;
+    border: 1px solid var(--v-border); color: #fff; text-decoration: none;
+    background: var(--v-surface2); font-size: .82rem;
+}
 .rm-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid var(--v-border); }
 .rm-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
 #rm-email-msg { margin-top: .6rem; font-size: .85rem; }
@@ -88,22 +114,29 @@ $waLink      = "https://wa.me/{$clientPhone}?text={$waMessage}";
         <div class="rm-pay-item"><span class="rm-label">المسترد</span><span class="rm-num red"><?= number_format($totalRefunded,0) ?> (<?= $refundPct ?>%)</span></div>
         <?php endif; ?>
         <div class="rm-pay-item"><span class="rm-label">المتبقي</span><span class="rm-num <?= $remaining > 0 ? 'yellow' : 'green' ?>"><?= number_format($remaining,0) ?></span></div>
-        <div class="rm-pay-item"><span class="rm-label">طريقة الدفع</span><span class="rm-num" style="font-weight:600;font-size:.9rem"><?= htmlspecialchars($receipt['payment_method'] ?? '—') ?></span></div>
+        <div class="rm-pay-item"><span class="rm-label">طريقة الدفع</span><span class="rm-num" style="font-weight:600;font-size:.9rem"><?= htmlspecialchars($paymentMethodText) ?></span></div>
     </div>
 
     <?php
     $evidences = array_values(array_filter(array_map(function ($t) {
         $raw = $t['attachment'] ?? $t['transaction_evidence'] ?? $t['evidence'] ?? null;
-        return $raw ? rmEvidenceUrl($raw) : null;
+        if (!$raw) return null;
+        $url = rmEvidenceUrl($raw);
+        $ext = strtolower(pathinfo((string)$raw, PATHINFO_EXTENSION));
+        return ['url' => $url, 'is_pdf' => $ext === 'pdf'];
     }, $transactions ?? [])));
     ?>
     <?php if (!empty($evidences)): ?>
     <div class="rm-section-title">📎 إثباتات الدفع</div>
     <div class="rm-evidence-list">
         <?php foreach ($evidences as $ev): ?>
-            <button type="button" class="rm-evidence-thumb" data-rm-evidence="<?= htmlspecialchars($ev, ENT_QUOTES) ?>">
-                <img src="<?= htmlspecialchars($ev) ?>" alt="إثبات دفع" onerror="this.parentElement.style.display='none'">
-            </button>
+            <?php if ($ev['is_pdf']): ?>
+                <a href="<?= htmlspecialchars($ev['url']) ?>" target="_blank" class="rm-evidence-link">PDF</a>
+            <?php else: ?>
+                <button type="button" class="rm-evidence-thumb" data-rm-evidence="<?= htmlspecialchars($ev['url'], ENT_QUOTES) ?>">
+                    <img src="<?= htmlspecialchars($ev['url']) ?>" alt="إثبات دفع" onerror="this.parentElement.style.display='none'">
+                </button>
+            <?php endif; ?>
         <?php endforeach; ?>
     </div>
     <?php endif; ?>
