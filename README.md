@@ -84,3 +84,53 @@ when making a receipt [Mon Jul 06 12:45:47.358379 2026] [php:error] [pid 1880044
 - [ ] show total count of results in all pages
 - [ ] show and preview in receipts
 - [ ] manage forms does not appear
+
+
+
+
+
+
+- [ ] active and inactive in branches
+- [ ] branches in edit in captains
+- [ ] employees button 
+- [ ] filter dropdown role
+- [ ] remove delete and edit from index screen in employees page
+- [ ] remove delete and edit from index screen in prices page
+- [ ] check disabled branches in receipt page
+- [ ] edit filter from receipt pages
+- [ ] show only created receipt
+- [ ] show age in preview page
+- [ ] change الاشتراك ان الاخطه
+- [ ] change تاريح البدايه تاريخ النهايه تاريخ التجدد
+- [ ] creator of the receipt in preview page creation date
+- [ ] notes in preview
+- [ ] font should be bold in preview and bigger
+- [ ] change المعاملات ل المعاملات الماليه
+- [ ] payment should be receipt id or phone number
+- [ ] اضافه ة بدلا من ه
+- [ ] update default value from level to 0
+
+
+customer service account
+- [ ] remove updates from receipt index
+- [ ] not update plan => {
+  time
+  start 
+  branch
+  captain
+}
+
+
+area manager {
+  remove disable branch
+  add audit log in branches update and show them in admin dashboard
+  remove disable from captain
+}
+
+
+branch manager {
+  start
+  captain
+  time
+  level
+}
