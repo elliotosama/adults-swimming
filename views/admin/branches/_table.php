@@ -1,5 +1,6 @@
 <?php // views/admin/branches/_table.php
 // Shared by index.php (initial render) and the AJAX search endpoint
+$isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
 ?>
 <?php if (empty($branches)): ?>
     <div class="empty-state">
@@ -74,14 +75,16 @@
                                    class="btn btn-sm btn-secondary">عرض</a>
                                 <a href="<?= APP_URL ?>/admin/branch/edit?id=<?= $b['id'] ?>"
                                    class="btn btn-sm btn-warning">تعديل</a>
-                                <form method="POST"
-                                      action="<?= APP_URL ?>/admin/branch/delete?id=<?= $b['id'] ?>"
-                                      style="display:inline"
-                                      onsubmit="return confirm('هل أنت متأكد من حذف هذا الفرع؟')">
-                                    <input type="hidden" name="csrf_token"
-                                           value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-                                </form>
+                                <?php if ($isAdmin): ?>
+                                    <form method="POST"
+                                          action="<?= APP_URL ?>/admin/branch/delete?id=<?= $b['id'] ?>"
+                                          style="display:inline"
+                                          onsubmit="return confirm('هل أنت متأكد من حذف هذا الفرع؟')">
+                                        <input type="hidden" name="csrf_token"
+                                               value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger">حذف</button>
+                                    </form>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>

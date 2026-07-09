@@ -6,25 +6,27 @@ require ROOT . '/views/includes/layout_top.php';
  * Role gate
  * ─────────
  * Admin:            full edit access to everything.
- * customer_service: can ALSO edit level, first_session (start date), and
- *                    captain_id — in addition to whatever non-admins can
- *                    already touch (branch_id, plan_id, payment_method,
- *                    transaction_evidence, notes).
- * Everyone else (branch_manager, area_manager, ...):
+ * customer_service: can edit only branch_id, captain_id, first_session,
+ *                    and exercise_time. Everything else is read-only.
+ * branch_manager:   can edit only captain_id, level, first_session,
+ *                    and exercise_time. Everything else is read-only.
+ * Everyone else (area_manager, ...):
  *                    level / first_session / captain_id are LOCKED,
  *                    same as the always-locked client fields.
  *
  * Fields LOCKED for everyone except admin:
  *   client_name, phone, client_email, client_age, client_gender          (§1)
- *   exercise_time, double                                               (§3 partials)
+ *   double                                                              (§3 partials)
  *   remaining (always readonly / computed)
  *
- * Fields LOCKED for everyone except admin + customer_service:
- *   level, first_session, captain_id                                    (§2 + §3)
+ * Fields editable by customer_service:
+ *   branch_id, captain_id, first_session, exercise_time                  (§2 + §3)
  *
- * Fields editable by ALL roles in edit mode:
- *   branch_id, plan_id                                                  (§2)
- *   payment_method, transaction_evidence, notes                         (§4)
+ * Fields editable by branch_manager:
+ *   captain_id, level, first_session, exercise_time                      (§2 + §3)
+ *
+ * Fields editable by area_manager-style non-admin roles in edit mode:
+ *   branch_id, plan_id, payment_method, transaction_evidence, notes      (§2 + §4)
  */
 $isAdmin = $isAdmin ?? false;
 $isEdit  = $isEdit  ?? true;
@@ -32,9 +34,9 @@ $action  = APP_URL . '/receipt/edit?id=' . $receipt['id'];
 
 $role              = $_SESSION['user']['role'] ?? '';
 $isCustomerService = ($role === 'customer_service');
+$isBranchManager   = ($role === 'branch_manager');
 
-// $csAllowed = true for fields that customer_service is also allowed to edit
-// (level, first_session, captain_id). Defaults to false (admin-only lock).
+// $csAllowed = true for fields that customer_service is also allowed to edit.
 $lock = function(bool $adminOnly, bool $csAllowed = false) use ($isAdmin, $isEdit, $isCustomerService): string {
     if ($isAdmin)                        return '';
     if ($csAllowed && $isCustomerService) return '';
@@ -42,9 +44,13 @@ $lock = function(bool $adminOnly, bool $csAllowed = false) use ($isAdmin, $isEdi
     return '';
 };
 
-// Convenience flag used for label/lock-icon rendering on the three fields
-// customer_service is now allowed to touch.
-$canEditCS = $isAdmin || $isCustomerService;
+// Convenience flags used for role-specific label/lock rendering.
+$canEditBranch   = $isAdmin || $isCustomerService || (!$isBranchManager && !$isCustomerService);
+$canEditCaptain  = $isAdmin || $isCustomerService || $isBranchManager;
+$canEditSchedule = $isAdmin || $isCustomerService || $isBranchManager;
+$canEditPlan     = $isAdmin || (!$isCustomerService && !$isBranchManager);
+$canEditLevel    = $isAdmin || $isBranchManager;
+$canEditPayment  = $isAdmin || (!$isCustomerService && !$isBranchManager);
 
 /*
  * total_paid  = real sum of all payment transactions (injected by controller)
@@ -417,7 +423,9 @@ select.form-control:disabled {
                 <?php if ($isAdmin): ?>
                     🔓 مدير — تعديل كامل
                 <?php elseif ($isCustomerService): ?>
-                    🔓 خدمة العملاء — تعديل الفرع، الخطة، المستوى، الكابتن، تاريخ أول جلسة
+                    🔓 خدمة العملاء — تعديل الفرع، الكابتن، تاريخ أول جلسة، وقت التمرين فقط
+                <?php elseif ($isBranchManager): ?>
+                    🔓 مدير فرع — تعديل الكابتن، المستوى، تاريخ أول جلسة، وقت التمرين فقط
                 <?php else: ?>
                     🔒 مستخدم — تعديل محدود
                 <?php endif; ?>
@@ -430,7 +438,9 @@ select.form-control:disabled {
     <?php if (!$isAdmin): ?>
     <div class="alert alert-info">
         <?php if ($isCustomerService): ?>
-            <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الخطة</strong>، بالإضافة إلى <strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>الكابتن</strong>، وبيانات <strong>الدفع</strong>. بيانات العميل وباقي الحقول للقراءة فقط.</span>
+            <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الكابتن</strong> و<strong>تاريخ أول جلسة</strong> و<strong>وقت التمرين</strong> فقط. باقي البيانات للقراءة فقط.</span>
+        <?php elseif ($isBranchManager): ?>
+            <span>ℹ️ يمكنك تعديل <strong>الكابتن</strong> و<strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>وقت التمرين</strong> فقط. باقي البيانات للقراءة فقط.</span>
         <?php else: ?>
             <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الخطة</strong> وبيانات <strong>الدفع</strong> فقط. بيانات العميل، المستوى، تاريخ أول جلسة، والكابتن للقراءة فقط.</span>
         <?php endif; ?>
@@ -570,14 +580,18 @@ select.form-control:disabled {
 
         <!-- ══════════════════════════════════════════
              § 2 — تفاصيل الاشتراك
-             branch_id / plan_id: editable by everyone.
-             level / captain_id : admin + customer_service only.
+             customer_service: branch_id / captain_id only.
+             branch_manager: captain_id / level only.
         ══════════════════════════════════════════ -->
         <div class="form-section">
             <div class="section-header">
                 <div class="section-icon">📋</div>
                 <span class="section-title">تفاصيل الاشتراك</span>
-                <?php if (!$canEditCS): ?>
+                <?php if ($isCustomerService): ?>
+                    <span class="section-lock">🔒 الخطة والمستوى للقراءة فقط</span>
+                <?php elseif ($isBranchManager): ?>
+                    <span class="section-lock">🔒 الفرع والخطة للقراءة فقط</span>
+                <?php elseif (!$canEditCaptain): ?>
                     <span class="section-lock">🔒 المستوى والكابتن لخدمة العملاء والمدير فقط</span>
                 <?php endif; ?>
             </div>
@@ -586,8 +600,11 @@ select.form-control:disabled {
 
 
                 <div class="form-field">
-    <label class="form-label">الفرع <span class="req">*</span></label>
-    <select name="branch_id" id="branch" class="form-control" required>
+    <label class="form-label">
+        الفرع
+        <?= $canEditBranch ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
+    </label>
+    <select name="branch_id" id="branch" class="form-control" <?= $canEditBranch ? 'required' : 'disabled' ?>>
         <option value="">— اختر الفرع —</option>
         <?php foreach (($branches ?? []) as $b): ?>
             <option value="<?= $b['id'] ?>"
@@ -596,11 +613,14 @@ select.form-control:disabled {
             </option>
         <?php endforeach; ?>
     </select>
+    <?php if (!$canEditBranch): ?>
+        <input type="hidden" name="branch_id" value="<?= htmlspecialchars((string)($receipt['branch_id'] ?? $receipt['branch'] ?? '')) ?>">
+    <?php endif; ?>
 </div>
 
                     <div class="form-field">
                         <label class="form-label">الخطة / العرض <span class="req">*</span></label>
-                        <select name="plan_id" id="planSelect" class="form-control" required>
+                        <select name="plan_id" id="planSelect" class="form-control" <?= $canEditPlan ? 'required' : 'disabled' ?>>
                             <option value="">— اختر الخطة —</option>
                             <?php foreach (($plans ?? []) as $p): ?>
                                 <option value="<?= $p['id'] ?>"
@@ -611,14 +631,17 @@ select.form-control:disabled {
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <?php if (!$canEditPlan): ?>
+                            <input type="hidden" name="plan_id" value="<?= htmlspecialchars((string)($receipt['plan_id'] ?? '')) ?>">
+                        <?php endif; ?>
                     </div>
 
                     <div class="form-field">
                         <label class="form-label">
                             الكابتن
-                            <?= !$canEditCS ? '<span class="lock">🔒</span>' : '' ?>
+                            <?= $canEditCaptain ? '' : '<span class="lock">🔒</span>' ?>
                         </label>
-                        <select name="captain_id" id="captain" class="form-control" <?= $lock(true, true) ?>>
+                        <select name="captain_id" id="captain" class="form-control" <?= $canEditCaptain ? '' : 'disabled' ?>>
                             <option value="">— اختر الكابتن —</option>
                             <?php foreach (($captains ?? []) as $ca): ?>
                                 <option value="<?= $ca['id'] ?>"
@@ -627,14 +650,17 @@ select.form-control:disabled {
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <?php if (!$canEditCaptain): ?>
+                            <input type="hidden" name="captain_id" value="<?= htmlspecialchars((string)($receipt['captain_id'] ?? '')) ?>">
+                        <?php endif; ?>
                     </div>
 
                     <div class="form-field">
                         <label class="form-label">
                             المستوى
-                            <?= $canEditCS ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
+                            <?= $canEditLevel ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
                         </label>
-                        <select name="level" class="form-control" <?= $lock(true, true) ?> <?= $canEditCS ? 'required' : '' ?>>
+                        <select name="level" class="form-control" <?= $canEditLevel ? 'required' : 'disabled' ?>>
                             <option value="">— اختر المستوى —</option>
                             <?php for ($i = 1; $i <= 6; $i++): ?>
                                 <option value="<?= $i ?>"
@@ -643,6 +669,9 @@ select.form-control:disabled {
                                 </option>
                             <?php endfor; ?>
                         </select>
+                        <?php if (!$canEditLevel): ?>
+                            <input type="hidden" name="level" value="<?= htmlspecialchars((string)($receipt['level'] ?? '')) ?>">
+                        <?php endif; ?>
                     </div>
 
                 </div>
@@ -651,8 +680,7 @@ select.form-control:disabled {
 
         <!-- ══════════════════════════════════════════
              § 3 — الجلسات
-             first_session : admin + customer_service only.
-             exercise_time / double : admin only.
+             customer_service / branch_manager: first_session / exercise_time only.
         ══════════════════════════════════════════ -->
         <div class="form-section">
             <div class="section-header">
@@ -660,9 +688,11 @@ select.form-control:disabled {
                 <span class="section-title">الجلسات</span>
                 <?php if (!$isAdmin): ?>
                     <span class="section-lock">
-                        <?= $isCustomerService
-                            ? '🔒 وقت التمرين والجلسة المزدوجة للمدير فقط'
-                            : '🔒 تاريخ أول جلسة، وقت التمرين، والجلسة المزدوجة للمدير وخدمة العملاء فقط' ?>
+                        <?php if ($isCustomerService || $isBranchManager): ?>
+                            🔒 تاريخ التجديد، تاريخ آخر جلسة، والجلسة المزدوجة للقراءة فقط
+                        <?php else: ?>
+                            🔒 تاريخ أول جلسة، وقت التمرين، والجلسة المزدوجة للمدير وخدمة العملاء فقط
+                        <?php endif; ?>
                     </span>
                 <?php endif; ?>
             </div>
@@ -672,22 +702,23 @@ select.form-control:disabled {
                     <div class="form-field">
                         <label class="form-label">
                             تاريخ أول جلسة
-                            <?= $canEditCS ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
+                            <?= $canEditSchedule ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
                         </label>
                         <input type="date" name="first_session" id="start_date" class="form-control"
                                value="<?= htmlspecialchars($receipt['first_session'] ?? '') ?>"
-                               <?= $lock(true, true) ?>
-                               <?= $canEditCS ? 'required' : '' ?>>
+                               <?= $canEditSchedule ? '' : 'disabled' ?>
+                               <?= $canEditSchedule ? 'required' : '' ?>>
                     </div>
 
                     <div class="form-field">
                         <label class="form-label">
                             وقت التمرين
-                            <?= !$isAdmin ? '<span class="lock">🔒</span>' : '' ?>
+                            <?= $canEditSchedule ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
                         </label>
                         <input type="time" name="exercise_time" class="form-control"
                                value="<?= htmlspecialchars($receipt['exercise_time'] ?? '') ?>"
-                               <?= $lock(true) ?>>
+                               <?= $canEditSchedule ? '' : 'disabled' ?>
+                               <?= $canEditSchedule ? 'required' : '' ?>>
                     </div>
 
                     <div class="form-field computed-field">
@@ -728,12 +759,14 @@ select.form-control:disabled {
              § 4 — الدفع
              NOTE: "amount" here is NOT editable — real totals come from
              the transactions table and are shown read-only above.
-             This section only lets the user update payment_method / evidence / notes.
+             For customer_service this section is read-only. Other permitted
+             roles can update payment_method / evidence / notes.
         ══════════════════════════════════════════ -->
         <div class="form-section">
             <div class="section-header">
                 <div class="section-icon">💳</div>
                 <span class="section-title">الدفع</span>
+                <?php if ($isCustomerService || $isBranchManager): ?><span class="section-lock">🔒 للقراءة فقط</span><?php endif; ?>
             </div>
             <div class="section-body">
                 <div class="form-grid">
@@ -765,20 +798,23 @@ select.form-control:disabled {
                     <!-- طريقة الدفع -->
                     <div class="form-field">
                         <label class="form-label">طريقة الدفع <span class="req">*</span></label>
-                        <select name="payment_method" id="payment_method" class="form-control" required>
+                        <select name="payment_method" id="payment_method" class="form-control" <?= $canEditPayment ? 'required' : 'disabled' ?>>
                             <option value="">— اختر —</option>
                             <option value="cash"          <?= ($receipt['payment_method'] ?? '') === 'cash'          ? 'selected' : '' ?>>نقداً</option>
                             <option value="instapay"      <?= ($receipt['payment_method'] ?? '') === 'instapay'      ? 'selected' : '' ?>>InstaPay</option>
                             <option value="vodafone_cash" <?= ($receipt['payment_method'] ?? '') === 'vodafone_cash' ? 'selected' : '' ?>>Vodafone Cash</option>
                             <option value="bank_transfer" <?= ($receipt['payment_method'] ?? '') === 'bank_transfer' ? 'selected' : '' ?>>تحويل بنكي</option>
                         </select>
+                        <?php if (!$canEditPayment): ?>
+                            <input type="hidden" name="payment_method" value="<?= htmlspecialchars((string)($receipt['payment_method'] ?? '')) ?>">
+                        <?php endif; ?>
                     </div>
 
                     <!-- إثبات الدفع -->
                     <div class="form-field" id="evidence-field">
                         <label class="form-label">إثبات الدفع</label>
                         <input type="file" name="transaction_evidence" id="transaction_evidence"
-                               class="form-control" accept="image/*,application/pdf">
+                               class="form-control" accept="image/*,application/pdf" <?= $canEditPayment ? '' : 'disabled' ?>>
                         <span class="field-hint">صورة أو ملف PDF</span>
                         <?php if (!empty($receipt['transaction_evidence'])): ?>
                             <span class="field-hint">
@@ -794,7 +830,8 @@ select.form-control:disabled {
                         <label class="form-label">ملاحظات</label>
                         <input type="text" name="notes" class="form-control"
                                placeholder="أي ملاحظات إضافية..."
-                               value="<?= htmlspecialchars($receipt['notes'] ?? '') ?>">
+                               value="<?= htmlspecialchars($receipt['notes'] ?? '') ?>"
+                               <?= $canEditPayment ? '' : 'readonly' ?>>
                     </div>
 
                 </div>

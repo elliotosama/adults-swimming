@@ -199,11 +199,34 @@ $receiptsRow['previous_renewal'] = (int) ($renewalTypes['previous_renewal'] ?? 0
         ")->fetchAll(PDO::FETCH_ASSOC);
 
         $recentAuditLog = $this->db->query("
-            SELECT al.receipt_id, al.field_name, al.old_value, al.new_value,
-                   al.changed_at, u.username AS changed_by_name
-            FROM receipt_audit_log al
-            LEFT JOIN users u ON u.id = al.changed_by
-            ORDER BY al.changed_at DESC
+            SELECT *
+            FROM (
+                SELECT
+                    'receipt' AS log_type,
+                    al.receipt_id AS entity_id,
+                    al.field_name,
+                    al.old_value,
+                    al.new_value,
+                    al.changed_at,
+                    u.username AS changed_by_name
+                FROM receipt_audit_log al
+                LEFT JOIN users u ON u.id = al.changed_by
+
+                UNION ALL
+
+                SELECT
+                    'branch' AS log_type,
+                    NULL AS entity_id,
+                    al.action AS field_name,
+                    al.detail AS old_value,
+                    NULL AS new_value,
+                    al.created_at AS changed_at,
+                    u.username AS changed_by_name
+                FROM audit_log al
+                LEFT JOIN users u ON u.id = al.user_id
+                WHERE al.action = 'updated_branch'
+            ) recent_activity
+            ORDER BY changed_at DESC
             LIMIT 10
         ")->fetchAll(PDO::FETCH_ASSOC);
 

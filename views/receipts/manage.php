@@ -1132,22 +1132,22 @@
       <div class="tab-panel" id="tab-panel-payment" role="tabpanel">
         <h1>تكمله الايصال</h1>
         <div class="form-section">
-          <div class="section-header"><div class="section-icon">🔍</div><span class="section-title">البحث عن العميل</span></div>
+          <div class="section-header"><div class="section-icon">🔍</div><span class="section-title">البحث برقم الإيصال أو الهاتف</span></div>
           <div class="section-body">
             <form method="GET" action="<?= APP_URL ?>/receipt/manage" style="display:flex;gap:10px;align-items:flex-end;">
               <input type="hidden" name="tab" value="payment">
               <div class="form-field" style="flex:1;">
-                <label class="form-label">يمكنك البحث برقم العضويه، رقم الهاتف، أو رقم الإيصال</label>
+                <label class="form-label">يمكنك البحث برقم الإيصال أو رقم الهاتف فقط</label>
                 <input type="text" name="pay_search" class="form-control"
-                       placeholder="مثال: 01012345678 أو رقم العضويه"
+                       placeholder="مثال: 26061230 أو 01012345678"
                        value="<?= htmlspecialchars($paySearch) ?>">
-                <span class="field-hint">البحث في الدفعات يتم برقم العضويه أو رقم الهاتف فقط — لا يقبل الاسم. لدفعة على رقم إيصال مباشرة استخدم صفحة "دفعة على إيصال".</span>
+                <span class="field-hint">البحث في الدفعات لا يقبل الاسم أو رقم العضوية.</span>
               </div>
               <button type="submit" class="btn btn-primary" style="height:42px;">🔍 بحث</button>
             </form>
 
             <?php if (!empty($paySearch) && empty($payClient)): ?>
-              <div class="alert alert-error" style="margin-top:12px;">⚠️ لم يتم العثور على عميل.</div>
+              <div class="alert alert-error" style="margin-top:12px;">⚠️ لم يتم العثور على إيصال أو عميل بهذا الهاتف.</div>
             <?php endif; ?>
             <?php if (!empty($payClient) && empty($payReceipts)): ?>
               <div class="alert alert-info" style="margin-top:12px;">ℹ️ لا توجد إيصالات غير مكتملة لهذا العميل.</div>

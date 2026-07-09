@@ -3,6 +3,7 @@
 // Optional: $ajaxPartial — when true, renders without page chrome (SPA modal)
 
 $ajaxPartial = $ajaxPartial ?? false;
+$isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
 
 if (!$ajaxPartial) {
     require ROOT . '/views/includes/layout_top.php';
@@ -127,18 +128,20 @@ if (!$ajaxPartial) {
 
     <div style="display:flex;gap:8px;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);">
         <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $captain['id'] ?>" class="btn btn-sm btn-warning">✏️ تعديل</a>
-        <?php if ($ajaxPartial): ?>
-            <button type="button"
-                    class="btn btn-sm btn-danger js-delete-captain"
-                    data-id="<?= (int) $captain['id'] ?>"
-                    data-name="<?= htmlspecialchars($captain['captain_name']) ?>">حذف</button>
-        <?php else: ?>
-            <form method="POST"
-                  action="<?= APP_URL ?>/admin/captains/delete?id=<?= $captain['id'] ?>"
-                  onsubmit="return confirm('هل أنت متأكد من حذف هذا الكابتن؟')">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-            </form>
+        <?php if ($isAdmin): ?>
+            <?php if ($ajaxPartial): ?>
+                <button type="button"
+                        class="btn btn-sm btn-danger js-delete-captain"
+                        data-id="<?= (int) $captain['id'] ?>"
+                        data-name="<?= htmlspecialchars($captain['captain_name']) ?>">حذف</button>
+            <?php else: ?>
+                <form method="POST"
+                      action="<?= APP_URL ?>/admin/captains/delete?id=<?= $captain['id'] ?>"
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا الكابتن؟')">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                    <button type="submit" class="btn btn-sm btn-danger">حذف</button>
+                </form>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 

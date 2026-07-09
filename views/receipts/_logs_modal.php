@@ -12,6 +12,7 @@ $typeMap = [
     'refund'   => ['rlm-badge-danger',  'استرداد'],
     'discount' => ['rlm-badge-warning', 'خصم'],
 ];
+$isAdmin = $isAdmin ?? false;
 ?>
 <div class="rlm">
 <style>
@@ -50,6 +51,7 @@ $typeMap = [
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
 }
+.rlm-grid.transactions-only { grid-template-columns: minmax(0, 1fr); }
 .rlm-box {
     min-height: 420px;
     max-height: min(64vh, 620px);
@@ -200,7 +202,7 @@ $typeMap = [
         </div>
     </div>
 
-    <div class="rlm-grid">
+    <div class="rlm-grid <?= $isAdmin ? '' : 'transactions-only' ?>">
         <section class="rlm-box">
             <div class="rlm-box-header">
                 <h3> المعاملات الماليه</h3>
@@ -263,6 +265,7 @@ $typeMap = [
             </div>
         </section>
 
+        <?php if ($isAdmin): ?>
         <section class="rlm-box">
             <div class="rlm-box-header">
                 <h3>تحديثات الإيصال</h3>
@@ -295,5 +298,6 @@ $typeMap = [
                 <?php endif; ?>
             </div>
         </section>
+        <?php endif; ?>
     </div>
 </div>

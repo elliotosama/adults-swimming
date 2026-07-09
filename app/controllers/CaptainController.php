@@ -281,6 +281,9 @@ class CaptainController {
         }
 
         $data   = $this->parseForm();
+        if ($user['role'] === 'area_manager') {
+            $data['visible'] = (int)($captain['visible'] ?? 1);
+        }
         $errors = $this->validate($data);
 
         if (!$errors && $this->captains->nameExists($data['captain_name'], $id)) {

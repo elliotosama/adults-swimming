@@ -5,6 +5,7 @@
 
 $ajaxPartial = $ajaxPartial ?? false;
 $assignedIds = $assignedIds ?? [];
+$isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
 
 if (!$ajaxPartial) {
     require ROOT . '/views/includes/layout_top.php';
@@ -98,13 +99,17 @@ if (!$ajaxPartial) {
                    placeholder="مثال: 0501234567">
         </div>
 
-        <div class="form-group">
-            <label class="form-label" for="visible">الحالة</label>
-            <select id="visible" name="visible" class="form-control">
-                <option value="1" <?= ($captain['visible'] ?? 1) == 1 ? 'selected' : '' ?>>✅ نشط</option>
-                <option value="0" <?= ($captain['visible'] ?? 1) == 0 ? 'selected' : '' ?>>❌ معطّل</option>
-            </select>
-        </div>
+        <?php if ($isAdmin): ?>
+            <div class="form-group">
+                <label class="form-label" for="visible">الحالة</label>
+                <select id="visible" name="visible" class="form-control">
+                    <option value="1" <?= ($captain['visible'] ?? 1) == 1 ? 'selected' : '' ?>>✅ نشط</option>
+                    <option value="0" <?= ($captain['visible'] ?? 1) == 0 ? 'selected' : '' ?>>❌ معطّل</option>
+                </select>
+            </div>
+        <?php else: ?>
+            <input type="hidden" name="visible" value="<?= (int)($captain['visible'] ?? 1) ?>">
+        <?php endif; ?>
 
         <p class="section-divider">الفروع المُعيَّنة</p>
 

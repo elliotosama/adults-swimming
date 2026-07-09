@@ -3,6 +3,7 @@
 // Optional: $ajaxPartial — when true, renders without page chrome (SPA modal)
 
 $ajaxPartial = $ajaxPartial ?? false;
+$isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
 
 if (!$ajaxPartial) {
     require ROOT . '/views/includes/layout_top.php';
@@ -93,7 +94,7 @@ $days = [
     </div>
 
     <!-- ── منطقة الخطر ── -->
-    <?php if ($branch['visible']): ?>
+    <?php if ($isAdmin && $branch['visible']): ?>
         <div class="danger-zone">
             <p>⚠️ حذف هذا الفرع سيُخفيه من جميع القوائم.</p>
             <?php if ($ajaxPartial): ?>
@@ -111,7 +112,7 @@ $days = [
                 </form>
             <?php endif; ?>
         </div>
-    <?php else: ?>
+    <?php elseif ($isAdmin): ?>
         <div class="danger-zone">
             <p>🔓 هذا الفرع معطّل حالياً. يمكنك إعادة تفعيله من خلال التعديل.</p>
             <a href="<?= APP_URL ?>/admin/branch/edit?id=<?= $branch['id'] ?>" class="btn btn-success">✅ إعادة تفعيل</a>

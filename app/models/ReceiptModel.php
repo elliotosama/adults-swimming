@@ -168,6 +168,7 @@ public function searchAll(array $filters = []): array {
         $stmt = $this->db->prepare("
             SELECT r.*,
                    c.client_name   AS client_name,
+                   c.age           AS client_age,
                    cr.username     AS creator_name,
                    ca.captain_name AS captain_name,
                    c.phone         AS phone_number,
@@ -447,7 +448,15 @@ public function create(array $data): int {
             $conditions[] = "
                 (EXISTS (SELECT 1 FROM receipt_audit_log al WHERE al.receipt_id = r.id)
                  OR
-                 EXISTS (SELECT 1 FROM transactions t WHERE t.receipt_id = r.id))
+                 (SELECT COUNT(*) FROM transactions t WHERE t.receipt_id = r.id) >= 2)
+            ";
+        }
+
+        if (!empty($filters['has_no_updates'])) {
+            $conditions[] = "
+                (NOT EXISTS (SELECT 1 FROM receipt_audit_log al WHERE al.receipt_id = r.id)
+                 AND
+                 (SELECT COUNT(*) FROM transactions t WHERE t.receipt_id = r.id) < 2)
             ";
         }
 

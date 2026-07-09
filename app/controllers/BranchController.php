@@ -73,6 +73,43 @@ class BranchController {
         return $errors;
     }
 
+    private function normalizeBranchValue($value): string {
+        if (is_array($value)) {
+            $value = implode(',', array_filter(array_map('trim', $value)));
+        }
+
+        return trim((string)($value ?? ''));
+    }
+
+    private function branchChangeDetail(int $id, array $old, array $new): ?string {
+        $labels = [
+            'branch_name'       => 'name',
+            'country_id'        => 'country',
+            'visible'           => 'status',
+            'working_days1'     => 'working_days1',
+            'working_days2'     => 'working_days2',
+            'working_days3'     => 'working_days3',
+            'working_time_from' => 'working_time_from',
+            'working_time_to'   => 'working_time_to',
+        ];
+
+        $changes = [];
+        foreach ($labels as $field => $label) {
+            $oldValue = $this->normalizeBranchValue($old[$field] ?? '');
+            $newValue = $this->normalizeBranchValue($new[$field] ?? '');
+            if ($oldValue !== $newValue) {
+                $changes[] = "{$label}: {$oldValue} -> {$newValue}";
+            }
+        }
+
+        if (!$changes) {
+            return null;
+        }
+
+        $name = $old['branch_name'] ?? $new['branch_name'] ?? '';
+        return "id: {$id}, name: {$name}, changes: " . implode('; ', $changes);
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // INDEX  —  GET /admin/branches
     // ════════════════════════════════════════════════════════════════════════
@@ -334,7 +371,10 @@ class BranchController {
 
         $this->branches->update($id, $data);
 
-        log_action('updated_branch', "id: {$id}, name: {$data['branch_name']}", $user['id']);
+        $changeDetail = $this->branchChangeDetail($id, $branch, $data);
+        if ($changeDetail !== null) {
+            log_action('updated_branch', $changeDetail, $user['id']);
+        }
 
         $message = 'Branch "' . htmlspecialchars($data['branch_name']) . '" updated successfully.';
 

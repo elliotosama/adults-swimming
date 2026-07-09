@@ -721,11 +721,18 @@ body { font-size: 16px; }
             <div class="activity-icon">✏️</div>
             <div class="activity-text">
                 <strong><?= htmlspecialchars($log['changed_by_name'] ?? 'مستخدم') ?></strong>
-                عدّل إيصال رقم #<?= $log['receipt_id'] ?>
-                — <?= htmlspecialchars($log['field_name'] ?? '') ?>
-                <?php if (!empty($log['old_value']) && !empty($log['new_value'])): ?>
-                    من <em><?= htmlspecialchars($log['old_value']) ?></em>
-                    إلى <em><?= htmlspecialchars($log['new_value']) ?></em>
+                <?php if (($log['log_type'] ?? '') === 'branch'): ?>
+                    عدّل فرع
+                    <?php if (!empty($log['old_value'])): ?>
+                        — <em><?= htmlspecialchars($log['old_value']) ?></em>
+                    <?php endif; ?>
+                <?php else: ?>
+                    عدّل إيصال رقم #<?= htmlspecialchars((string)($log['entity_id'] ?? '')) ?>
+                    — <?= htmlspecialchars($log['field_name'] ?? '') ?>
+                    <?php if (!empty($log['old_value']) && !empty($log['new_value'])): ?>
+                        من <em><?= htmlspecialchars($log['old_value']) ?></em>
+                        إلى <em><?= htmlspecialchars($log['new_value']) ?></em>
+                    <?php endif; ?>
                 <?php endif; ?>
                 <div class="activity-time"><?= htmlspecialchars($log['changed_at'] ?? '') ?></div>
             </div>

@@ -42,20 +42,24 @@ $receiptMethod = trim((string)($receipt['payment_method'] ?? ''));
 $paymentMethodText = $transactionMethods
     ? implode('، ', $transactionMethods)
     : ($paymentMethodLabels[$receiptMethod] ?? ($receiptMethod ?: '—'));
+
+$receiptNotes = array_values(array_filter(array_map(function ($t) {
+    return trim((string)($t['notes'] ?? ''));
+}, $transactions ?? [])));
 ?>
 <div class="rm-view">
 <style>
 .rm-view {
     --v-accent: #007ACC; --v-success: #98C379; --v-danger: #E06C75; --v-warning: #D19A66;
     --v-muted: #ffffffb3; --v-border: #3C3F58; --v-surface2: #1E1E2D;
-    font-family: 'Cairo', sans-serif; color: #fff;
+    font-family: 'Cairo', sans-serif; color: #fff; font-size: 1.02rem;
 }
 .rm-view .rm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px,1fr)); gap: .9rem 1.2rem; margin-bottom: 1.1rem; }
 .rm-view .rm-item { display: flex; flex-direction: column; gap: .25rem; }
-.rm-view .rm-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--v-muted); font-weight: 600; }
-.rm-view .rm-value { font-size: .92rem; }
+.rm-view .rm-label { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--v-muted); font-weight: 700; }
+.rm-view .rm-value { font-size: 1rem; line-height: 1.55; }
 .rm-view .rm-section-title {
-    font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    font-size: .9rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
     color: var(--v-muted); margin: 1.4rem 0 .8rem; padding-bottom: .5rem; border-bottom: 1px solid var(--v-border);
 }
 .rm-view .rm-section-title:first-child { margin-top: 0; }
@@ -66,6 +70,8 @@ $paymentMethodText = $transactionMethods
 .rm-pay-item .rm-num.green  { color: var(--v-success); }
 .rm-pay-item .rm-num.red    { color: var(--v-danger); }
 .rm-pay-item .rm-num.yellow { color: var(--v-warning); }
+.rm-notes-list { display: flex; flex-direction: column; gap: .55rem; padding: .9rem 1rem; background: var(--v-surface2); border: 1px solid var(--v-border); border-radius: 10px; }
+.rm-note { margin: 0; color: #fff; line-height: 1.65; font-size: 1rem; }
 .rm-evidence-list { display: flex; flex-wrap: wrap; gap: .5rem; }
 .rm-evidence-thumb { width: 74px; height: 74px; border-radius: 8px; overflow: hidden; border: 1px solid var(--v-border); cursor: pointer; background: none; padding: 0; }
 .rm-evidence-thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -84,16 +90,24 @@ $paymentMethodText = $transactionMethods
     <div class="rm-grid">
         <div class="rm-item"><span class="rm-label">الاسم</span><span class="rm-value"><?= htmlspecialchars($receipt['client_name'] ?? '—') ?></span></div>
         <div class="rm-item"><span class="rm-label">الهاتف</span><span class="rm-value"><?= htmlspecialchars(($receipt['country_code'] ?? '') . ' ' . ($receipt['phone_number'] ?? $receipt['phone'] ?? '—')) ?></span></div>
+        <div class="rm-item"><span class="rm-label">السن</span><span class="rm-value"><?= htmlspecialchars((string)($receipt['client_age'] ?? '—')) ?></span></div>
         <?php if ($clientEmail): ?>
         <div class="rm-item"><span class="rm-label">البريد الإلكتروني</span><span class="rm-value"><?= htmlspecialchars($clientEmail) ?></span></div>
         <?php endif; ?>
+    </div>
+
+    <div class="rm-section-title">🧾 بيانات الإيصال</div>
+    <div class="rm-grid">
+        <div class="rm-item"><span class="rm-label">رقم الإيصال</span><span class="rm-value"><?= htmlspecialchars((string)($receipt['receipt_ref'] ?? $receipt['id'] ?? '—')) ?></span></div>
+        <div class="rm-item"><span class="rm-label">منشئ الإيصال</span><span class="rm-value"><?= htmlspecialchars($receipt['creator_name'] ?? '—') ?></span></div>
+        <div class="rm-item"><span class="rm-label">تاريخ الإنشاء</span><span class="rm-value"><?= htmlspecialchars($receipt['created_at'] ?? '—') ?></span></div>
     </div>
 
     <div class="rm-section-title">📋 تفاصيل الاشتراك</div>
     <div class="rm-grid">
         <div class="rm-item"><span class="rm-label">الفرع</span><span class="rm-value"><?= htmlspecialchars($receipt['branch_name'] ?? '—') ?></span></div>
         <div class="rm-item"><span class="rm-label">الكابتن</span><span class="rm-value"><?= htmlspecialchars($receipt['captain_name'] ?? '—') ?></span></div>
-        <div class="rm-item"><span class="rm-label">الخطة</span><span class="rm-value"><?= htmlspecialchars($receipt['plan_name'] ?? '—') ?></span></div>
+        <div class="rm-item"><span class="rm-label">الاشتراك</span><span class="rm-value"><?= htmlspecialchars($receipt['plan_name'] ?? '—') ?></span></div>
         <div class="rm-item"><span class="rm-label">المستوى</span><span class="rm-value"><?= htmlspecialchars((string)($receipt['level'] ?? '—')) ?></span></div>
         <div class="rm-item"><span class="rm-label">وقت التمرين</span><span class="rm-value"><?= htmlspecialchars(rmFormatAmPm($receipt['exercise_time'] ?? '')) ?></span></div>
         <div class="rm-item"><span class="rm-label">الحالة</span><span class="rm-value"><?= $receipt['receipt_status'] === 'completed' ? 'مكتمل' : 'غير مكتمل' ?></span></div>
@@ -101,9 +115,9 @@ $paymentMethodText = $transactionMethods
 
     <div class="rm-section-title">📅 مواعيد التمرين</div>
     <div class="rm-grid">
-        <div class="rm-item"><span class="rm-label">أول تمرين</span><span class="rm-value"><?= htmlspecialchars($receipt['first_session'] ?? '—') ?></span></div>
-        <div class="rm-item"><span class="rm-label">آخر تمرين</span><span class="rm-value"><?= htmlspecialchars($receipt['last_session'] ?? '—') ?></span></div>
-        <div class="rm-item"><span class="rm-label">جلسة التجديد</span><span class="rm-value"><?= htmlspecialchars($receipt['renewal_session'] ?? '—') ?></span></div>
+        <div class="rm-item"><span class="rm-label">تاريخ البدايه</span><span class="rm-value"><?= htmlspecialchars($receipt['first_session'] ?? '—') ?></span></div>
+        <div class="rm-item"><span class="rm-label">تاريخ النهايه</span><span class="rm-value"><?= htmlspecialchars($receipt['last_session'] ?? '—') ?></span></div>
+        <div class="rm-item"><span class="rm-label">تاريخ التجديد</span><span class="rm-value"><?= htmlspecialchars($receipt['renewal_session'] ?? '—') ?></span></div>
     </div>
 
     <div class="rm-section-title">💳 الدفع</div>
@@ -114,8 +128,17 @@ $paymentMethodText = $transactionMethods
         <div class="rm-pay-item"><span class="rm-label">المسترد</span><span class="rm-num red"><?= number_format($totalRefunded,0) ?> (<?= $refundPct ?>%)</span></div>
         <?php endif; ?>
         <div class="rm-pay-item"><span class="rm-label">المتبقي</span><span class="rm-num <?= $remaining > 0 ? 'yellow' : 'green' ?>"><?= number_format($remaining,0) ?></span></div>
-        <div class="rm-pay-item"><span class="rm-label">طريقة الدفع</span><span class="rm-num" style="font-weight:600;font-size:.9rem"><?= htmlspecialchars($paymentMethodText) ?></span></div>
+        <div class="rm-pay-item"><span class="rm-label">طريقة الدفع</span><span class="rm-num" style="font-weight:600;font-size:1rem"><?= htmlspecialchars($paymentMethodText) ?></span></div>
     </div>
+
+    <?php if (!empty($receiptNotes)): ?>
+    <div class="rm-section-title">📝 ملاحظات الإيصال</div>
+    <div class="rm-notes-list">
+        <?php foreach ($receiptNotes as $note): ?>
+            <p class="rm-note"><?= htmlspecialchars($note) ?></p>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 
     <?php
     $evidences = array_values(array_filter(array_map(function ($t) {

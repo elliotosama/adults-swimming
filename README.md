@@ -84,28 +84,22 @@ when making a receipt [Mon Jul 06 12:45:47.358379 2026] [php:error] [pid 1880044
 
 
 
-0238303233
-
 
 receipt index {
-- [ ] show only created receipt
-- [ ] edit filter from receipt pages
-
+- [x] show only created receipt
+- [x] edit filter from receipt pages
 }
 
-2970005
-89.6
 
 preview {
-- [ ] show age in preview page
-- [ ] creator of the receipt in preview page creation date
-- [ ] notes in preview
-- [ ] change تاريح البدايه تاريخ النهايه تاريخ التجدد
+- [x] show age in preview page
+- [x] creator of the receipt in preview page creation date
+- [x] notes in preview
+- [x] change تاريح البدايه تاريخ النهايه تاريخ التجدد
+- [x] font should be bold in preview and bigger
 }
-- [ ] change الاشتراك ان الاخطه
-- [ ] filter dropdown role
-- [ ] font should be bold in preview and bigger
-- [ ] payment should be receipt id or phone number
+- [x] change الاشتراك ان الاخطه
+- [x] payment should be receipt id or phone number
 - [x] active and inactive in branches
 - [x] branches in edit in captains
 - [x] employees button 
@@ -118,12 +112,12 @@ preview {
 
 
 customer service account
-- [ ] remove updates from receipt index
-- [ ] not update plan => {
-  time
-  start 
-  branch
-  captain
+- [x] remove updates from receipt index
+  not update plan{
+  time => Done
+  start  => Done
+  branch => Done
+  captain => Done
 }
 
 
@@ -135,8 +129,8 @@ area manager {
 
 
 branch manager {
-  start
+  start date
   captain
-  time
+  excersice time
   level
 }

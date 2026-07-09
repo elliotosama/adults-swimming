@@ -159,6 +159,7 @@ class ReceiptController {
             'creator_created_only' => !empty($_GET['creator_created_only']),
             'branch_ids'           => array_filter(array_map('intval', (array) ($_GET['branch_ids'] ?? []))),
             'has_updates'          => !empty($_GET['has_updates']),
+            'has_no_updates'       => !empty($_GET['has_no_updates']),
         ];
     }
 
@@ -169,7 +170,7 @@ class ReceiptController {
         $allFilterControls = [
             'search', 'first_session', 'last_session', 'created',
             'statuses', 'renewal_types', 'has_refund',
-            'branch', 'creator', 'has_updates',
+            'branch', 'creator', 'has_updates', 'has_no_updates',
         ];
 
         switch ($role) {
@@ -507,6 +508,32 @@ class ReceiptController {
             $stmt = $db->prepare("SELECT * FROM clients WHERE {$phoneSql} LIMIT 1");
             $stmt->execute($phoneParams);
         }
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    private function searchClientByPhone(string $q, array $allowedBranchIds = []): ?array {
+        $db     = get_db();
+        $scoped = !empty($allowedBranchIds);
+        $ph     = $scoped ? implode(',', array_fill(0, count($allowedBranchIds), '?')) : '';
+
+        [$phoneSql, $phoneParams] = PhoneHelper::buildSearchCondition($q);
+
+        if ($scoped) {
+            $stmt = $db->prepare("
+                SELECT cl.* FROM clients cl
+                WHERE ({$phoneSql})
+                  AND EXISTS (
+                      SELECT 1 FROM receipts r
+                      WHERE r.client_id = cl.id AND r.branch_id IN ({$ph})
+                  )
+                LIMIT 1
+            ");
+            $stmt->execute(array_merge($phoneParams, $allowedBranchIds));
+        } else {
+            $stmt = $db->prepare("SELECT * FROM clients WHERE {$phoneSql} LIMIT 1");
+            $stmt->execute($phoneParams);
+        }
+
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
@@ -1211,10 +1238,13 @@ public function show(): void {
             exit;
         }
 
+        $isAdmin = auth_user()['role'] === 'admin';
+
         $this->renderView('_logs_modal', [
             'receipt'      => $receipt,
             'transactions' => $this->transactions->findByReceipt($id),
-            'auditLogs'    => $this->auditLog->findByReceipt($id),
+            'auditLogs'    => $isAdmin ? $this->auditLog->findByReceipt($id) : [],
+            'isAdmin'      => $isAdmin,
         ]);
     }
 
@@ -1306,6 +1336,10 @@ public function update(): void {
     }
 
     $data = $this->parseForm();
+    $user = auth_user();
+    $isCustomerService = ($user['role'] === 'customer_service');
+    $isBranchManager = ($user['role'] === 'branch_manager');
+    $isRestrictedScheduleEditor = $isCustomerService || $isBranchManager;
 
     $data['client_id']      = (int)    $receipt['client_id'];
     $data['creator_id']     = (int)    $receipt['creator_id'];
@@ -1313,17 +1347,42 @@ public function update(): void {
     $data['pdf_path']       = (string) ($receipt['pdf_path'] ?? '');
     $data['renewal_type']   = (string) ($receipt['renewal_type'] ?? 'new');
 
+    if ($isRestrictedScheduleEditor) {
+        $data['client_name']     = '';
+        $data['phone']           = '';
+        $data['client_email']    = '';
+        $data['client_age']      = null;
+        $data['client_gender']   = '';
+        $data['branch_id']       = $isBranchManager ? (int)($receipt['branch_id'] ?? 0) : $data['branch_id'];
+        $data['plan_id']         = (int) ($receipt['plan_id'] ?? 0) ?: null;
+        $data['level']           = $isCustomerService ? ((int) ($receipt['level'] ?? 0) ?: null) : $data['level'];
+        $data['last_session']    = (string) ($receipt['last_session'] ?? '');
+        $data['renewal_session'] = (string) ($receipt['renewal_session'] ?? '');
+        $data['payment_method']  = $data['payment_method'] ?: 'preserved';
+        $data['notes']           = '';
+    }
+
     $errors = $this->validate($data);
 
     if ($errors) {
+        $editReceipt = $isRestrictedScheduleEditor
+            ? array_merge($receipt, [
+                'branch_id'     => $isCustomerService ? $data['branch_id'] : ($receipt['branch_id'] ?? null),
+                'captain_id'    => $data['captain_id'],
+                'level'         => $isBranchManager ? $data['level'] : ($receipt['level'] ?? null),
+                'first_session' => $data['first_session'],
+                'exercise_time' => $data['exercise_time'],
+            ])
+            : array_merge($receipt, $data, [
+                'age'    => $data['client_age'],
+                'gender' => $data['client_gender'],
+            ]);
+
         $this->flash('flash_error', implode('<br>', $errors));
         $this->renderView('edit', array_merge($this->formDropdowns(), [
             'pageTitle'  => 'تعديل الإيصال',
             'breadcrumb' => 'لوحة التحكم · الإيصالات · تعديل',
-            'receipt'    => array_merge($receipt, $data, [
-                'age'    => $data['client_age'],
-                'gender' => $data['client_gender'],
-            ]),
+            'receipt'    => $editReceipt,
             'errors'     => $errors,
             'isEdit'     => true,
             'isAdmin'    => (auth_user()['role'] === 'admin'),
@@ -1344,7 +1403,7 @@ public function update(): void {
     }
 
     // ── Update clients table ───────────────────────────────────────────────
-    if (!empty($receipt['client_id'])) {
+    if (!$isRestrictedScheduleEditor && !empty($receipt['client_id'])) {
         $clientFields = [];
         $clientParams = [':id' => $receipt['client_id']];
 
@@ -1389,8 +1448,8 @@ public function update(): void {
 
     $this->auditLog->logChanges(
         $id,
-        auth_user()['id'],
-        auth_user()['role'],
+        $user['id'],
+        $user['role'],
         $oldReceiptAuditable,
         $newReceiptAuditable
     );
@@ -1412,13 +1471,15 @@ public function update(): void {
         'client_gender' => $data['client_gender']  ?: null,
     ];
 
-    $this->auditLog->logChanges(
-        $id,
-        auth_user()['id'],
-        auth_user()['role'],
-        $oldClientAuditable,
-        $newClientAuditable
-    );
+    if (!$isRestrictedScheduleEditor) {
+        $this->auditLog->logChanges(
+            $id,
+            $user['id'],
+            $user['role'],
+            $oldClientAuditable,
+            $newClientAuditable
+        );
+    }
 
     // ── Update receipt ────────────────────────────────────────────────────
     $this->receipts->update($id, $data);
@@ -2514,12 +2575,11 @@ public function manage(): void {
     }
 
     // ════════════════════════════════════════════════════════════════
-    // PAYMENT TAB — client search
+    // PAYMENT TAB — receipt-id/ref or phone search
     //
     // Accepts, in order of precedence:
-    //   1. A receipt id or receipt_ref (digits, ≤ 9 chars) — looked up
-    //      directly against the receipts table.
-    //   2. Falls back to the existing client id / phone search.
+    //   1. A receipt id or receipt_ref — looked up directly against receipts.
+    //   2. Falls back to phone search only.
     // ════════════════════════════════════════════════════════════════
     $paySearch   = trim($_GET['pay_search'] ?? '');
     $payClient   = null;
@@ -2529,7 +2589,7 @@ public function manage(): void {
         $activeTab = 'payment';
 
         // ── Direct receipt-ID / receipt-ref lookup ──────────────────────
-        if (ctype_digit($paySearch) && strlen($paySearch) <= 9) {
+        if (ctype_digit($paySearch)) {
             $payBranchFilter = '';
             $payParams       = [(int)$paySearch, $paySearch];
             if (!empty($managerBranchIds)) {
@@ -2575,9 +2635,9 @@ public function manage(): void {
             }
         }
 
-        // ── Fallback: client-ID / phone search (existing behavior) ──────
+        // ── Fallback: phone search only ─────────────────────────────────
         if (!$payClient) {
-            $payClient = $this->searchClientByIdOrPhone($paySearch, $managerBranchIds);
+            $payClient = $this->searchClientByPhone($paySearch, $managerBranchIds);
 
             if ($payClient) {
                 $payBranchFilter = '';

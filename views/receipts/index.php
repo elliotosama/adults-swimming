@@ -424,7 +424,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .receipt-overlay-title {
     margin: 0;
-    font-size: 1rem;
+    font-size: 1.08rem;
+    font-weight: 800;
     color: var(--text);
 }
 .receipt-overlay-close {
@@ -775,15 +776,32 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
             <?php if ($canFilter('has_updates')): ?>
             <div class="filter-group">
-                <label>فقط المحدَّثة أو بها معاملات</label>
+                <label>فقط الإيصالات المحدَّثة</label>
                 <label style="display:flex;align-items:center;gap:.4rem;margin-top:.2rem;cursor:pointer">
-                    <input type="checkbox" name="has_updates" value="1"
+                    <input type="checkbox" name="has_updates" id="hasUpdatesCb" value="1"
                            <?= !empty($filters['has_updates']) ? 'checked' : '' ?>
                            style="width:auto">
                     <span style="font-size:.9rem;">
                         تفعيل
                         <small style="color:var(--muted);display:block;font-size:.76rem">
-                            يُظهر فقط الإيصالات التي تم تعديلها أو لديها مدفوعات
+                            لديها سجل تعديل أو معاملتان على الأقل
+                        </small>
+                    </span>
+                </label>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($canFilter('has_no_updates')): ?>
+            <div class="filter-group">
+                <label>فقط الإيصالات المنشأة بدون تحديثات</label>
+                <label style="display:flex;align-items:center;gap:.4rem;margin-top:.2rem;cursor:pointer">
+                    <input type="checkbox" name="has_no_updates" id="hasNoUpdatesCb" value="1"
+                           <?= !empty($filters['has_no_updates']) ? 'checked' : '' ?>
+                           style="width:auto">
+                    <span style="font-size:.9rem;">
+                        تفعيل
+                        <small style="color:var(--muted);display:block;font-size:.76rem">
+                            بدون سجل تعديل وأقل من معاملتين
                         </small>
                     </span>
                 </label>
@@ -883,7 +901,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
                             <td>
                                 <div class="td-actions">
                                     <button type="button" class="btn btn-sm btn-secondary" onclick="loadReceiptModal(<?= (int)$r['id'] ?>)">عرض الإيصال</button>
-                                    <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal(<?= (int)$r['id'] ?>)">المعاملات والتعديلات</button>
+                                    <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal(<?= (int)$r['id'] ?>)"><?= $isAdmin ? 'المعاملات والتعديلات' : 'المعاملات الماليه' ?></button>
                                 </div>
                             </td>
                         </tr>
@@ -946,7 +964,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 <div class="receipt-overlay" id="receiptLogsOverlay" aria-hidden="true">
     <div class="receipt-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="receiptLogsTitle">
         <div class="receipt-overlay-header">
-            <h2 class="receipt-overlay-title" id="receiptLogsTitle">المعاملات والتعديلات</h2>
+            <h2 class="receipt-overlay-title" id="receiptLogsTitle"><?= $isAdmin ? 'المعاملات والتعديلات' : 'المعاملات الماليه' ?></h2>
             <button type="button" class="receipt-overlay-close" onclick="closeReceiptOverlay('receiptLogsOverlay')" aria-label="إغلاق">✕</button>
         </div>
         <div class="receipt-overlay-body" id="receiptLogsBody"></div>
@@ -1052,7 +1070,7 @@ function buildRow(r) {
         <td>
             <div class="td-actions">
                 <button type="button" class="btn btn-sm btn-secondary" onclick="loadReceiptModal('${esc(r.id)}')">عرض الإيصال</button>
-                <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal('${esc(r.id)}')">المعاملات والتعديلات</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal('${esc(r.id)}')">${IS_ADMIN ? 'المعاملات والتعديلات' : 'المعاملات الماليه'}</button>
             </div>
         </td>
     </tr>`;
@@ -1268,6 +1286,17 @@ function buildRow(r) {
             creatorWrap.style.display = hasValue ? 'flex' : 'none';
             if (!hasValue) creatorCb.checked = false;
             creatorCb.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+
+    const hasUpdatesCb   = document.getElementById('hasUpdatesCb');
+    const hasNoUpdatesCb = document.getElementById('hasNoUpdatesCb');
+    if (hasUpdatesCb && hasNoUpdatesCb) {
+        hasUpdatesCb.addEventListener('change', () => {
+            if (hasUpdatesCb.checked) hasNoUpdatesCb.checked = false;
+        });
+        hasNoUpdatesCb.addEventListener('change', () => {
+            if (hasNoUpdatesCb.checked) hasUpdatesCb.checked = false;
         });
     }
 
