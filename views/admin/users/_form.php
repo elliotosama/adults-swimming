@@ -19,7 +19,7 @@ $roles = [
 <style>
     .branch-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
         gap: .5rem;
         margin-top: .5rem;
     }

@@ -203,7 +203,7 @@ $typeMap = [
     <div class="rlm-grid">
         <section class="rlm-box">
             <div class="rlm-box-header">
-                <h3>المعاملات</h3>
+                <h3> المعاملات الماليه</h3>
                 <span class="rlm-count"><?= count($transactions ?? []) ?> معاملة</span>
             </div>
             <div class="rlm-scroll">

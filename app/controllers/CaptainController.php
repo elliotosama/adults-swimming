@@ -85,7 +85,7 @@ class CaptainController {
         }
 
         $captains = $this->captains->findAll($filters);
-        $branches = $this->branchModel->findAll($this->branchFilters($user));
+        $branches = $this->branchModel->findVisible($this->branchFilters($user));
 
         $this->renderView('index', [
             'pageTitle'     => 'الكباتن',
@@ -108,7 +108,7 @@ class CaptainController {
             'captain'     => [],
             'errors'      => [],
             'isEdit'      => false,
-            'branches'    => $this->branchModel->findAll(),
+            'branches'    => $this->branchModel->findVisible(),
             'assignedIds' => [],
             'ajaxPartial' => $this->isAjax(),
         ]);
@@ -139,7 +139,7 @@ class CaptainController {
                 'captain'     => $data,
                 'errors'      => $errors,
                 'isEdit'      => false,
-                'branches'    => $this->branchModel->findAll(),
+                'branches'    => $this->branchModel->findVisible(),
                 'assignedIds' => $data['branch_ids'],
             ]);
             return;
@@ -244,7 +244,7 @@ class CaptainController {
             'captain'     => $captain,
             'errors'      => [],
             'isEdit'      => true,
-            'branches'    => $this->branchModel->findAll($this->branchFilters($user)),
+            'branches'    => $this->branchModel->findVisible($this->branchFilters($user)),
             'assignedIds' => $captain['branch_ids'],
             'ajaxPartial' => $this->isAjax(),
         ]);
@@ -300,7 +300,7 @@ class CaptainController {
                 'captain'     => array_merge($captain, $data),
                 'errors'      => $errors,
                 'isEdit'      => true,
-                'branches'    => $this->branchModel->findAll($this->branchFilters($user)),
+                'branches'    => $this->branchModel->findVisible($this->branchFilters($user)),
                 'assignedIds' => $data['branch_ids'],
             ]);
             return;

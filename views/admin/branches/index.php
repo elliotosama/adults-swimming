@@ -3,7 +3,7 @@ require ROOT . '/views/includes/layout_top.php';
 ?>
 
 <!-- Confirm Modal (used for delete confirmation) -->
-<div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+<div id="confirmModal" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
     <div style="background:var(--color-background-primary,#fff);border-radius:16px;border:0.5px solid var(--color-border-tertiary);padding:2rem 2rem 1.5rem;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.18);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);">
         <div style="width:52px;height:52px;border-radius:50%;background:#fff0f0;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:24px;">⚠️</div>
         <h2 style="text-align:center;font-size:1.15rem;font-weight:600;margin:0 0 .5rem;color:black">حذف الفرع</h2>
@@ -48,6 +48,9 @@ body {
     font-weight: bold;
     color: var(--text);
 }
+#confirmModal { display: none; }
+#confirmModal.open { display: flex; }
+
 .card,
 .filter-bar {
     background: var(--surface) !important;

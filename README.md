@@ -78,37 +78,43 @@ when making a receipt [Mon Jul 06 12:45:47.358379 2026] [php:error] [pid 1880044
 - [x] in index make search in ajax
 - [x] payment and refund and client tabs does not appear
 
-- [x] remove disabled branches from all screens
-- [ ] make branches section scrollable in captains page
-- [ ] taking any action in receipt index page got blank screen
-- [ ] show total count of results in all pages
-- [ ] show and preview in receipts
-- [ ] manage forms does not appear
 
 
 
 
 
 
-- [ ] active and inactive in branches
-- [ ] branches in edit in captains
-- [ ] employees button 
-- [ ] filter dropdown role
-- [ ] remove delete and edit from index screen in employees page
-- [ ] remove delete and edit from index screen in prices page
-- [ ] check disabled branches in receipt page
-- [ ] edit filter from receipt pages
+0238303233
+
+
+receipt index {
 - [ ] show only created receipt
+- [ ] edit filter from receipt pages
+
+}
+
+2970005
+89.6
+
+preview {
 - [ ] show age in preview page
-- [ ] change الاشتراك ان الاخطه
-- [ ] change تاريح البدايه تاريخ النهايه تاريخ التجدد
 - [ ] creator of the receipt in preview page creation date
 - [ ] notes in preview
+- [ ] change تاريح البدايه تاريخ النهايه تاريخ التجدد
+}
+- [ ] change الاشتراك ان الاخطه
+- [ ] filter dropdown role
 - [ ] font should be bold in preview and bigger
-- [ ] change المعاملات ل المعاملات الماليه
 - [ ] payment should be receipt id or phone number
-- [ ] اضافه ة بدلا من ه
-- [ ] update default value from level to 0
+- [x] active and inactive in branches
+- [x] branches in edit in captains
+- [x] employees button 
+- [x] remove delete and edit from index screen in employees page
+- [x] remove delete and edit from index screen in prices page
+- [x] check disabled branches in receipt page
+- [x] change المعاملات ل المعاملات الماليه
+- [x] اضافه ة بدلا من ه
+- [x] update default value from level to 0
 
 
 customer service account

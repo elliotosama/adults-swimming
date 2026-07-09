@@ -211,7 +211,7 @@ document.addEventListener('submit', function (e) {
         </h1>
         <p class="breadcrumb">لوحة التحكم · الموظفين</p>
     </div>
-    <a href="<?= APP_URL ?>/admin/user/create" class="btn btn-primary">+ إضافة مستخدم</a>
+    <a href="<?= APP_URL ?>/admin/user/create" class="btn btn-primary" style="position: absolute;left: -5px;">+ إضافة مستخدم</a>
 </div>
 
 <!-- Flash messages -->
@@ -359,19 +359,7 @@ document.addEventListener('submit', function (e) {
                                         <a href="javascript:void(0)"
                                            onclick="openViewModal('<?= APP_URL ?>/admin/user/show?id=<?= $u['id'] ?>')"
                                            class="btn btn-sm btn-secondary">عرض</a>
-                                        <a href="javascript:void(0)"
-                                           onclick="openViewModal('<?= APP_URL ?>/admin/user/edit?id=<?= $u['id'] ?>')"
-                                           class="btn btn-sm btn-warning">تعديل</a>
-                                        <?php if ($u['id'] !== (int)($_SESSION['user']['id'] ?? 0)): ?>
-                                        <form method="POST"
-                                              action="<?= APP_URL ?>/admin/user/delete?id=<?= $u['id'] ?>"
-                                              style="display:inline"
-                                              onsubmit="event.preventDefault(); showDeleteModal(this);">
-                                            <input type="hidden" name="csrf_token"
-                                                   value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                            <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-                                        </form>
-                                        <?php endif; ?>
+
                                     </div>
                                 </td>
                             </tr>

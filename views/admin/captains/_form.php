@@ -14,8 +14,8 @@ if (!$ajaxPartial) {
 <style>
 .branch-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 5px;
     margin-top: 6px;
 }
 .branch-card { position: relative; cursor: pointer; }

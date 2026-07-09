@@ -731,8 +731,8 @@
                 <div class="form-field">
                   <label class="form-label">المستوى</label>
                   <select name="level" class="form-control">
-                    <?php for ($i = 1; $i <= 6; $i++): ?>
-                      <option value="<?= $i ?>" <?= ($receipt['level'] ?? 1) == $i ? 'selected' : '' ?>><?= $i ?></option>
+                    <?php for ($i = 0; $i <= 6; $i++): ?>
+                      <option value="<?= $i ?>" <?= ($receipt['level'] ?? 0) == $i ? 'selected' : '' ?>><?= $i ?></option>
                     <?php endfor; ?>
                   </select>
                 </div>
@@ -1029,8 +1029,8 @@
                 <div class="form-field">
                   <label class="form-label">المستوى</label>
                   <select name="level" class="form-control">
-                    <?php for ($i = 1; $i <= 6; $i++): ?>
-                      <option value="<?= $i ?>" <?= ($renewClient['level'] ?? 1) == $i ? 'selected' : '' ?>><?= $i ?></option>
+                    <?php for ($i = 0; $i <= 6; $i++): ?>
+                      <option value="<?= $i ?>" <?= ($renewClient['level'] ?? 0) == $i ? 'selected' : '' ?>><?= $i ?></option>
                     <?php endfor; ?>
                   </select>
                 </div>
@@ -1435,7 +1435,7 @@
            TAB 5: عميل جديد
       ══════════════════════════════════════════════════════════════ -->
       <div class="tab-panel" id="tab-panel-client" role="tabpanel">
-        <h1>اضافه عميل</h1>
+        <h1>اضافة عميل</h1>
         <?php if (!empty($_SESSION['flash_success_client'])): ?>
           <div class="client-success-banner">
             <span class="csb-icon">✅</span>

@@ -217,16 +217,7 @@ require ROOT . '/views/includes/layout_top.php';
                                 <td>
                                     <div class="td-actions">
                                         <a href="<?= APP_URL ?>/admin/price/show?id=<?= $p['id'] ?>" class="btn btn-sm btn-secondary" data-modal-url="<?= APP_URL ?>/admin/price/show?id=<?= $p['id'] ?>">عرض</a>
-                                        <a href="<?= APP_URL ?>/admin/price/edit?id=<?= $p['id'] ?>" class="btn btn-sm btn-warning" data-modal-url="<?= APP_URL ?>/admin/price/edit?id=<?= $p['id'] ?>">تعديل</a>
-                                        <form method="POST"
-                                              action="<?= APP_URL ?>/admin/price/delete?id=<?= $p['id'] ?>"
-                                              style="display:inline"
-                                              data-ajax-delete
-                                              onsubmit="event.preventDefault(); showDeleteModal(this);">
-                                            <input type="hidden" name="csrf_token"
-                                                   value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                                            <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-                                        </form>
+
                                     </div>
                                 </td>
                             </tr>

@@ -79,7 +79,7 @@ class EmployeeController {
     }
 
     private function allBranches(): array {
-        return $this->branches->findAll();
+        return $this->branches->findVisible();
     }
 
     // ════════════════════════════════════════════════════════════════════════
