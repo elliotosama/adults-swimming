@@ -6,15 +6,13 @@ captain_branch => from production database
 countries => no need to update
 prices => from production database
 
-receipts => write script
+receipts
 receipt_audit_log => from activies [
     action => تعديل ايصال
-    from receipts table => edit_history
+    also from receipts table => edit_history
 ]
 transactions [
     action => دفع ايصال
 ]
-
-
-اضافه عميل => create receipt
-تجديد عميل => renew receipt
+from activitis table action column اضافه عميل => create receipt
+from activitis table action column تجديد عميل => renew receipt

@@ -2,7 +2,7 @@
 // config/database.php
 
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'swimming_academy');
+define('DB_NAME', 'swimming_academy_migrated');
 define('DB_USER', 'osama');        // ← change to your DB user
 define('DB_PASS', 'osamaisthebest');            // ← change to your DB password
 define('DB_CHARSET', 'utf8mb4');
