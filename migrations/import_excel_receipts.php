@@ -10,12 +10,15 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 $apply = in_array('--apply', $argv, true);
 $xlsxPath = dirname(__DIR__) . '/receipts(5).xlsx';
+$oldDump = dirname(__DIR__) . '/swimming_academy_old.sql';
 $fromId = 26070396;
 $toId = PHP_INT_MAX;
 
 foreach ($argv as $arg) {
     if (str_starts_with($arg, '--file=')) {
         $xlsxPath = substr($arg, 7);
+    } elseif (str_starts_with($arg, '--old-dump=')) {
+        $oldDump = substr($arg, 11);
     } elseif (str_starts_with($arg, '--from-id=')) {
         $fromId = (int) substr($arg, 10);
     } elseif (str_starts_with($arg, '--to-id=')) {
@@ -86,6 +89,114 @@ function excel_time_value(mixed $value): ?string
     return $timestamp ? date('H:i:s', $timestamp) : null;
 }
 
+function excel_read_dump_utf8(string $path): string
+{
+    $raw = file_get_contents($path);
+    if ($raw === false) {
+        throw new RuntimeException("Cannot read {$path}");
+    }
+
+    if (str_starts_with($raw, "\xFF\xFE") || str_starts_with($raw, "\xFE\xFF")) {
+        $converted = iconv('UTF-16', 'UTF-8//IGNORE', $raw);
+        if ($converted === false) {
+            throw new RuntimeException("Failed to convert {$path} from UTF-16 to UTF-8");
+        }
+
+        return $converted;
+    }
+
+    return $raw;
+}
+
+function excel_each_value_tuple(string $values, callable $callback): void
+{
+    $length = strlen($values);
+    $inString = false;
+    $escaped = false;
+    $depth = 0;
+    $buffer = '';
+
+    for ($i = 0; $i < $length; $i++) {
+        $ch = $values[$i];
+
+        if ($depth === 0) {
+            if ($ch === '(') {
+                $depth = 1;
+                $buffer = '';
+            }
+            continue;
+        }
+
+        if ($inString) {
+            if ($escaped) {
+                $escaped = false;
+            } elseif ($ch === '\\') {
+                $escaped = true;
+            } elseif ($ch === "'") {
+                $inString = false;
+            }
+            $buffer .= $ch;
+            continue;
+        }
+
+        if ($ch === "'") {
+            $inString = true;
+            $buffer .= $ch;
+            continue;
+        }
+
+        if ($ch === '(') {
+            $depth++;
+            $buffer .= $ch;
+            continue;
+        }
+
+        if ($ch === ')') {
+            $depth--;
+            if ($depth === 0) {
+                $callback(str_getcsv($buffer, ',', "'", '\\'));
+            } else {
+                $buffer .= $ch;
+            }
+            continue;
+        }
+
+        $buffer .= $ch;
+    }
+}
+
+function excel_load_old_evidence(string $path): array
+{
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $sql = excel_read_dump_utf8($path);
+    $pattern = '/INSERT\s+INTO\s+`receipts`\s+VALUES\s*/i';
+    $offset = 0;
+    $evidenceByReceipt = [];
+
+    while (preg_match($pattern, $sql, $match, PREG_OFFSET_CAPTURE, $offset)) {
+        $start = $match[0][1] + strlen($match[0][0]);
+        $end = strpos($sql, ';', $start);
+        if ($end === false) {
+            throw new RuntimeException('Unterminated receipts INSERT in old dump');
+        }
+
+        excel_each_value_tuple(substr($sql, $start, $end - $start), function (array $row) use (&$evidenceByReceipt): void {
+            $receiptId = (int) ($row[0] ?? 0);
+            $attachment = excel_clean($row[18] ?? null);
+            if ($receiptId > 0 && $attachment !== null && $attachment !== '[]') {
+                $evidenceByReceipt[$receiptId] = $attachment;
+            }
+        });
+
+        $offset = $end + 1;
+    }
+
+    return $evidenceByReceipt;
+}
+
 function excel_renewal_type(?string $type): string
 {
     return match (excel_clean($type)) {
@@ -117,6 +228,8 @@ $spreadsheet = IOFactory::load($xlsxPath);
 $sheet = $spreadsheet->getSheetByName('Receipts') ?? $spreadsheet->getActiveSheet();
 $rows = $sheet->toArray(null, true, true, false);
 array_shift($rows);
+
+$oldEvidenceByReceipt = excel_load_old_evidence($oldDump);
 
 $branchMap = [];
 foreach ($db->query('SELECT id, branch_name, country_id FROM branches') as $row) {
@@ -178,7 +291,7 @@ $insertReceipt = $db->prepare("
 ");
 $insertTransaction = $db->prepare("
     INSERT INTO transactions (payment_method, amount, receipt_id, created_by, created_at, attachment, notes, type)
-    VALUES (:payment_method, :amount, :receipt_id, :created_by, :created_at, NULL, :notes, 'payment')
+    VALUES (:payment_method, :amount, :receipt_id, :created_by, :created_at, :attachment, :notes, 'payment')
 ");
 
 $nextUserId = (int) $db->query('SELECT COALESCE(MAX(id), 0) FROM users')->fetchColumn() + 1;
@@ -200,6 +313,7 @@ $stats = [
 
 echo $apply ? "Applying Excel import...\n" : "Dry run only. Use --apply to write changes.\n";
 echo "ID range: {$fromId} - {$toId}\n";
+echo 'Old evidence records loaded: ' . count($oldEvidenceByReceipt) . PHP_EOL;
 
 if ($apply) {
     $db->beginTransaction();
@@ -352,6 +466,7 @@ try {
                     ':receipt_id' => $receiptId,
                     ':created_by' => $creatorId,
                     ':created_at' => $createdAt,
+                    ':attachment' => $oldEvidenceByReceipt[$receiptId] ?? null,
                     ':notes' => $notes,
                 ]);
             }
