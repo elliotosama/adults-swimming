@@ -451,9 +451,24 @@ body,
             <span class="detail-label">جلسة التجديد</span>
             <span class="detail-value"><?= htmlspecialchars($receipt['renewal_session'] ?? '—') ?></span>
         </div>
+        <?php
+        $renewalTypeMap = [
+            'new' => 'جديد',
+            'renew' => 'تجديد',
+            'renewal' => 'تجديد',
+            'current_renewal' => 'تجديد حالي',
+            'previous_renewal' => 'تجديد سابق',
+            'جديد' => 'جديد',
+            'تجديد' => 'تجديد',
+        ];
+        $renewalTypeKey = trim((string) ($receipt['renewal_type'] ?? ''));
+        $renewalTypeLabel = $renewalTypeKey === ''
+            ? '—'
+            : ($renewalTypeMap[mb_strtolower($renewalTypeKey)] ?? $renewalTypeKey);
+        ?>
         <div class="detail-item">
             <span class="detail-label">نوع التجديد</span>
-            <span class="detail-value"><?= htmlspecialchars($receipt['renewal_type'] ?? '—') ?></span>
+            <span class="detail-value"><?= htmlspecialchars($renewalTypeLabel) ?></span>
         </div>
         <div class="detail-item">
             <span class="detail-label">تاريخ الإنشاء</span>

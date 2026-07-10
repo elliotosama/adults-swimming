@@ -6,6 +6,15 @@ $oldDump = dirname(__DIR__) . '/swimming_academy_old.sql';
 $fromDate = '2026-07-01';
 $toDate = '2026-07-31';
 
+foreach ($argv as $arg) {
+    if (str_starts_with($arg, '--from=')) {
+        $fromDate = substr($arg, 7);
+    }
+    if (str_starts_with($arg, '--to=')) {
+        $toDate = substr($arg, 5);
+    }
+}
+
 function norm_key(?string $value): string {
     return mb_strtolower(trim((string) $value));
 }
@@ -146,7 +155,7 @@ each_receipt_row($sql, function (array $row) use (&$oldRows, $fromDate, $toDate)
     }
 });
 
-echo "July rows in old dump: " . count($oldRows) . "\n";
+echo "Rows in old dump from {$fromDate} to {$toDate}: " . count($oldRows) . "\n";
 
 $branchMap = [];
 foreach ($db->query("SELECT id, branch_name FROM branches") as $row) {

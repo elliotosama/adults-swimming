@@ -801,6 +801,17 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
     ]);
 
     foreach ($rows as $r) {
+        $renewalTypeLabels = [
+            'new'              => 'جديد',
+            'renew'            => 'تجديد',
+            'renewal'          => 'تجديد',
+            'current_renewal'  => 'تجديد حالي',
+            'previous_renewal' => 'تجديد سابق',
+            'جديد'             => 'جديد',
+            'تجديد'            => 'تجديد',
+        ];
+        $renewalTypeKey = mb_strtolower(trim((string) ($r['renewal_type'] ?? '')));
+
         $planPrice     = (float)($r['plan_price']      ?? 0);
         $grossPaid     = (float)($r['gross_paid']       ?? $r['total_paid'] ?? 0);
         $totalRefunded = (float)($r['total_refunded']   ?? 0);
@@ -818,7 +829,7 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
             $r['first_session']   ?? '',
             $r['last_session']    ?? '',
             $r['renewal_session'] ?? '',
-            $r['renewal_type']    ?? '',
+            $renewalTypeLabels[$renewalTypeKey] ?? ($r['renewal_type'] ?? ''),
             $statusLabels[$r['receipt_status']] ?? $r['receipt_status'],
             $r['exercise_time']   ?? '',
             $r['level']           ?? '',

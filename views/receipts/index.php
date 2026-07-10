@@ -39,7 +39,10 @@ function renewalTypeLabel(?string $type): string {
         'new'              => 'جديد',
         'current_renewal'  => 'حالي',
         'previous_renewal' => 'سابق',
-        'renewal' => 'تجديد'
+        'renew'            => 'تجديد',
+        'renewal'          => 'تجديد',
+        'جديد'             => 'جديد',
+        'تجديد'            => 'تجديد',
     ];
     $key = strtolower(trim((string) $type));
     if ($key === '') return '—';
@@ -702,6 +705,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
             <?php
             $allRenewalTypes = [
                 'new'              => 'جديد',
+                'renew'            => 'تجديد',
                 'previous_renewal' => 'تجديد سابق',
                 'current_renewal'  => 'تجديد حالي',
             ];
@@ -1038,6 +1042,10 @@ function renewalTypeLabel(type) {
         'new':              'جديد',
         'current_renewal':  'تجديد حالي',
         'previous_renewal': 'تجديد سابق',
+        'renew':            'تجديد',
+        'renewal':          'تجديد',
+        'جديد':             'جديد',
+        'تجديد':            'تجديد',
     };
     const key = (type || '').toString().trim().toLowerCase();
     return map[key] || esc(type);
