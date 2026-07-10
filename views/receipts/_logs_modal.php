@@ -7,6 +7,91 @@ function rlmEvidenceUrl(string $raw): string {
     return APP_URL . '/uploads/evidence/' . basename($raw);
 }
 
+function rlmValue($value): string {
+    $value = trim((string)($value ?? ''));
+    return $value === '' ? '—' : $value;
+}
+
+function rlmFieldLabel(string $field): string {
+    $labels = [
+        'edit_history' => 'سجل تعديلات قديم',
+        'receipt_edited' => 'تعديل الإيصال',
+        'receipt_created' => 'إنشاء الإيصال',
+        'receipt_renewed' => 'تجديد الإيصال',
+        'client_name' => 'اسم العميل',
+        'phone' => 'الهاتف',
+        'age' => 'العمر',
+        'branch_id' => 'الفرع',
+        'captain_id' => 'الكابتن',
+        'first_session' => 'تاريخ البداية',
+        'last_session' => 'تاريخ النهاية',
+        'renewal_session' => 'تاريخ التجديد',
+        'receipt_status' => 'حالة الإيصال',
+        'renewal_type' => 'نوع التجديد',
+        'exercise_time' => 'وقت التمرين',
+        'level' => 'المستوى',
+        'plan_id' => 'الاشتراك',
+    ];
+
+    return $labels[$field] ?? $field;
+}
+
+function rlmRenderEditHistory(?string $json): string {
+    $items = json_decode((string)$json, true);
+    if (!is_array($items)) {
+        return '<div class="rlm-history-text">' . htmlspecialchars(rlmValue($json)) . '</div>';
+    }
+
+    $skipKeys = ['editorName', 'editorId', 'edit_time', 'summary'];
+    $html = '<div class="rlm-history-list">';
+
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $changes = is_array($item['changes'] ?? null) ? $item['changes'] : [];
+        $summary = trim((string)($changes['summary'] ?? ''));
+        $editor = rlmValue($item['editor'] ?? $changes['editorName'] ?? null);
+        $time = rlmValue($item['timestamp'] ?? $changes['edit_time'] ?? null);
+
+        $html .= '<div class="rlm-history-item">';
+        $html .= '<div class="rlm-history-head">';
+        $html .= '<strong>' . htmlspecialchars($editor) . '</strong>';
+        $html .= '<span>' . htmlspecialchars($time) . '</span>';
+        $html .= '</div>';
+
+        if ($summary !== '') {
+            $html .= '<p class="rlm-history-summary">' . htmlspecialchars($summary) . '</p>';
+        }
+
+        $visibleChanges = [];
+        foreach ($changes as $key => $value) {
+            $value = trim((string)$value);
+            if (in_array($key, $skipKeys, true) || $value === '' || $value === 'لم يتم التغيير') {
+                continue;
+            }
+            $visibleChanges[$key] = $value;
+        }
+
+        if ($visibleChanges) {
+            $html .= '<div class="rlm-history-changes">';
+            foreach ($visibleChanges as $key => $value) {
+                $html .= '<div class="rlm-history-change">';
+                $html .= '<span>' . htmlspecialchars(rlmFieldLabel($key)) . '</span>';
+                $html .= '<b>' . htmlspecialchars($value) . '</b>';
+                $html .= '</div>';
+            }
+            $html .= '</div>';
+        }
+
+        $html .= '</div>';
+    }
+
+    $html .= '</div>';
+    return $html;
+}
+
 $typeMap = [
     'payment'  => ['rlm-badge-success', 'دفعة'],
     'refund'   => ['rlm-badge-danger',  'استرداد'],
@@ -181,6 +266,60 @@ $isAdmin = $isAdmin ?? false;
     object-fit: cover;
     display: block;
 }
+.rlm-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.rlm-history-item {
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--rlm-bg);
+    border: 1px solid rgba(60,63,88,.75);
+}
+.rlm-history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--rlm-text);
+}
+.rlm-history-head span {
+    color: var(--rlm-muted);
+    font-size: .78rem;
+    white-space: nowrap;
+}
+.rlm-history-summary,
+.rlm-history-text {
+    margin: 8px 0 0;
+    line-height: 1.7;
+    color: var(--rlm-text);
+    font-size: .86rem;
+}
+.rlm-history-changes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+.rlm-history-change {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 8px;
+    align-items: start;
+    padding-top: 6px;
+    border-top: 1px solid rgba(60,63,88,.6);
+}
+.rlm-history-change span {
+    color: var(--rlm-muted);
+    font-size: .78rem;
+}
+.rlm-history-change b {
+    color: var(--rlm-success);
+    font-size: .84rem;
+    line-height: 1.6;
+    font-weight: 600;
+}
 @media (max-width: 820px) {
     .rlm-grid { grid-template-columns: 1fr; }
     .rlm-box { min-height: 320px; max-height: 58vh; }
@@ -192,6 +331,8 @@ $isAdmin = $isAdmin ?? false;
     .rlm-change { grid-template-columns: 1fr; }
     .rlm-arrow { display: none; }
     .rlm-value { text-align: right; }
+    .rlm-history-head { flex-direction: column; align-items: flex-start; }
+    .rlm-history-change { grid-template-columns: 1fr; }
 }
 </style>
 
@@ -277,21 +418,26 @@ $isAdmin = $isAdmin ?? false;
                 <?php else: ?>
                     <div class="rlm-list">
                         <?php foreach ($auditLogs as $log): ?>
+                            <?php $fieldName = (string)($log['field_name'] ?? ''); ?>
                             <article class="rlm-card">
                                 <div class="rlm-card-top">
                                     <div>
-                                        <div class="rlm-main"><code><?= htmlspecialchars($log['field_name'] ?? '—') ?></code></div>
+                                        <div class="rlm-main"><?= htmlspecialchars(rlmFieldLabel($fieldName)) ?></div>
                                         <div class="rlm-meta">
                                             <?= htmlspecialchars($log['changer_name'] ?? '—') ?> · <?= htmlspecialchars($log['role'] ?? '—') ?>
                                         </div>
                                     </div>
                                     <div class="rlm-meta"><?= htmlspecialchars($log['changed_at'] ?? '—') ?></div>
                                 </div>
+                                <?php if ($fieldName === 'edit_history'): ?>
+                                    <?= rlmRenderEditHistory($log['new_value'] ?? null) ?>
+                                <?php else: ?>
                                 <div class="rlm-change">
-                                    <div class="rlm-old"><?= htmlspecialchars($log['old_value'] ?? '—') ?></div>
+                                    <div class="rlm-old"><?= htmlspecialchars(rlmValue($log['old_value'] ?? null)) ?></div>
                                     <span class="rlm-arrow">←</span>
-                                    <div class="rlm-new"><?= htmlspecialchars($log['new_value'] ?? '—') ?></div>
+                                    <div class="rlm-new"><?= htmlspecialchars(rlmValue($log['new_value'] ?? null)) ?></div>
                                 </div>
+                                <?php endif; ?>
                             </article>
                         <?php endforeach; ?>
                     </div>

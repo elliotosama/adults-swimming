@@ -28,6 +28,34 @@ function formatAmPm(string $time): string {
     }
 }
 
+function formatDateDmy(?string $date): string {
+    if (empty($date)) return '—';
+    try {
+        return (new DateTime($date))->format('d/m/Y');
+    } catch (\Exception $e) {
+        return htmlspecialchars($date);
+    }
+}
+
+function exerciseDaysLabel(?string $days): string {
+    $days = trim((string) $days);
+    if ($days === '') return '—';
+
+    $map = [
+        'Sunday' => 'الأحد',
+        'Monday' => 'الاثنين',
+        'Tuesday' => 'الثلاثاء',
+        'Wednesday' => 'الأربعاء',
+        'Thursday' => 'الخميس',
+        'Friday' => 'الجمعة',
+        'Saturday' => 'السبت',
+    ];
+
+    $parts = array_filter(array_map('trim', explode(',', $days)));
+    $labels = array_map(fn($day) => $map[$day] ?? $day, $parts);
+    return htmlspecialchars(implode('-', $labels));
+}
+
 // ── Renewal-type → Arabic label ─────────────────────────────────────────
 //
 // Mirrors the JS renewalTypeLabel() map used by the live-search buildRow().
@@ -881,14 +909,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
                             <td class="wrap-cell"><?= htmlspecialchars($r['client_name'] ?? '—') ?></td>
                             <td style="text-align:center"><?= htmlspecialchars($r['client_age'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($r['client_phone'] ?? '—') ?></td>
-                            <td><?= htmlspecialchars($r['exercise_days'] ?? '—') ?></td>
+                            <td><?= exerciseDaysLabel($r['exercise_days'] ?? null) ?></td>
                             <td><?= htmlspecialchars(formatAmPm($r['exercise_time'] ?? '')) ?></td>
                             <td style="text-align:center"><?= htmlspecialchars($r['level'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($r['captain_name'] ?? '—') ?></td>
                             <td style="color:#fff"><?= number_format((float)($r['plan_price'] ?? 0)) ?></td>
                             <td style="color:#4ade80;"><?= number_format((float)($r['total_paid'] ?? 0)) ?></td>
-                            <td><?= htmlspecialchars($r['first_session'] ?? '—') ?></td>
-                            <td><?= htmlspecialchars($r['last_session'] ?? '—') ?></td>
+                            <td><?= formatDateDmy($r['first_session'] ?? null) ?></td>
+                            <td><?= formatDateDmy($r['last_session'] ?? null) ?></td>
                             <td style="color:#fff;font-size:1rem;">
                                 <?= htmlspecialchars($r['receipt_ref'] ?? $r['id']) ?>
                             </td>
@@ -1037,14 +1065,42 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         return `${h12}:${String(m).padStart(2, '0')} ${period}`;
     }
 
+    function fmtDate(d) {
+        if (!d || d === '—') return '—';
+        const parts = String(d).split('-');
+        if (parts.length !== 3) return esc(d);
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    function exerciseDaysLabel(days) {
+        if (!days) return '—';
+        const map = {
+            Sunday: 'الأحد',
+            Monday: 'الاثنين',
+            Tuesday: 'الثلاثاء',
+            Wednesday: 'الأربعاء',
+            Thursday: 'الخميس',
+            Friday: 'الجمعة',
+            Saturday: 'السبت',
+        };
+        return String(days)
+            .split(',')
+            .map(day => map[day.trim()] || day.trim())
+            .filter(Boolean)
+            .map(esc)
+            .join('-') || '—';
+    }
+
 function renewalTypeLabel(type) {
     const map = {
         'new':              'جديد',
-        'current_renewal':  'تجديد حالي',
-        'previous_renewal': 'تجديد سابق',
+        'current_renewal':  'حالي',
+        'previous_renewal': 'سابق',
         'renew':            'تجديد',
         'renewal':          'تجديد',
         'جديد':             'جديد',
+        'حالي':             'حالي',
+        'سابق':             'سابق',
         'تجديد':            'تجديد',
     };
     const key = (type || '').toString().trim().toLowerCase();
@@ -1064,14 +1120,14 @@ function buildRow(r) {
         <td class="wrap-cell">${esc(r.client_name)}</td>
         <td style="text-align:center">${esc(r.client_age)}</td>
         <td>${esc(r.client_phone)}</td>
-        <td>${esc(r.exercise_days)}</td>
+        <td>${exerciseDaysLabel(r.exercise_days)}</td>
         <td>${fmtTime(r.exercise_time)}</td>
         <td style="text-align:center">${esc(r.level)}</td>
         <td>${esc(r.captain_name)}</td>
         <td style="color:#fff">${fmt(r.plan_price)}</td>
         <td style="color:#4ade80;">${fmt(r.total_paid)}</td>
-        <td>${esc(r.first_session)}</td>
-        <td>${esc(r.last_session)}</td>
+        <td>${fmtDate(r.first_session)}</td>
+        <td>${fmtDate(r.last_session)}</td>
         <td style="color:#fff;font-size:1rem;">${receiptRef}</td>
         ${creatorCell}
         ${refundedCell}

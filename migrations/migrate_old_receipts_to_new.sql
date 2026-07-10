@@ -153,7 +153,7 @@ SET @sql = CONCAT(
  SELECT DISTINCT
     r.creator_id,
     COALESCE(NULLIF(r.creator_username, ''''), CONCAT(''Migrated User '', r.creator_id)),
-    CONCAT(''migrated.user.'', r.creator_id, ''@migration.local''),
+    CONCAT(''migrated.user.'', r.creator_id, ''@gmail.com''),
     NULL,
     CASE
         WHEN r.creator_role = ''areaManager'' THEN ''area_manager''

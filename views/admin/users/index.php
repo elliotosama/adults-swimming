@@ -427,8 +427,6 @@ document.addEventListener('submit', function (e) {
         return `
             <div class="td-actions">
                 <a href="javascript:void(0)" onclick="openViewModal('${APP_URL}/admin/user/show?id=${u.id}')" class="btn btn-sm btn-secondary">عرض</a>
-                <a href="javascript:void(0)" onclick="openViewModal('${APP_URL}/admin/user/edit?id=${u.id}')" class="btn btn-sm btn-warning">تعديل</a>
-                ${deleteBtn}
             </div>`;
     }
 

@@ -69,6 +69,12 @@ $dataSql = "
            cr.username     AS creator_name,
            ca.captain_name AS captain_name,
            b.branch_name,
+           CASE
+               WHEN r.level = 1 THEN b.working_days1
+               WHEN r.level = 2 THEN b.working_days2
+               WHEN r.level = 3 THEN b.working_days3
+               ELSE COALESCE(b.working_days2, b.working_days1, b.working_days3)
+           END AS exercise_days,
            p.description   AS plan_name,
            COALESCE(p.price, 0) AS plan_price,
            (SELECT COUNT(*) FROM receipt_audit_log al WHERE al.receipt_id = r.id) AS audit_count,
@@ -126,6 +132,12 @@ public function searchAll(array $filters = []): array {
                    c.client_name,
                    c.phone         AS phone,
                    b.branch_name,
+                   CASE
+                       WHEN r.level = 1 THEN b.working_days1
+                       WHEN r.level = 2 THEN b.working_days2
+                       WHEN r.level = 3 THEN b.working_days3
+                       ELSE COALESCE(b.working_days2, b.working_days1, b.working_days3)
+                   END AS exercise_days,
                    ca.captain_name,
                    p.description   AS plan_name,
                    p.price         AS plan_price,
@@ -173,6 +185,12 @@ public function searchAll(array $filters = []): array {
                    ca.captain_name AS captain_name,
                    c.phone         AS phone_number,
                    b.branch_name,
+                   CASE
+                       WHEN r.level = 1 THEN b.working_days1
+                       WHEN r.level = 2 THEN b.working_days2
+                       WHEN r.level = 3 THEN b.working_days3
+                       ELSE COALESCE(b.working_days2, b.working_days1, b.working_days3)
+                   END AS exercise_days,
 
 
                 EXISTS (
@@ -183,7 +201,7 @@ public function searchAll(array $filters = []): array {
 ) AS has_refund,
 
 
-                   p.price         AS plan_price,
+                   COALESCE(p.price, 0) AS plan_price,
                    p.description   AS plan_name
             FROM receipts r
             LEFT JOIN clients  c  ON c.id  = r.client_id

@@ -246,7 +246,7 @@ try {
                 $insertUser->execute([
                     ':id' => $creatorId,
                     ':username' => clean_value($row[5] ?? null) ?? "Migrated User {$creatorId}",
-                    ':email' => "migrated.user.{$creatorId}@migration.local",
+                    ':email' => "migrated.user.{$creatorId}@gmail.com",
                     ':role' => map_role(clean_value($row[25] ?? null)),
                     ':created_at' => $createdAt,
                 ]);
