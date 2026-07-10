@@ -134,3 +134,11 @@ branch manager {
   excersice time
   level
 }
+
+
+
+
+
+captains table {
+  arabic encoding
+}

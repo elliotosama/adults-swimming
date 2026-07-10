@@ -182,13 +182,6 @@ require ROOT . '/views/includes/layout_top.php';
                                 <td>
                                     <div class="td-actions">
                                         <a href="<?= APP_URL ?>/admin/captains/show?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
-                                        <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
-                                        <?php if ($_SESSION['user']['role'] === 'admin'): ?>
-                                        <button type="button"
-                                                class="btn btn-sm btn-danger js-delete-captain"
-                                                data-id="<?= $c['id'] ?>"
-                                                data-name="<?= htmlspecialchars($c['captain_name']) ?>">حذف</button>
-                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>

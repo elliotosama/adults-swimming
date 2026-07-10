@@ -172,15 +172,6 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
                             <td>
                                 <div class="td-actions">
                                     <a href="<?= APP_URL ?>/client/show?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
-                                    <a href="<?= APP_URL ?>/client/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
-                                    <form method="POST"
-      action="<?= APP_URL ?>/client/delete?id=<?= $c['id'] ?>"
-      style="display:inline"
-      onsubmit="event.preventDefault(); showDeleteModal(this);">
-    <input type="hidden" name="csrf_token"
-           value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-    <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-</form>
                                     <form method="POST" action="<?= APP_URL ?>/client/delete?id=<?= $c['id'] ?>"
                                           style="display:inline"
                                           onsubmit="return confirm('هل أنت متأكد من حذف هذا العميل؟')">

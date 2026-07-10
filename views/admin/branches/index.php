@@ -243,14 +243,6 @@ body {
                                     <div class="td-actions">
                                         <a href="<?= APP_URL ?>/admin/branch/show?id=<?= $b['id'] ?>"
                                            class="btn btn-sm btn-secondary">عرض</a>
-                                        <a href="<?= APP_URL ?>/admin/branch/edit?id=<?= $b['id'] ?>"
-                                           class="btn btn-sm btn-warning">تعديل</a>
-                                        <?php if ($_SESSION['user']['role'] === 'admin'): ?>
-                                        <button type="button"
-                                                class="btn btn-sm btn-danger js-delete-branch"
-                                                data-id="<?= $b['id'] ?>"
-                                                data-name="<?= htmlspecialchars($b['branch_name']) ?>">حذف</button>
-                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
@@ -481,7 +473,6 @@ body {
         if (link) {
             const href = link.getAttribute('href') || '';
             if (href.includes('/admin/branch/create') ||
-                href.includes('/admin/branch/edit')   ||
                 href.includes('/admin/branch/show')) {
                 e.preventDefault();
                 openBranchModal(link.href);

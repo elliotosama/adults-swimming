@@ -409,13 +409,20 @@ public function create(array $data): int {
             $params[':ls_to'] = $filters['last_session_to'];
         }
 
-        if (!empty($filters['created_from'])) {
-            $conditions[]       = "DATE(r.created_at) >= :cr_from";
-            $params[':cr_from'] = $filters['created_from'];
+        $createdFrom = $this->normalizeDate($filters['created_from'] ?? '');
+        $createdTo   = $this->normalizeDate($filters['created_to'] ?? '');
+
+        if ($createdFrom && $createdTo && $createdFrom > $createdTo) {
+            [$createdFrom, $createdTo] = [$createdTo, $createdFrom];
         }
-        if (!empty($filters['created_to'])) {
-            $conditions[]     = "DATE(r.created_at) <= :cr_to";
-            $params[':cr_to'] = $filters['created_to'];
+
+        if ($createdFrom) {
+            $conditions[]       = "r.created_at >= :cr_from";
+            $params[':cr_from'] = $createdFrom;
+        }
+        if ($createdTo) {
+            $conditions[]     = "r.created_at < :cr_to_exclusive";
+            $params[':cr_to_exclusive'] = (new DateTimeImmutable($createdTo))->modify('+1 day')->format('Y-m-d');
         }
 
         if (!empty($filters['statuses']) && is_array($filters['statuses'])) {
@@ -515,6 +522,16 @@ if (!empty($filters['force_creator_id'])) {
 
         $sql = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
         return [$sql, $params];
+    }
+
+    private function normalizeDate(?string $value): ?string {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+        return $date && $date->format('Y-m-d') === $value ? $value : null;
     }
 
     private function bind(array $data): array {
