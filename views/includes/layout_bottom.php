@@ -1,4 +1,40 @@
 </div><!-- /.page -->
+<style>
+    :root {
+        --text: #fff !important;
+        --muted: #fff !important;
+        --text-muted: #fff !important;
+        --text-label: #fff !important;
+    }
+
+    html,
+    body {
+        font-size: 1.2rem !important;
+        color: #fff !important;
+    }
+
+    body,
+    button,
+    input,
+    select,
+    textarea,
+    .page,
+    .page *,
+    body * {
+        font-family: 'Cairo', sans-serif !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    .page {
+        font-size: 1.2rem !important;
+    }
+
+    table th,
+    table td {
+        text-align: center !important;
+    }
+</style>
 <script>
     // Mobile nav toggle
     const toggle = document.getElementById('navToggle');

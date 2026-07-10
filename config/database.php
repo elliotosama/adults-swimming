@@ -2,15 +2,9 @@
 // config/database.php
 
 define('DB_HOST', 'localhost');
-<<<<<<< HEAD
-define('DB_NAME', 'swimming_academy_migrated');
-define('DB_USER', 'root');        // ← change to your DB user
-define('DB_PASS', '');            // ← change to your DB password
-=======
 define('DB_NAME', 'swimming_academy');
 define('DB_USER', 'adults');        // ← change to your DB user
 define('DB_PASS', 'ThisisMyVeryStrongPassword');            // ← change to your DB password
->>>>>>> 3bee976 (adding my data)
 define('DB_CHARSET', 'utf8mb4');
 define('DB_PORT', 3306);
 

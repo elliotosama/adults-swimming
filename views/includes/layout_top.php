@@ -33,9 +33,28 @@
             min-height: 100%;
             font-family: 'Cairo', sans-serif;
             background: var(--bg);
-            font-size: 16px;
+            font-size: 1.2rem;
+            font-weight: 400;
             color: #fff;
             direction: rtl;
+        }
+
+        body,
+        button,
+        input,
+        select,
+        textarea {
+            font-family: 'Cairo', sans-serif !important;
+        }
+
+        .page {
+            font-size: 1.2rem;
+            font-weight: 400;
+        }
+
+        .page,
+        .page * {
+            font-family: 'Cairo', sans-serif !important;
         }
 
         /* ── Background ── */
@@ -187,7 +206,7 @@
         table { width: 100%; border-collapse: collapse; }
         thead tr { border-bottom: 1px solid var(--border); }
         th {
-            padding: 1rem 1.2rem; text-align: right;
+            padding: 1rem 1.2rem; text-align: center !important;
             font-size: .78rem; font-weight: 700; letter-spacing: .06em;
             color: var(--muted); text-transform: uppercase; white-space: nowrap;
         }
@@ -195,11 +214,12 @@
             padding: 1rem 1.2rem; font-size: .9rem;
             border-bottom: 1px solid #3C3F5860;
             vertical-align: middle;
+            text-align: center !important;
         }
         tbody tr { transition: background .15s; }
         tbody tr:hover { background: #007ACC08; }
         tbody tr:last-child td { border-bottom: none; }
-        .td-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+        .td-actions { display: flex; gap: .4rem; flex-wrap: wrap; justify-content: center; }
 
         /* ── Badges ── */
         .badge {
@@ -345,7 +365,7 @@
             .form-body { padding: 1.2rem; }
             .radio-group { flex-direction: column; gap: .5rem; }
             .danger-zone { flex-direction: column; align-items: flex-start; }
-            .td-actions { justify-content: flex-start; }
+            .td-actions { justify-content: center; }
             .btn { font-size: .85rem; }
             th, td { padding: .75rem .8rem; }
             .filter-bar { flex-direction: column; }

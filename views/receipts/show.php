@@ -216,6 +216,7 @@ body,
     display: flex;
     gap: .35rem;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 /* ── Audit log table: narrower min so it fits sooner ────────────────────── */

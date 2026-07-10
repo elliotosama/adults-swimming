@@ -222,6 +222,35 @@ if (isset($_SESSION['user'])) {
     width: 100%;
     height: auto;
 }
+
+        :root {
+            --text: #fff !important;
+            --muted: #fff !important;
+            --text-muted: #fff !important;
+            --text-label: #fff !important;
+        }
+
+        html,
+        body {
+            font-size: 1.2rem !important;
+            color: #fff !important;
+            font-weight: 400;
+        }
+
+        body,
+        body *,
+        button,
+        input,
+        select,
+        textarea {
+            font-family: 'Cairo', sans-serif !important;
+            color: #fff !important;
+            -webkit-text-fill-color: #fff !important;
+        }
+
+        .page {
+            font-size: 1.2rem !important;
+        }
     </style>
 </head>
 <body>

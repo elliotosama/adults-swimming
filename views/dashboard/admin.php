@@ -170,7 +170,7 @@ body { font-size: 16px; }
 }
 .dash-card table th {
     padding: .65rem 1.2rem;
-    text-align: right;
+    text-align: center;
     font-size: .78rem;
     font-weight: 800;
     text-transform: uppercase;
@@ -185,6 +185,7 @@ body { font-size: 16px; }
     border-bottom: 1px solid var(--border);
     color: var(--text);
     vertical-align: middle;
+    text-align: center;
     font-size: .92rem;
 }
 .dash-card table tr:last-child td { border-bottom: none; }
