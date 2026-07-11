@@ -1661,7 +1661,7 @@ public function update(): void {
 
                     if ($lastSession) {
                         $prevLastSession = $lastSession;
-                        $autoRenewalType = $this->resolveRenewalType($lastSession);
+                        // $autoRenewalType = $this->resolveRenewalType($lastSession);
                     }
                 }
             }
@@ -1767,9 +1767,9 @@ public function storeRenewal(): void {
         ");
         $prevStmt->execute([$clientId]);
         $lastSession = (string)($prevStmt->fetchColumn() ?: '');
-        if ($lastSession) {
-            $serverRenewalType = $this->resolveRenewalType($lastSession);
-        }
+        // if ($lastSession) {
+        //     // $serverRenewalType = $this->resolveRenewalType($lastSession);
+        // }
     }
 
     $errors = $this->validate($data);
@@ -2629,9 +2629,9 @@ public function manage(): void {
                 if ($prevRow) {
                     $prevLastSession  = (string)($prevRow['last_session']  ?: '');
                     $prevFirstSession = (string)($prevRow['first_session'] ?: '');
-                    if ($prevLastSession) {
-                        $autoRenewalType = $this->resolveRenewalType($prevLastSession);
-                    }
+                    // if ($prevLastSession) {
+                    //     $autoRenewalType = $this->resolveRenewalType($prevLastSession);
+                    // }
                 }
 
                 if (!empty($renewClient['phone'])) {
