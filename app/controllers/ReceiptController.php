@@ -628,16 +628,6 @@ private function checkRenewalEligibility(int $clientId, string $newFirstSession 
         ];
     }
 
-    // Today's date guard
-    if ($newFirstSession && $newFirstSession === date('Y-m-d')) {
-        return [
-            'ok'         => false,
-            'is_new'     => false,
-            'block_type' => 'today_date',
-            'message'    => 'لا يمكن إنشاء إيصال تجديد بتاريخ اليوم. يرجى اختيار تاريخ مستقبلي.',
-        ];
-    }
-
     // Completed → renewal is fine
     if ($status === 'completed') {
         return ['ok' => true, 'is_new' => false, 'is_academy_fault' => false, 'message' => ''];
@@ -1733,12 +1723,6 @@ public function storeRenewal(): void {
         $data['renewal_type'] = $submittedRenewalType;
     }
 
-    // Block renewal if first_session is today or in the past
-    if (empty($errors) && !empty($data['first_session'])) {
-        if ($data['first_session'] <= date('Y-m-d')) {
-            $errors[] = 'لا يمكن إنشاء إيصال تجديد بتاريخ اليوم أو تاريخ سابق. يرجى اختيار تاريخ مستقبلي.';
-        }
-    }
 
     // Eligibility check
     if (empty($errors) && $clientId) {

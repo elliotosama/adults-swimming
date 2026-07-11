@@ -751,10 +751,8 @@
                 <div class="form-field">
                   <label class="form-label">تاريخ أول جلسة <span class="req">*</span></label>
                   <input type="date" name="first_session" id="new-start-date" class="form-control"
-                         min="<?= $todayDate ?>"
                          value="<?= htmlspecialchars($receipt['first_session'] ?? '') ?>" required
                          onchange="newUpdateDates()">
-                  <span class="field-hint">لا يمكن اختيار تاريخ في الماضي</span>
                 </div>
                 <div class="form-field">
                   <label class="form-label">وقت التمرين</label>
@@ -783,9 +781,6 @@
                 <div class="inline-error full" id="new-day-error">
                   ❌ هذا الفرع لا يعمل في اليوم المختار — أيام العمل:
                   <span id="new-day-error-hint" style="font-weight:600;margin-right:4px;"></span>
-                </div>
-                <div class="inline-error full" id="new-past-date-error">
-                  ❌ لا يمكن اختيار تاريخ في الماضي.
                 </div>
               </div>
             </div>
@@ -1045,8 +1040,8 @@
                 <div class="form-field">
                   <label class="form-label">تاريخ أول جلسة <span class="req">*</span></label>
                   <input type="date" name="first_session" id="ren-start-date" class="form-control"
-                         min="<?= date('Y-m-d', strtotime('+1 day')) ?>" required onchange="renUpdateDates()">
-                  <span class="field-hint">يجب أن يكون تاريخاً مستقبلياً ومختلفاً عن الإيصال السابق</span>
+                         required onchange="renUpdateDates()">
+                  <span class="field-hint">يجب أن يكون مختلفاً عن تاريخ أول جلسة في الإيصال السابق</span>
                 </div>
                 <div class="form-field">
                   <label class="form-label">وقت التمرين</label>
@@ -1069,8 +1064,6 @@
                   </label>
                 </div>
                 <div class="inline-error full" id="ren-day-error">❌ هذا الفرع لا يعمل في اليوم المختار — أيام العمل: <span id="ren-day-error-hint" style="font-weight:600;margin-right:4px;"></span></div>
-                <div class="inline-error full" id="ren-past-date-error">❌ يجب اختيار تاريخ مستقبلي.</div>
-                <div class="inline-error full" id="ren-today-error" style="display:none;">❌ لا يمكن إنشاء تجديد بتاريخ اليوم.</div>
                 <div class="inline-error full" id="ren-same-date-error" style="display:none;">❌ <span id="ren-same-date-msg"></span></div>
               </div>
             </div>
@@ -1214,6 +1207,7 @@
           <div class="payment-form" style="margin-top:24px;">
             <div class="payment-form-header">💳 تفاصيل الدفعة</div>
             <div class="payment-form-body">
+              <div class="missing-fields-alert" id="pay-missing-fields-alert"></div>
               <div class="form-grid-3">
                 <div class="form-field">
                   <label class="form-label">المبلغ <span style="color:var(--danger);">*</span></label>
@@ -1245,7 +1239,7 @@
                 </div>
               </div>
               <div style="margin-top:18px;display:flex;gap:10px;">
-                <button type="submit" class="btn btn-primary">💾 تسجيل الدفعة</button>
+                <button type="submit" class="btn btn-primary" id="pay-submit-btn">💾 تسجيل الدفعة</button>
                 <button type="button" class="btn btn-secondary"
                         onclick="document.getElementById('paymentAddForm').style.display='none'">إلغاء</button>
               </div>
@@ -1380,6 +1374,7 @@
 
             <div class="refund-form-header">↩️ تفاصيل الاسترداد</div>
             <div class="refund-form-body">
+              <div class="missing-fields-alert" id="refund-missing-fields-alert"></div>
               <div class="form-grid-3">
                 <div class="form-field">
                   <label class="form-label">المبلغ المُسترَد <span style="color:var(--danger);">*</span></label>
@@ -1416,6 +1411,7 @@
 
               <div style="margin-top:18px;display:flex;gap:10px;">
                 <button type="submit" class="btn btn-primary"
+                        id="refund-submit-btn"
                         style="background:var(--danger);box-shadow:0 4px 20px rgba(224,108,117,.35);">
                   ↩️ تأكيد الاسترداد
                 </button>
@@ -1456,6 +1452,8 @@
         <form method="POST" action="<?= APP_URL ?>/client/create" id="newClientForm">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
           <input type="hidden" name="redirect_tab" value="client">
+
+          <div class="missing-fields-alert" id="client-missing-fields-alert"></div>
 
           <!-- § 1 — بيانات العميل -->
           <div class="form-section">
@@ -1597,7 +1595,7 @@
         let firstInvalid = null;
 
         fields.forEach(({ el, label }) => {
-            if (!el || el.type === 'hidden') return;
+            if (!el || el.type === 'hidden' || el.disabled || el.readOnly) return;
             const visible = el.offsetParent !== null;
             if (!visible) { el.classList.remove('field-invalid'); return; }
 
@@ -1614,6 +1612,16 @@
         return { missing, firstInvalid };
     }
 
+    function updateRequiredState(fields, alertId, submitId) {
+        const { missing, firstInvalid } = checkRequiredFields(fields);
+        showMissingFieldsAlert(alertId, missing);
+
+        const submitBtn = document.getElementById(submitId);
+        if (submitBtn) submitBtn.disabled = missing.length > 0;
+
+        return { missing, firstInvalid };
+    }
+
     function showMissingFieldsAlert(alertId, missing) {
         const alertEl = document.getElementById(alertId);
         if (!alertEl) return;
@@ -1622,7 +1630,7 @@
             alertEl.innerHTML = '';
             return;
         }
-        alertEl.innerHTML = '⚠️ يرجى استكمال الحقول التالية قبل المتابعة: <strong>' + missing.join('، ') + '</strong>';
+        alertEl.innerHTML = '⚠️ This fields is empty: <strong>' + missing.join('، ') + '</strong>';
         alertEl.classList.add('visible');
     }
 
@@ -1633,9 +1641,14 @@ function getNewRequiredFields() {
     const fields = [
         { el: document.querySelector('.new-client-name'),   label: 'اسم العميل' },
         { el: document.querySelector('.new-phone-local'),   label: 'هاتف العميل' },
+        { el: document.querySelector('[name="client_age"]'), label: 'العمر' },
+        { el: document.querySelector('[name="client_gender"]'), label: 'الجنس' },
         { el: document.getElementById('new-branch'),        label: 'الفرع' },
         { el: document.getElementById('new-plan'),          label: 'الخطة / العرض' },
+        { el: document.getElementById('new-captain'),       label: 'الكابتن' },
+        { el: document.querySelector('#newReceiptForm [name="level"]'), label: 'المستوى' },
         { el: document.getElementById('new-start-date'),    label: 'تاريخ أول جلسة' },
+        { el: document.getElementById('new-exercise-time'), label: 'وقت التمرين' },
         { el: document.getElementById('new-paid-amount'),   label: 'المبلغ المدفوع' },
         { el: document.getElementById('new-payment-method'),label: 'طريقة الدفع' },
     ];
@@ -1654,9 +1667,14 @@ function getRenRequiredFields() {
     const fields = [
         { el: document.querySelector('.ren-client-name'),   label: 'اسم العميل' },
         { el: document.querySelector('.ren-phone-local'),   label: 'هاتف العميل' },
+        { el: document.querySelector('#renewReceiptForm [name="client_age"]'), label: 'العمر' },
+        { el: document.querySelector('#renewReceiptForm [name="client_gender"]'), label: 'الجنس' },
         { el: document.getElementById('ren-branch'),        label: 'الفرع' },
         { el: document.getElementById('ren-plan'),          label: 'الخطة / العرض' },
+        { el: document.getElementById('ren-captain'),       label: 'الكابتن' },
+        { el: document.querySelector('#renewReceiptForm [name="level"]'), label: 'المستوى' },
         { el: document.getElementById('ren-start-date'),    label: 'تاريخ أول جلسة' },
+        { el: document.getElementById('ren-exercise-time'), label: 'وقت التمرين' },
         { el: document.getElementById('ren-paid-amount'),   label: 'المبلغ المدفوع' },
         { el: document.getElementById('ren-payment-method'),label: 'طريقة الدفع' },
     ];
@@ -1667,6 +1685,81 @@ function getRenRequiredFields() {
 
     return fields;
 }
+
+function getPaymentRequiredFields() {
+    const paymentMethod = document.querySelector('#paymentAddForm [name="payment_method"]');
+    const isCash = paymentMethod && paymentMethod.value === 'cash';
+
+    const fields = [
+        { el: document.getElementById('pay-selected-receipt-id'), label: 'الإيصال' },
+        { el: document.getElementById('pay-amount'), label: 'المبلغ' },
+        { el: paymentMethod, label: 'طريقة الدفع' },
+    ];
+
+    if (!isCash) {
+        fields.push({ el: document.getElementById('pay-evidence'), label: 'إثبات الدفع' });
+    }
+
+    return fields;
+}
+
+function getRefundRequiredFields() {
+    const refundMethod = document.getElementById('refund-method-select');
+    const isCash = refundMethod && refundMethod.value === 'cash';
+
+    const fields = [
+        { el: document.getElementById('refund-selected-receipt-id'), label: 'الإيصال' },
+        { el: document.getElementById('refund-amount'), label: 'المبلغ المُسترَد' },
+        { el: refundMethod, label: 'طريقة الاسترداد' },
+    ];
+
+    if (!isCash) {
+        fields.push({ el: document.getElementById('refund-evidence'), label: 'إثبات الاسترداد' });
+    }
+
+    return fields;
+}
+
+function getClientRequiredFields() {
+    return [
+        { el: document.getElementById('client-name-input'), label: 'اسم العميل' },
+        { el: document.getElementById('client-phone-input'), label: 'رقم الهاتف' },
+        { el: document.querySelector('#newClientForm [name="age"]'), label: 'العمر' },
+        { el: document.querySelector('#newClientForm [name="gender"]'), label: 'الجنس' },
+    ];
+}
+
+function isVisibleError(id) {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    return el.classList.contains('visible') || el.style.display === 'flex';
+}
+
+function bindRequiredValidation(formId, getFields, alertId, submitId, hasExtraBlocker = () => false) {
+    const form = document.getElementById(formId);
+    const submitBtn = document.getElementById(submitId);
+    if (!form || !submitBtn) return () => ({ missing: [], firstInvalid: null });
+
+    const refresh = () => {
+        const state = updateRequiredState(getFields(), alertId, submitId);
+        submitBtn.disabled = state.missing.length > 0 || hasExtraBlocker();
+        return state;
+    };
+
+    form.querySelectorAll('input, select, textarea').forEach(el => {
+        el.addEventListener('input', refresh);
+        el.addEventListener('change', refresh);
+    });
+
+    refresh();
+    return refresh;
+}
+
+let refreshNewRequiredState    = () => ({ missing: [], firstInvalid: null });
+let refreshRenRequiredState    = () => ({ missing: [], firstInvalid: null });
+let refreshPayRequiredState    = () => ({ missing: [], firstInvalid: null });
+let refreshRefundRequiredState = () => ({ missing: [], firstInvalid: null });
+let refreshClientRequiredState = () => ({ missing: [], firstInvalid: null });
 
     // ════════════════════════════════════════════════════════════════
     //  Tab switching
@@ -1689,6 +1782,11 @@ function getRenRequiredFields() {
             document.getElementById('tab-panel-' + t).classList.toggle('active', t === id);
         });
         history.replaceState(null, '', '#' + id);
+        if (id === 'new') refreshNewRequiredState();
+        if (id === 'renew') refreshRenRequiredState();
+        if (id === 'payment') refreshPayRequiredState();
+        if (id === 'refund') refreshRefundRequiredState();
+        if (id === 'client') refreshClientRequiredState();
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -1777,6 +1875,7 @@ function getRenRequiredFields() {
         populatePlans('new-plan', 'new-no-plans-notice', SAVED_PLAN_NEW, bid);
         populateCaptains('new-captain', bid, SAVED_CAPTAIN_NEW);
         newUpdateDates();
+        refreshNewRequiredState();
     }
     function newPlanChanged()    { newCalcRemaining(); newUpdateDates(); }
     function newCalcRemaining() {
@@ -1787,15 +1886,14 @@ function getRenRequiredFields() {
         const warn = document.getElementById('new-pay-warn'), sub = document.getElementById('new-submit-btn');
         if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); sub.disabled = true; }
         else { warn.classList.remove('visible'); sub.disabled = false; }
+        refreshNewRequiredState();
     }
     function newUpdateDates() {
         const start = document.getElementById('new-start-date').value;
         document.getElementById('new-renewal-date').value = '';
         document.getElementById('new-last-date').value    = '';
         document.getElementById('new-day-error').classList.remove('visible');
-        document.getElementById('new-past-date-error').classList.remove('visible');
         if (!start || !getBranchId('new')) return;
-        if (start < TODAY) { document.getElementById('new-past-date-error').classList.add('visible'); document.getElementById('new-submit-btn').disabled = true; return; }
         const meta = branchMeta(getBranchId('new'));
         if (!meta?.days?.length) return;
         const day = new Date(start+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
@@ -1809,6 +1907,7 @@ function getRenRequiredFields() {
         const result = buildSessionDates(start, meta.days, total, document.getElementById('new-double').checked);
         document.getElementById('new-renewal-date').value = result.renewal;
         document.getElementById('new-last-date').value    = result.last;
+        refreshNewRequiredState();
     }
     function newValidateTime() {
         const t = document.getElementById('new-exercise-time').value, el = document.getElementById('new-time-error');
@@ -1824,10 +1923,10 @@ function getRenRequiredFields() {
         const f = document.getElementById('new-evidence-field'), i = document.getElementById('new-transaction-evidence');
         if (m && m !== 'cash') { f.classList.add('visible'); i.required = true; }
         else { f.classList.remove('visible'); i.required = false; i.value = ''; }
+        refreshNewRequiredState();
     }
     document.getElementById('newReceiptForm')?.addEventListener('submit', e => {
-        const { missing, firstInvalid } = checkRequiredFields(getNewRequiredFields());
-        showMissingFieldsAlert('new-missing-fields-alert', missing);
+        const { missing, firstInvalid } = refreshNewRequiredState();
         if (missing.length) {
             e.preventDefault();
             firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1856,6 +1955,7 @@ function getRenRequiredFields() {
         populatePlans('ren-plan', 'ren-no-plans-notice', SAVED_PLAN_REN, bid);
         populateCaptains('ren-captain', bid, SAVED_CAPTAIN_REN);
         renUpdateDates();
+        refreshRenRequiredState();
     }
     function renPlanChanged() { renCalcRemaining(); renUpdateDates(); }
     function renCalcRemaining() {
@@ -1864,20 +1964,15 @@ function getRenRequiredFields() {
         const warn = document.getElementById('ren-pay-warn'), sub = document.getElementById('ren-submit-btn');
         if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); sub.disabled = true; }
         else { warn.classList.remove('visible'); sub.disabled = false; }
+        refreshRenRequiredState();
     }
     function renUpdateDates() {
         const start = document.getElementById('ren-start-date')?.value;
         document.getElementById('ren-renewal-date').value = '';
         document.getElementById('ren-last-date').value    = '';
-        ['ren-day-error','ren-past-date-error'].forEach(id => document.getElementById(id).classList.remove('visible'));
-        document.getElementById('ren-today-error').style.display    = 'none';
+        document.getElementById('ren-day-error').classList.remove('visible');
         document.getElementById('ren-same-date-error').style.display = 'none';
         if (!start || !getBranchId('ren')) return;
-        if (start <= TODAY) {
-            if (start === TODAY) document.getElementById('ren-today-error').style.display = 'flex';
-            else document.getElementById('ren-past-date-error').classList.add('visible');
-            document.getElementById('ren-submit-btn').disabled = true; return;
-        }
         if (PREV_FIRST_SESSION && start === PREV_FIRST_SESSION) {
             document.getElementById('ren-same-date-msg').textContent = 'لا يمكن استخدام نفس تاريخ بداية الإيصال السابق (' + PREV_FIRST_SESSION + ').';
             document.getElementById('ren-same-date-error').style.display = 'flex';
@@ -1895,6 +1990,7 @@ function getRenRequiredFields() {
         const result = buildSessionDates(start, meta.days, total, document.getElementById('ren-double').checked);
         document.getElementById('ren-renewal-date').value = result.renewal;
         document.getElementById('ren-last-date').value    = result.last;
+        refreshRenRequiredState();
     }
     function renValidateTime() {
         const t = document.getElementById('ren-exercise-time').value, el = document.getElementById('ren-time-error');
@@ -1910,6 +2006,7 @@ function getRenRequiredFields() {
         const f = document.getElementById('ren-evidence-field'), i = document.getElementById('ren-transaction-evidence');
         if (m && m !== 'cash') { f.classList.add('visible'); i.required = true; }
         else { f.classList.remove('visible'); i.required = false; i.value = ''; }
+        refreshRenRequiredState();
     }
     function renValidateRenewalType() {
     const curr = document.getElementById('ren-rt-current'), prev = document.getElementById('ren-rt-previous');
@@ -1926,13 +2023,12 @@ function getRenRequiredFields() {
     document.getElementById('ren-type-mismatch-msg').innerHTML =
         `اخترت <strong>${RENEWAL_TYPE_LABELS[chosen]}</strong> لكن الصحيح هو:<br>` +
         `<span class="correct-answer-pill ${pillClass}">${RENEWAL_TYPE_LABELS[SERVER_RENEWAL_TYPE]}</span>`;
-    mismatch.classList.add('visible'); return false;
+    mismatch.classList.add('visible'); refreshRenRequiredState(); return false;
 }
     document.getElementById('ren-rt-current')?.addEventListener('change',  renValidateRenewalType);
     document.getElementById('ren-rt-previous')?.addEventListener('change', renValidateRenewalType);
     document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
-        const { missing, firstInvalid } = checkRequiredFields(getRenRequiredFields());
-        showMissingFieldsAlert('ren-missing-fields-alert', missing);
+        const { missing, firstInvalid } = refreshRenRequiredState();
         if (missing.length) {
             e.preventDefault();
             firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1961,13 +2057,22 @@ function getRenRequiredFields() {
         document.getElementById('pay-amount').value = remaining > 0 ? remaining : '';
         const form = document.getElementById('paymentAddForm');
         form.style.display = 'block';
+        refreshPayRequiredState();
         form.scrollIntoView({ behavior: 'smooth' });
     }
     function payToggleEvidence(method) {
         const f = document.getElementById('pay-evidence-field'), i = document.getElementById('pay-evidence');
         if (method && method !== 'cash') { f.classList.add('visible'); i.required = true; }
         else { f.classList.remove('visible'); i.required = false; i.value = ''; }
+        refreshPayRequiredState();
     }
+    document.getElementById('paymentAddForm')?.addEventListener('submit', e => {
+        const { missing, firstInvalid } = refreshPayRequiredState();
+        if (missing.length) {
+            e.preventDefault();
+            firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
 
     // ════════════════════════════════════════════════════════════════
     //  TAB 4 — استرداد
@@ -1984,18 +2089,34 @@ function getRenRequiredFields() {
         refundToggleEvidence('');
         const wrap = document.getElementById('refundFormWrap');
         wrap.classList.add('visible');
+        refreshRefundRequiredState();
         wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     function refundToggleEvidence(method) {
         const f = document.getElementById('refund-evidence-field'), i = document.getElementById('refund-evidence');
         if (method && method !== 'cash') { f.classList.add('visible'); i.required = true; }
         else { f.classList.remove('visible'); i.required = false; i.value = ''; }
+        refreshRefundRequiredState();
     }
+    document.getElementById('refundForm')?.addEventListener('submit', e => {
+        const { missing, firstInvalid } = refreshRefundRequiredState();
+        if (missing.length) {
+            e.preventDefault();
+            firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
 
     // ════════════════════════════════════════════════════════════════
     //  TAB 5 — عميل جديد
     // ════════════════════════════════════════════════════════════════
     document.getElementById('newClientForm')?.addEventListener('submit', e => {
+        const { missing, firstInvalid } = refreshClientRequiredState();
+        if (missing.length) {
+            e.preventDefault();
+            firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
         let valid = true;
 
         // Name: 3 words minimum
@@ -2028,7 +2149,42 @@ function getRenRequiredFields() {
         form.reset();
         document.getElementById('client-name-error')?.classList.remove('visible');
         document.getElementById('client-email-error')?.classList.remove('visible');
+        refreshClientRequiredState();
     }
+
+    refreshNewRequiredState = bindRequiredValidation(
+        'newReceiptForm',
+        getNewRequiredFields,
+        'new-missing-fields-alert',
+        'new-submit-btn',
+        () => isVisibleError('new-day-error') || isVisibleError('new-time-error') || isVisibleError('new-pay-warn')
+    );
+    refreshRenRequiredState = bindRequiredValidation(
+        'renewReceiptForm',
+        getRenRequiredFields,
+        'ren-missing-fields-alert',
+        'ren-submit-btn',
+        () => isVisibleError('ren-day-error') || isVisibleError('ren-time-error') || isVisibleError('ren-pay-warn') ||
+              isVisibleError('ren-same-date-error') || isVisibleError('ren-type-mismatch-error') || isVisibleError('ren-type-required-error')
+    );
+    refreshPayRequiredState = bindRequiredValidation(
+        'paymentAddForm',
+        getPaymentRequiredFields,
+        'pay-missing-fields-alert',
+        'pay-submit-btn'
+    );
+    refreshRefundRequiredState = bindRequiredValidation(
+        'refundForm',
+        getRefundRequiredFields,
+        'refund-missing-fields-alert',
+        'refund-submit-btn'
+    );
+    refreshClientRequiredState = bindRequiredValidation(
+        'newClientForm',
+        getClientRequiredFields,
+        'client-missing-fields-alert',
+        'client-submit-btn'
+    );
 
     // ════════════════════════════════════════════════════════════════
     //  Init
@@ -2103,3 +2259,4 @@ renPaymentMethod.addEventListener('change', function () {
     </script>
 
     <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+

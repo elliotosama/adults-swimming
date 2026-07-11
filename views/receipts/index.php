@@ -696,12 +696,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
             <?php if ($canFilter('created')): ?>
             <div class="filter-pair">
                 <div class="filter-group">
-                    <label>تاريخ الإنشاء — من</label>
+                    <label>تاريخ العملية — من</label>
                     <input type="date" name="created_from"
                            value="<?= htmlspecialchars($filters['created_from'] ?? '') ?>">
                 </div>
                 <div class="filter-group">
-                    <label>تاريخ الإنشاء — إلى</label>
+                    <label>تاريخ العملية — إلى</label>
                     <input type="date" name="created_to"
                            value="<?= htmlspecialchars($filters['created_to'] ?? '') ?>">
                 </div>
@@ -1576,3 +1576,4 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 </script>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+

@@ -6,8 +6,8 @@ require ROOT . '/views/includes/layout_top.php';
  * Role gate
  * ─────────
  * Admin:            full edit access to everything.
- * customer_service: can edit only branch_id, captain_id, first_session,
- *                    and exercise_time. Everything else is read-only.
+ * customer_service: can edit only branch_id, captain_id, level,
+ *                    first_session, and exercise_time. Everything else is read-only.
  * branch_manager:   can edit only captain_id, level, first_session,
  *                    and exercise_time. Everything else is read-only.
  * Everyone else (area_manager, ...):
@@ -18,15 +18,23 @@ require ROOT . '/views/includes/layout_top.php';
  *   client_name, phone, client_email, client_age, client_gender          (§1)
  *   double                                                              (§3 partials)
  *   remaining (always readonly / computed)
+ *   total_paid (§4 — admin may override; see note below)
  *
  * Fields editable by customer_service:
- *   branch_id, captain_id, first_session, exercise_time                  (§2 + §3)
+ *   branch_id, captain_id, level, first_session, exercise_time           (§2 + §3)
  *
  * Fields editable by branch_manager:
  *   captain_id, level, first_session, exercise_time                      (§2 + §3)
  *
  * Fields editable by area_manager-style non-admin roles in edit mode:
  *   branch_id, plan_id, payment_method, transaction_evidence, notes      (§2 + §4)
+ *
+ * Admin-only override:
+ *   total_paid — editing this does NOT overwrite any transaction row.
+ *   The controller compares the submitted total_paid against
+ *   original_total_paid (hidden field) and, if they differ, inserts an
+ *   adjustment transaction for the difference so the real transactions
+ *   sum reconciles to the new value. See ReceiptController::update().
  */
 $isAdmin = $isAdmin ?? false;
 $isEdit  = $isEdit  ?? true;
@@ -49,7 +57,7 @@ $canEditBranch   = $isAdmin || $isCustomerService || (!$isBranchManager && !$isC
 $canEditCaptain  = $isAdmin || $isCustomerService || $isBranchManager;
 $canEditSchedule = $isAdmin || $isCustomerService || $isBranchManager;
 $canEditPlan     = $isAdmin || (!$isCustomerService && !$isBranchManager);
-$canEditLevel    = $isAdmin || $isBranchManager;
+$canEditLevel    = $isAdmin || $isCustomerService || $isBranchManager;
 $canEditPayment  = $isAdmin || (!$isCustomerService && !$isBranchManager);
 
 /*
@@ -423,7 +431,7 @@ select.form-control:disabled {
                 <?php if ($isAdmin): ?>
                     🔓 مدير — تعديل كامل
                 <?php elseif ($isCustomerService): ?>
-                    🔓 خدمة العملاء — تعديل الفرع، الكابتن، تاريخ أول جلسة، وقت التمرين فقط
+                    🔓 خدمة العملاء — تعديل الفرع، الكابتن، المستوى، تاريخ أول جلسة، وقت التمرين فقط
                 <?php elseif ($isBranchManager): ?>
                     🔓 مدير فرع — تعديل الكابتن، المستوى، تاريخ أول جلسة، وقت التمرين فقط
                 <?php else: ?>
@@ -438,7 +446,7 @@ select.form-control:disabled {
     <?php if (!$isAdmin): ?>
     <div class="alert alert-info">
         <?php if ($isCustomerService): ?>
-            <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الكابتن</strong> و<strong>تاريخ أول جلسة</strong> و<strong>وقت التمرين</strong> فقط. باقي البيانات للقراءة فقط.</span>
+            <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الكابتن</strong> و<strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>وقت التمرين</strong> فقط. باقي البيانات للقراءة فقط.</span>
         <?php elseif ($isBranchManager): ?>
             <span>ℹ️ يمكنك تعديل <strong>الكابتن</strong> و<strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>وقت التمرين</strong> فقط. باقي البيانات للقراءة فقط.</span>
         <?php else: ?>
@@ -580,7 +588,7 @@ select.form-control:disabled {
 
         <!-- ══════════════════════════════════════════
              § 2 — تفاصيل الاشتراك
-             customer_service: branch_id / captain_id only.
+             customer_service: branch_id / captain_id / level only.
              branch_manager: captain_id / level only.
         ══════════════════════════════════════════ -->
         <div class="form-section">
@@ -588,7 +596,7 @@ select.form-control:disabled {
                 <div class="section-icon">📋</div>
                 <span class="section-title">تفاصيل الاشتراك</span>
                 <?php if ($isCustomerService): ?>
-                    <span class="section-lock">🔒 الخطة والمستوى للقراءة فقط</span>
+                    <span class="section-lock">🔒 الخطة للقراءة فقط</span>
                 <?php elseif ($isBranchManager): ?>
                     <span class="section-lock">🔒 الفرع والخطة للقراءة فقط</span>
                 <?php elseif (!$canEditCaptain): ?>
@@ -761,6 +769,11 @@ select.form-control:disabled {
              the transactions table and are shown read-only above.
              For customer_service this section is read-only. Other permitted
              roles can update payment_method / evidence / notes.
+
+             total_paid is the ONE exception: admin may override it. Doing so
+             does not rewrite transaction history — the controller inserts an
+             adjustment transaction for the difference between the submitted
+             value and original_total_paid, so the real sum reconciles.
         ══════════════════════════════════════════ -->
         <div class="form-section">
             <div class="section-header">
@@ -779,12 +792,22 @@ select.form-control:disabled {
                         <span class="field-hint">يُحدَّث تلقائياً عند تغيير الخطة</span>
                     </div>
 
-                    <!-- إجمالي المدفوع — fixed, from transactions -->
+                    <!-- إجمالي المدفوع — computed from transactions; admin may override,
+                         which inserts an adjustment transaction on save to reconcile the sum -->
                     <div class="form-field computed-field <?= $totalPaid >= $planPrice && $planPrice > 0 ? 'paid' : '' ?>">
-                        <label class="form-label">إجمالي المدفوع</label>
-                        <input type="number" id="totalPaidDisplay" class="form-control"
-                               value="<?= $totalPaid ?>" readonly>
-                        <span class="field-hint">مجموع جميع الدفعات المسجّلة</span>
+                        <label class="form-label">
+                            إجمالي المدفوع
+                            <?= !$isAdmin ? '<span class="lock">🔒</span>' : '' ?>
+                        </label>
+                        <input type="number" name="<?= $isAdmin ? 'total_paid' : '' ?>" id="totalPaidDisplay" class="form-control"
+                               value="<?= $totalPaid ?>" step="0.01"
+                               <?= $isAdmin ? '' : 'readonly' ?>>
+                        <input type="hidden" name="original_total_paid" value="<?= $totalPaid ?>">
+                        <span class="field-hint">
+                            <?= $isAdmin
+                                ? 'تعديل هذه القيمة سيضيف حركة تسوية تلقائية لمطابقة المجموع'
+                                : 'مجموع جميع الدفعات المسجّلة' ?>
+                        </span>
                     </div>
 
                     <!-- المتبقي — recomputes when plan changes -->
@@ -848,6 +871,40 @@ select.form-control:disabled {
 
 <script>
 (function () {
+    const CAPTAINS_BY_BRANCH = <?= json_encode($captainsByBranch ?? new stdClass()) ?>;
+    const SAVED_CAPTAIN_ID   = <?= json_encode((string)($receipt['captain_id'] ?? '')) ?>;
+    const IS_ADMIN           = <?= json_encode($isAdmin) ?>;
+
+    const branchSelect  = document.getElementById('branch');
+    const captainSelect = document.getElementById('captain');
+
+    function populateCaptains() {
+        if (!branchSelect || !captainSelect || captainSelect.disabled) return;
+
+        const branchId = branchSelect.value;
+        const captains = branchId ? (CAPTAINS_BY_BRANCH[branchId] || []) : [];
+        const previousValue = captainSelect.value || SAVED_CAPTAIN_ID;
+
+        captainSelect.innerHTML = captains.length
+            ? '<option value="">— اختر الكابتن —</option>'
+            : '<option value="">— لا يوجد كباتن لهذا الفرع —</option>';
+
+        captains.forEach(captain => {
+            const option = document.createElement('option');
+            option.value = captain.id;
+            option.textContent = captain.name;
+            if (String(captain.id) === String(previousValue)) {
+                option.selected = true;
+            }
+            captainSelect.appendChild(option);
+        });
+    }
+
+    if (branchSelect) {
+        branchSelect.addEventListener('change', populateCaptains);
+        populateCaptains();
+    }
+
     // ── Payment evidence toggle ──────────────────────────────────────────────
     const pmSelect  = document.getElementById('payment_method');
     const evidField = document.getElementById('evidence-field');
@@ -862,24 +919,33 @@ select.form-control:disabled {
         toggleEvidence();
     }
 
-    // ── Remaining auto-compute when plan changes ─────────────────────────────
+    // ── Remaining auto-compute when plan or (admin-only) paid amount changes ──
     // remaining = plan_price - total_paid + total_refunded
-    // total_paid and total_refunded are FIXED for this session (from server).
+    // total_refunded is FIXED for this session (from server).
+    // total_paid is FIXED for non-admins, but live-editable for admin.
 
     const form          = document.getElementById('receiptForm');
     const planSelect    = document.getElementById('planSelect');
     const planPriceDisp = document.getElementById('planPriceDisplay');
+    const totalPaidInput= document.getElementById('totalPaidDisplay');
     const remainInput   = document.getElementById('remainingAmount');
     const summaryPrice  = document.getElementById('summaryPlanPrice');
     const summaryRem    = document.getElementById('summaryRemaining');
 
-    const totalPaid      = parseFloat(form.dataset.totalPaid)      || 0;
     const totalRefunded  = parseFloat(form.dataset.totalRefunded)  || 0;
+
+    function currentTotalPaid() {
+        if (IS_ADMIN && totalPaidInput) {
+            return parseFloat(totalPaidInput.value) || 0;
+        }
+        return parseFloat(form.dataset.totalPaid) || 0;
+    }
 
     function updateRemaining() {
         const opt   = planSelect ? planSelect.options[planSelect.selectedIndex] : null;
-        const price = opt ? (parseFloat(opt.dataset.price) || 0) : 0;
-        const rem   = Math.max(0, price - totalPaid + totalRefunded);
+        const price = opt ? (parseFloat(opt.dataset.price) || 0) : (parseFloat(form.dataset.planPrice) || 0);
+        const paid  = currentTotalPaid();
+        const rem   = Math.max(0, price - paid + totalRefunded);
 
         if (planPriceDisp) planPriceDisp.value   = price.toFixed(2);
         if (remainInput)   remainInput.value      = rem.toFixed(2);
@@ -894,8 +960,11 @@ select.form-control:disabled {
 
     if (planSelect) {
         planSelect.addEventListener('change', updateRemaining);
-        updateRemaining(); // run on load
     }
+    if (IS_ADMIN && totalPaidInput) {
+        totalPaidInput.addEventListener('input', updateRemaining);
+    }
+    updateRemaining(); // run on load
 })();
 </script>
 

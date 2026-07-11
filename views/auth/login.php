@@ -31,13 +31,15 @@ if (isset($_SESSION['user'])) {
         }
 
         html, body {
-            height: 100%;
+            min-height: 100%;
             font-family: 'Cairo', sans-serif;
             background: var(--bg);
             color: var(--text);
             font-size: 16px;
             font-weight: bold;
-            overflow: hidden;
+            /* was: overflow: hidden -- that blocked scrolling and hid the button on short screens */
+            overflow-x: hidden;
+            overflow-y: auto;
         }
 
         /* ── Water background (static) ── */
@@ -72,7 +74,7 @@ if (isset($_SESSION['user'])) {
             position: relative; z-index: 10;
             min-height: 100vh;
             display: flex; align-items: center; justify-content: center;
-            padding: 2rem;
+            padding: 2rem 1rem;
         }
 
         /* ── Card ── */
@@ -86,7 +88,6 @@ if (isset($_SESSION['user'])) {
                 0 0 0 1px #00b4d810,
                 0 32px 80px #00000080,
                 inset 0 1px 0 #ffffff08;
-            animation: none;
         }
 
         /* ── Logo ── */
@@ -216,12 +217,11 @@ if (isset($_SESSION['user'])) {
             margin-bottom: 1.2rem; text-align: center;
         }
 
-
-.logo-img {
-    max-width: 220px;
-    width: 100%;
-    height: auto;
-}
+        .logo-img {
+            max-width: 220px;
+            width: 100%;
+            height: auto;
+        }
 
         :root {
             --text: #fff !important;
@@ -250,6 +250,27 @@ if (isset($_SESSION['user'])) {
 
         .page {
             font-size: 1.2rem !important;
+        }
+
+        /* ── Mobile: shrink padding/font so the form + button fit better,
+               and guarantee scrolling works even on very short screens ── */
+        @media (max-width: 480px) {
+            .page {
+                padding: 1.2rem 0.75rem;
+                align-items: flex-start;
+            }
+            .card {
+                padding: 1.8rem 1.4rem;
+            }
+            html, body {
+                font-size: 1rem !important;
+            }
+        }
+
+        @media (max-height: 700px) {
+            .page {
+                align-items: flex-start;
+            }
         }
     </style>
 </head>
@@ -297,7 +318,6 @@ if (isset($_SESSION['user'])) {
                 <label for="email">البريد الإلكتروني</label>
                 <div class="input-wrap">
                     <input type="email" id="email" name="email"
-                           placeholder="example@email.com"
                            value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
                            required autocomplete="email">
                     <span class="icon">✉️</span>

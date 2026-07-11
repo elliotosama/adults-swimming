@@ -434,13 +434,47 @@ public function create(array $data): int {
             [$createdFrom, $createdTo] = [$createdTo, $createdFrom];
         }
 
-        if ($createdFrom) {
-            $conditions[]       = "r.created_at >= :cr_from";
-            $params[':cr_from'] = $createdFrom;
-        }
-        if ($createdTo) {
-            $conditions[]     = "r.created_at < :cr_to_exclusive";
-            $params[':cr_to_exclusive'] = (new DateTimeImmutable($createdTo))->modify('+1 day')->format('Y-m-d');
+        if ($createdFrom || $createdTo) {
+            $receiptDateParts = [];
+            $transactionDateParts = [];
+            $auditDateParts = [];
+
+            if ($createdFrom) {
+                $receiptDateParts[] = "r.created_at >= :cr_from_receipt";
+                $transactionDateParts[] = "t_activity.created_at >= :cr_from_transaction";
+                $auditDateParts[] = "al_activity.changed_at >= :cr_from_audit";
+                $params[':cr_from_receipt'] = $createdFrom;
+                $params[':cr_from_transaction'] = $createdFrom;
+                $params[':cr_from_audit'] = $createdFrom;
+            }
+            if ($createdTo) {
+                $createdToExclusive = (new DateTimeImmutable($createdTo))->modify('+1 day')->format('Y-m-d');
+                $receiptDateParts[] = "r.created_at < :cr_to_exclusive_receipt";
+                $transactionDateParts[] = "t_activity.created_at < :cr_to_exclusive_transaction";
+                $auditDateParts[] = "al_activity.changed_at < :cr_to_exclusive_audit";
+                $params[':cr_to_exclusive_receipt'] = $createdToExclusive;
+                $params[':cr_to_exclusive_transaction'] = $createdToExclusive;
+                $params[':cr_to_exclusive_audit'] = $createdToExclusive;
+            }
+
+            $receiptDateWhere = implode(' AND ', $receiptDateParts);
+            $transactionDateWhere = implode(' AND ', $transactionDateParts);
+            $auditDateWhere = implode(' AND ', $auditDateParts);
+            $conditions[] = "(
+                ({$receiptDateWhere})
+                OR EXISTS (
+                    SELECT 1
+                    FROM transactions t_activity
+                    WHERE t_activity.receipt_id = r.id
+                      AND {$transactionDateWhere}
+                )
+                OR EXISTS (
+                    SELECT 1
+                    FROM receipt_audit_log al_activity
+                    WHERE al_activity.receipt_id = r.id
+                      AND {$auditDateWhere}
+                )
+            )";
         }
 
         if (!empty($filters['statuses']) && is_array($filters['statuses'])) {
@@ -570,3 +604,4 @@ if (!empty($filters['force_creator_id'])) {
         ];
     }
 }
+
