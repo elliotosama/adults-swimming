@@ -590,7 +590,7 @@ if (!empty($filters['force_creator_id'])) {
         return [
             ':client_id'       => $data['client_id']       ?: null,
             ':creator_id'      => $data['creator_id']      ?: null,
-            ':captain_id'      => $data['captain_id']      ?: null,
+            ':captain_id' => $data['captain_id'] !== '' ? $data['captain_id'] : null,
             ':branch_id'       => $data['branch_id']       ?: null,
             ':first_session'   => $data['first_session']   ?: null,
             ':last_session'    => $data['last_session']    ?: null,

@@ -62,7 +62,7 @@ class ReceiptController {
             'client_gender'   => trim($_POST['client_gender']    ?? ''),
             'client_id'       => (int) ($_POST['client_id']      ?? 0),
             'creator_id'      => (int) ($_POST['creator_id']     ?? 0),
-            'captain_id'      => (int) ($_POST['captain_id']     ?? 0),
+            'captain_id' => trim($_POST['captain_id'] ?? ''),
             'branch_id'       => (int) ($_POST['branch_id']      ?? 0),
             'first_session'   => trim($_POST['first_session']    ?? ''),
             'last_session'    => trim($_POST['last_session']     ?? ''),
@@ -129,8 +129,8 @@ class ReceiptController {
 private function validate(array $data): array {
     $errors = [];
 
-    if (empty($data['branch_id']))
-        $errors[] = 'يجب اختيار الفرع.';
+if ($data['captain_id'] === '')
+    $errors[] = 'يجب اختيار الكابتن.';
 
     if (empty($data['captain_id']))                     // ← add this
         $errors[] = 'يجب اختيار الكابتن.';               // ← add this
