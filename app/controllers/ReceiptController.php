@@ -619,85 +619,85 @@ private function validate(array $data): array {
     // checkRenewalEligibility
     // ════════════════════════════════════════════════════════════════════════
 
-private function checkRenewalEligibility(int $clientId, string $newFirstSession = ''): array {
-    $db = get_db();
+// private function checkRenewalEligibility(int $clientId, string $newFirstSession = ''): array {
+//     $db = get_db();
 
-    $stmt = $db->prepare("
-        SELECT r.*, p.price AS plan_price
-        FROM receipts r
-        LEFT JOIN prices p ON p.id = r.plan_id
-        WHERE r.client_id = ?
-        ORDER BY r.id DESC
-        LIMIT 1
-    ");
-    $stmt->execute([$clientId]);
-    $prev = $stmt->fetch(PDO::FETCH_ASSOC);
+//     $stmt = $db->prepare("
+//         SELECT r.*, p.price AS plan_price
+//         FROM receipts r
+//         LEFT JOIN prices p ON p.id = r.plan_id
+//         WHERE r.client_id = ?
+//         ORDER BY r.id DESC
+//         LIMIT 1
+//     ");
+//     $stmt->execute([$clientId]);
+//     $prev = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // No previous receipt → brand-new client
-    if (!$prev) {
-        return ['ok' => true, 'is_new' => true, 'is_academy_fault' => false, 'message' => ''];
-    }
+//     // No previous receipt → brand-new client
+//     if (!$prev) {
+//         return ['ok' => true, 'is_new' => true, 'is_academy_fault' => false, 'message' => ''];
+//     }
 
-    $planPrice = (float) ($prev['plan_price'] ?? 0);
-    $status    = $prev['receipt_status'] ?? 'not_completed';
+//     $planPrice = (float) ($prev['plan_price'] ?? 0);
+//     $status    = $prev['receipt_status'] ?? 'not_completed';
 
-    // Same-date guard
-    if ($newFirstSession && $prev['first_session'] === $newFirstSession) {
-        return [
-            'ok'         => false,
-            'is_new'     => false,
-            'block_type' => 'same_date',
-            'message'    => 'لا يمكن إنشاء إيصال تجديد بنفس تاريخ بداية الإيصال السابق ('
-                . $prev['first_session'] . '). يرجى اختيار تاريخ مختلف.',
-        ];
-    }
+//     // Same-date guard
+//     if ($newFirstSession && $prev['first_session'] === $newFirstSession) {
+//         return [
+//             'ok'         => false,
+//             'is_new'     => false,
+//             'block_type' => 'same_date',
+//             'message'    => 'لا يمكن إنشاء إيصال تجديد بنفس تاريخ بداية الإيصال السابق ('
+//                 . $prev['first_session'] . '). يرجى اختيار تاريخ مختلف.',
+//         ];
+//     }
 
-    // Completed → renewal is fine
-    if ($status === 'completed') {
-        return ['ok' => true, 'is_new' => false, 'is_academy_fault' => false, 'message' => ''];
-    }
+//     // Completed → renewal is fine
+//     // if ($status === 'completed') {
+//     //     return ['ok' => true, 'is_new' => false, 'is_academy_fault' => false, 'message' => ''];
+//     // }
 
-    // not_completed — check payment & refund details
-    $ns = $this->getReceiptNetStatus((int)$prev['id'], $planPrice);
+//     // not_completed — check payment & refund details
+//     // $ns = $this->getReceiptNetStatus((int)$prev['id'], $planPrice);
 
-    $paidRefundRatio = $ns['grossPaid'] > 0
-        ? ($ns['totalRefunded'] / $ns['grossPaid'])
-        : 0;
+//     // $paidRefundRatio = $ns['grossPaid'] > 0
+//     //     ? ($ns['totalRefunded'] / $ns['grossPaid'])
+//     //     : 0;
 
-    // not_completed but fully paid (gross_paid >= plan_price) → allow renewal
-    if ($planPrice > 0 && $ns['grossPaid'] >= $planPrice) {
-        return ['ok' => true, 'is_new' => false, 'is_academy_fault' => false, 'message' => ''];
-    }
+//     // not_completed but fully paid (gross_paid >= plan_price) → allow renewal
+//     // if ($planPrice > 0 && $ns['grossPaid'] >= $planPrice) {
+//     //     return ['ok' => true, 'is_new' => false, 'is_academy_fault' => false, 'message' => ''];
+//     // }
 
 
 
-    // 50-99% of what they paid was refunded → academy fault
-    // Allow RENEWAL to proceed; block only NEW receipt (handled in store())
-    if ($paidRefundRatio >= self::ACADEMY_FAULT_MIN_RATIO) {
-        return [
-            'ok'               => true,   // ← renewal allowed
-            'is_new'           => false,
-            'is_academy_fault' => true,
-            'block_type'       => 'academy_fault_partial_refund',
-            'prev_receipt_id'  => $prev['id'],
-            'refund_pct'       => round($paidRefundRatio * 100),
-            'message'          => '',     // ← store() builds its own message
-        ];
-    }
+//     // 50-99% of what they paid was refunded → academy fault
+//     // Allow RENEWAL to proceed; block only NEW receipt (handled in store())
+//     if ($paidRefundRatio >= self::ACADEMY_FAULT_MIN_RATIO) {
+//         return [
+//             'ok'               => true,   // ← renewal allowed
+//             'is_new'           => false,
+//             'is_academy_fault' => true,
+//             'block_type'       => 'academy_fault_partial_refund',
+//             'prev_receipt_id'  => $prev['id'],
+//             'refund_pct'       => round($paidRefundRatio * 100),
+//             'message'          => '',     // ← store() builds its own message
+//         ];
+//     }
 
-    // 30%+ of what they paid was refunded → allow renewal
-    if ($paidRefundRatio >= self::RENEWAL_MIN_NET_RATIO) {
-        return ['ok' => true, 'is_new' => false, 'is_academy_fault' => false, 'message' => ''];
-    }
+//     // 30%+ of what they paid was refunded → allow renewal
+//     if ($paidRefundRatio >= self::RENEWAL_MIN_NET_RATIO) {
+//         return ['ok' => true, 'is_new' => false, 'is_academy_fault' => false, 'message' => ''];
+//     }
 
-    // Less than 30% refunded and not completed → silently treat as new receipt
-    return [
-        'ok'         => false,
-        'is_new'     => false,
-        'block_type' => 'not_completed_no_refund',
-        'message'    => '',
-    ];
-}
+//     // Less than 30% refunded and not completed → silently treat as new receipt
+//     return [
+//         'ok'         => false,
+//         'is_new'     => false,
+//         'block_type' => 'not_completed_no_refund',
+//         'message'    => '',
+//     ];
+// }
 
 
 
@@ -1630,41 +1630,41 @@ public function update(): void {
         if ($search) {
             $client = $this->searchClientByIdOrPhone($search, $managerBranchIds);
 
-            if ($client) {
-                $check = $this->checkRenewalEligibility((int)$client['id']);
+            // if ($client) {
+            //     $check = $this->checkRenewalEligibility((int)$client['id']);
 
-                if (!$check['ok']) {
-                    $blockType = $check['block_type'] ?? '';
+            //     if (!$check['ok']) {
+            //         $blockType = $check['block_type'] ?? '';
 
-                    if ($blockType === 'full_refund_needs_admin') {
-                        if ($isAdmin) {
-                            // Admin can continue — fall through to form
-                        } else {
-                            $eligibilityError = $check['message'];
-                            $client = null;
-                        }
-                    } else {
-                        $eligibilityError = $check['message'];
-                        $client = null;
-                    }
-                }
+            //         if ($blockType === 'full_refund_needs_admin') {
+            //             if ($isAdmin) {
+            //                 // Admin can continue — fall through to form
+            //             } else {
+            //                 $eligibilityError = $check['message'];
+            //                 $client = null;
+            //             }
+            //         } else {
+            //             $eligibilityError = $check['message'];
+            //             $client = null;
+            //         }
+            //     }
 
-                if ($client) {
-                    $db       = get_db();
-                    $prevStmt = $db->prepare("
-                        SELECT last_session FROM receipts
-                        WHERE client_id = ?
-                        ORDER BY id DESC LIMIT 1
-                    ");
-                    $prevStmt->execute([$client['id']]);
-                    $lastSession = (string)($prevStmt->fetchColumn() ?: '');
+            //     if ($client) {
+            //         $db       = get_db();
+            //         $prevStmt = $db->prepare("
+            //             SELECT last_session FROM receipts
+            //             WHERE client_id = ?
+            //             ORDER BY id DESC LIMIT 1
+            //         ");
+            //         $prevStmt->execute([$client['id']]);
+            //         $lastSession = (string)($prevStmt->fetchColumn() ?: '');
 
-                    if ($lastSession) {
-                        $prevLastSession = $lastSession;
-                        // $autoRenewalType = $this->resolveRenewalType($lastSession);
-                    }
-                }
-            }
+            //         if ($lastSession) {
+            //             $prevLastSession = $lastSession;
+            //             // $autoRenewalType = $this->resolveRenewalType($lastSession);
+            //         }
+            //     }
+            // }
         }
 
         $phoneLocal = '';
@@ -1776,25 +1776,25 @@ public function storeRenewal(): void {
 
     // Validate user-chosen renewal_type against server-computed value
     $submittedRenewalType = trim($_POST['renewal_type'] ?? '');
-    $validRenewalTypes    = ['new', 'current_renewal', 'previous_renewal'];
+    // $validRenewalTypes    = ['new', 'current_renewal', 'previous_renewal'];
 
-    if (empty($errors)) {
-        if (!in_array($submittedRenewalType, $validRenewalTypes, true)) {
-            $errors[] = 'نوع التجديد المختار غير صحيح. يرجى اختيار قيمة صحيحة.';
-        } elseif ($clientId && $submittedRenewalType !== $serverRenewalType) {
-            $typeLabels = [
-                'new'              => 'جديد',
-                'current_renewal'  => 'تجديد حالي',
-                'previous_renewal' => 'تجديد سابق',
-            ];
-            $errors[] = sprintf(
-                'نوع التجديد المختار ("%s") لا يتطابق مع النوع المحسوب تلقائياً ("%s") '
-                . 'بناءً على تاريخ آخر جلسة للعميل. يرجى اختيار النوع الصحيح.',
-                $typeLabels[$submittedRenewalType] ?? $submittedRenewalType,
-                $typeLabels[$serverRenewalType]    ?? $serverRenewalType
-            );
-        }
-    }
+    // if (empty($errors)) {
+    //     if (!in_array($submittedRenewalType, $validRenewalTypes, true)) {
+    //         $errors[] = 'نوع التجديد المختار غير صحيح. يرجى اختيار قيمة صحيحة.';
+    //     } elseif ($clientId && $submittedRenewalType !== $serverRenewalType) {
+    //         $typeLabels = [
+    //             'new'              => 'جديد',
+    //             'current_renewal'  => 'تجديد حالي',
+    //             'previous_renewal' => 'تجديد سابق',
+    //         ];
+    //         $errors[] = sprintf(
+    //             'نوع التجديد المختار ("%s") لا يتطابق مع النوع المحسوب تلقائياً ("%s") '
+    //             . 'بناءً على تاريخ آخر جلسة للعميل. يرجى اختيار النوع الصحيح.',
+    //             $typeLabels[$submittedRenewalType] ?? $submittedRenewalType,
+    //             $typeLabels[$serverRenewalType]    ?? $serverRenewalType
+    //         );
+    //     }
+    // }
 
     // ── IMPORTANT: use what the user actually chose, not the server-computed
     // value. The block above already guarantees that if we reach this point
@@ -1808,19 +1808,19 @@ public function storeRenewal(): void {
 
     // Eligibility check
     if (empty($errors) && $clientId) {
-        $check     = $this->checkRenewalEligibility($clientId, $data['first_session']);
+        // $check     = $this->checkRenewalEligibility($clientId, $data['first_session']);
         $blockType = $check['block_type'] ?? '';
 
-        if (!$check['ok']) {
-            if ($blockType === 'full_refund_needs_admin' && $isAdmin) {
-                // Admin override — allow renewal after 100% refund
-            } elseif ($blockType === 'not_completed_no_refund') {
-                $errors[] = 'الإيصال السابق غير مكتمل ولم يُسترَد ما يكفي منه للسماح بالتجديد. '
-                    . 'يرجى إتمام الدفع أو الاسترداد أولاً.';
-            } else {
-                $errors[] = $check['message'];
-            }
-        }
+        // if (!$check['ok']) {
+        //     if ($blockType === 'full_refund_needs_admin' && $isAdmin) {
+        //         // Admin override — allow renewal after 100% refund
+        //     } elseif ($blockType === 'not_completed_no_refund') {
+        //         $errors[] = 'الإيصال السابق غير مكتمل ولم يُسترَد ما يكفي منه للسماح بالتجديد. '
+        //             . 'يرجى إتمام الدفع أو الاسترداد أولاً.';
+        //     } else {
+        //         $errors[] = $check['message'];
+        //     }
+        // }
         // Note: academy_fault_partial_refund now returns ok=true, so it falls
         // through here without error — renewal is allowed for that case.
     }
@@ -2595,21 +2595,21 @@ public function manage(): void {
         $renewClient = $this->searchClientByIdOrPhone($renewSearch, $managerBranchIds);
 
         if ($renewClient) {
-            $check = $this->checkRenewalEligibility((int)$renewClient['id']);
+            // $check = $this->checkRenewalEligibility((int)$renewClient['id']);
 
-            if (!$check['ok']) {
-                $blockType = $check['block_type'] ?? '';
+            // if (!$check['ok']) {
+            //     $blockType = $check['block_type'] ?? '';
 
-                if ($blockType === 'full_refund_needs_admin') {
-                    if (!$isAdmin) {
-                        $eligibilityError = $check['message'];
-                        $renewClient = null;
-                    }
-                }  else {
-                    $eligibilityError = $check['message'];
-                    $renewClient = null;
-                }
-            }
+            //     if ($blockType === 'full_refund_needs_admin') {
+            //         if (!$isAdmin) {
+            //             $eligibilityError = $check['message'];
+            //             $renewClient = null;
+            //         }
+            //     }  else {
+            //         $eligibilityError = $check['message'];
+            //         $renewClient = null;
+            //     }
+            // }
 
             if ($renewClient) {
                 $prevStmt = $db->prepare("
