@@ -142,3 +142,11 @@ branch manager {
 captains table {
   arabic encoding
 }
+
+
+
+
+updates
+captains duplicates
+download refund pdfs
+ui in receipts

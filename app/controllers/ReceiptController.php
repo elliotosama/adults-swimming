@@ -40,6 +40,19 @@ class ReceiptController {
         $_SESSION[$key] = $msg;
     }
 
+    private function redirectAfterReceiptUpdate(int $receiptId): void {
+        $target = APP_URL . '/receipts?updated_receipt_id=' . $receiptId;
+
+        echo '<!doctype html><html><head><meta charset="utf-8"><title>تم تحديث الإيصال</title></head><body>';
+        echo '<script>';
+        echo 'const target = ' . json_encode($target) . ';';
+        echo 'if (window.parent && window.parent !== window) { window.parent.location.href = target; }';
+        echo 'else { window.location.href = target; }';
+        echo '</script>';
+        echo '</body></html>';
+        exit;
+    }
+
     // ── Branch scoping for branch_manager (many-to-many via user_branch) ──
     //
     // Returns the full list of branch IDs this user manages when they are a
@@ -53,32 +66,37 @@ class ReceiptController {
             : [];
     }
 
-    private function parseForm(): array {
-        return [
-            'client_name'     => trim($_POST['client_name']     ?? ''),
-            'phone'           => trim($_POST['full_phone']       ?? trim($_POST['phone'] ?? '')),
-            'client_email'    => trim($_POST['client_email']     ?? ''),
-            'client_age'      => (int)($_POST['client_age']      ?? 0) ?: null,
-            'client_gender'   => trim($_POST['client_gender']    ?? ''),
-            'client_id'       => (int) ($_POST['client_id']      ?? 0),
-            'creator_id'      => (int) ($_POST['creator_id']     ?? 0),
-            'captain_id' => trim($_POST['captain_id'] ?? ''),
-            'branch_id'       => (int) ($_POST['branch_id']      ?? 0),
-            'first_session'   => trim($_POST['first_session']    ?? ''),
-            'last_session'    => trim($_POST['last_session']     ?? ''),
-            'renewal_session' => trim($_POST['renewal_session']  ?? ''),
-            'receipt_status'  => trim($_POST['receipt_status']   ?? 'not_completed'),
-            'exercise_time'   => trim($_POST['exercise_time']    ?? ''),
-            'plan_id'         => (int) ($_POST['plan_id']        ?? 0) ?: null,
-            'level'           => (int) ($_POST['level']          ?? 0) ?: null,
-            'pdf_path'        => trim($_POST['pdf_path']         ?? ''),
-            'amount'          => (float) ($_POST['amount']       ?? 0),
-            'remaining'       => (float) ($_POST['remaining']    ?? 0),
-            'payment_method'  => trim($_POST['payment_method']   ?? ''),
-            'notes'           => trim($_POST['notes']            ?? ''),
-            'renewal_type'    => trim($_POST['renewal_type']     ?? 'new'),
-        ];
-    }
+
+private function parseForm(): array {
+    return [
+        'client_name'     => trim($_POST['client_name']     ?? ''),
+        'phone'           => trim($_POST['full_phone']       ?? trim($_POST['phone'] ?? '')),
+        'client_email'    => trim($_POST['client_email']     ?? ''),
+        'client_age'      => (int)($_POST['client_age']      ?? 0) ?: null,
+        'client_gender'   => trim($_POST['client_gender']    ?? ''),
+        'client_id'       => (int) ($_POST['client_id']      ?? 0),
+        'creator_id'      => (int) ($_POST['creator_id']     ?? 0),
+        'captain_id'      => trim($_POST['captain_id']       ?? ''),   // ← was (int) cast — broke non-numeric IDs like "c-289"
+        'branch_id'       => (int) ($_POST['branch_id']      ?? 0),
+        'first_session'   => trim($_POST['first_session']    ?? ''),
+        'last_session'    => trim($_POST['last_session']     ?? ''),
+        'renewal_session' => trim($_POST['renewal_session']  ?? ''),
+        'receipt_status'  => trim($_POST['receipt_status']   ?? 'not_completed'),
+        'exercise_time'   => trim($_POST['exercise_time']    ?? ''),
+        'plan_id'         => (int) ($_POST['plan_id']        ?? 0) ?: null,
+        'level'           => (int) ($_POST['level']          ?? 0) ?: null,
+        'pdf_path'        => trim($_POST['pdf_path']         ?? ''),
+        'amount'          => (float) ($_POST['amount']       ?? 0),
+        'remaining'       => (float) ($_POST['remaining']    ?? 0),
+        'payment_method'  => trim($_POST['payment_method']   ?? ''),
+        'notes'           => trim($_POST['notes']            ?? ''),
+        'renewal_type'    => trim($_POST['renewal_type']     ?? 'new'),
+
+        // ── Admin-only edit-form override (not a receipts column — see update()) ──
+        'total_paid'          => isset($_POST['total_paid'])          ? (float) $_POST['total_paid']          : null,
+        'original_total_paid' => isset($_POST['original_total_paid']) ? (float) $_POST['original_total_paid'] : null,
+    ];
+}
 
     // ── Session-aware filter persistence ─────────────────────────────────
 
@@ -126,14 +144,16 @@ class ReceiptController {
         exit;
     }
 
+
+
 private function validate(array $data): array {
     $errors = [];
 
-if ($data['captain_id'] === '')
-    $errors[] = 'يجب اختيار الكابتن.';
+    if (empty($data['branch_id']))
+        $errors[] = 'يجب اختيار الفرع.';
 
-    if (empty($data['captain_id']))                     // ← add this
-        $errors[] = 'يجب اختيار الكابتن.';               // ← add this
+    if ($data['captain_id'] === '' || $data['captain_id'] === null)
+        $errors[] = 'يجب اختيار الكابتن.';
 
     if (!empty($data['first_session']) && !empty($data['last_session'])
         && $data['last_session'] < $data['first_session']) {
@@ -145,6 +165,8 @@ if ($data['captain_id'] === '')
 
     return $errors;
 }
+
+
     private function parseFilters(): array {
         return [
             'search'               => trim($_GET['search']               ?? ''),
@@ -1340,8 +1362,9 @@ public function update(): void {
 
     $data = $this->parseForm();
     $user = auth_user();
-    $isCustomerService = ($user['role'] === 'customer_service');
-    $isBranchManager = ($user['role'] === 'branch_manager');
+    $isAdmin            = ($user['role'] === 'admin');
+    $isCustomerService  = ($user['role'] === 'customer_service');
+    $isBranchManager    = ($user['role'] === 'branch_manager');
     $isRestrictedScheduleEditor = $isCustomerService || $isBranchManager;
 
     $data['client_id']      = (int)    $receipt['client_id'];
@@ -1363,6 +1386,12 @@ public function update(): void {
         $data['renewal_session'] = (string) ($receipt['renewal_session'] ?? '');
         $data['payment_method']  = $data['payment_method'] ?: 'preserved';
         $data['notes']           = '';
+    }
+
+    // Only admin can submit a total_paid override; anyone else's value is ignored.
+    if (!$isAdmin) {
+        $data['total_paid']          = null;
+        $data['original_total_paid'] = null;
     }
 
     $errors = $this->validate($data);
@@ -1388,7 +1417,7 @@ public function update(): void {
             'receipt'    => $editReceipt,
             'errors'     => $errors,
             'isEdit'     => true,
-            'isAdmin'    => (auth_user()['role'] === 'admin'),
+            'isAdmin'    => $isAdmin,
         ]));
         return;
     }
@@ -1403,6 +1432,25 @@ public function update(): void {
         );
         $clientStmt->execute([$receipt['client_id']]);
         $oldClient = $clientStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    $clientFieldFallbacks = [
+        'client_name'   => 'client_name',
+        'phone'         => 'phone',
+        'client_email'  => 'email',
+        'client_gender' => 'gender',
+    ];
+
+    foreach ($clientFieldFallbacks as $dataKey => $clientKey) {
+        if (!array_key_exists($dataKey, $_POST) || $data[$dataKey] === '') {
+            $data[$dataKey] = (string) ($oldClient[$clientKey] ?? $data[$dataKey]);
+        }
+    }
+
+    if (!array_key_exists('client_age', $_POST) || $data['client_age'] === null) {
+        $data['client_age'] = isset($oldClient['age']) && $oldClient['age'] !== ''
+            ? (int) $oldClient['age']
+            : null;
     }
 
     // ── Update clients table ───────────────────────────────────────────────
@@ -1438,8 +1486,6 @@ public function update(): void {
     }
 
     // ── Audit: receipt-level fields (only columns that receipts table stores) ──
-    // NOTE: payment_method and notes are NOT receipts columns — removed to
-    //       prevent permanent NULL old_value noise in the log.
     $receiptAuditFields = [
         'branch_id', 'captain_id', 'plan_id', 'level',
         'first_session', 'last_session', 'renewal_session', 'renewal_type',
@@ -1484,6 +1530,48 @@ public function update(): void {
         );
     }
 
+    // ── Admin-only: reconcile total_paid override with an adjustment transaction ──
+    // "total_paid" on the edit form is not a receipts column — it's a live
+    // display of SUM(transactions). If admin changes it, insert a "payment"
+    // (increase) or "refund" (decrease) transaction for the delta so the
+    // transactions table remains the real source of truth and everything
+    // downstream (getReceiptNetStatus, autoReceiptStatus, exports) stays correct.
+    if ($isAdmin && $data['total_paid'] !== null) {
+        $newTotalPaid      = $data['total_paid'];
+        $currentPlanPrice  = (float) ($receipt['plan_price'] ?? 0);
+        $currentNetStatus  = $this->getReceiptNetStatus($id, $currentPlanPrice);
+        $originalTotalPaid = $currentNetStatus['netPaid'] ?? ($data['original_total_paid'] ?? 0.0);
+        $diff              = round($newTotalPaid - $originalTotalPaid, 2);
+
+        if (abs($diff) >= 0.01) {
+            $this->transactions->create([
+                'receipt_id'     => $id,
+                'payment_method' => (string) ($data['payment_method'] ?: ($receipt['payment_method'] ?? 'bank_transfer')),
+                'amount'         => abs($diff),
+                'created_by'     => $user['id'],
+                'type'           => $diff > 0 ? 'payment' : 'refund',
+                'notes'          => 'تسوية إدارية / Admin balance adjustment ('
+                    . ($diff > 0 ? '+' : '') . number_format($diff, 2) . ')',
+                'attachment'     => null,
+            ]);
+
+            $this->auditLog->log(
+                $id,
+                $user['id'],
+                $user['role'],
+                'total_paid',
+                $originalTotalPaid,
+                $newTotalPaid
+            );
+
+            log_action(
+                'admin_balance_adjustment',
+                "receipt_id: {$id}, from: {$originalTotalPaid}, to: {$newTotalPaid}, diff: {$diff}",
+                $user['id']
+            );
+        }
+    }
+
     // ── Update receipt ────────────────────────────────────────────────────
     $this->receipts->update($id, $data);
 
@@ -1494,11 +1582,10 @@ public function update(): void {
        ->execute([$autoStatus, $id]);
 
     log_action('updated_receipt', "id: {$id}", auth_user()['id']);
+    $_SESSION['updated_receipt_id'] = $id;
     $this->flash('flash_success', 'تم تحديث الإيصال بنجاح.');
-    $this->redirect('/receipts');
+    $this->redirectAfterReceiptUpdate($id);
 }
-
-
     // ════════════════════════════════════════════════════════════════════════
     // DESTROY
     // ════════════════════════════════════════════════════════════════════════

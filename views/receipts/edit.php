@@ -555,6 +555,9 @@ select.form-control:disabled {
                                placeholder="example@gmail.com"
                                value="<?= htmlspecialchars($receipt['client_email'] ?? '') ?>"
                                <?= $lock(true) ?>>
+                        <?php if (!$isAdmin): ?>
+                            <input type="hidden" name="client_email" value="<?= htmlspecialchars($receipt['client_email'] ?? '') ?>">
+                        <?php endif; ?>
                     </div>
 
                     <!-- Age -->
@@ -567,6 +570,9 @@ select.form-control:disabled {
                                placeholder="مثال: 25" min="5" max="99"
                                value="<?= htmlspecialchars($receipt['age'] ?? '') ?>"
                                <?= $lock(true) ?>>
+                        <?php if (!$isAdmin): ?>
+                            <input type="hidden" name="client_age" value="<?= htmlspecialchars($receipt['age'] ?? '') ?>">
+                        <?php endif; ?>
                     </div>
 
                     <!-- Gender -->
@@ -580,6 +586,9 @@ select.form-control:disabled {
                             <option value="ذكر"   <?= ($receipt['gender'] ?? '') === 'ذكر'   ? 'selected' : '' ?>>ذكر</option>
                             <option value="أنثى" <?= ($receipt['gender'] ?? '') === 'أنثى' ? 'selected' : '' ?>>أنثى</option>
                         </select>
+                        <?php if (!$isAdmin): ?>
+                            <input type="hidden" name="client_gender" value="<?= htmlspecialchars($receipt['gender'] ?? '') ?>">
+                        <?php endif; ?>
                     </div>
 
                 </div>

@@ -79,6 +79,8 @@ function renewalTypeLabel(?string $type): string {
 
 $canFilter = fn(string $key): bool => in_array($key, $allowedFilters ?? [], true);
 $isAdmin   = $isAdmin ?? false;
+$updatedReceiptId = (int) ($_GET['updated_receipt_id'] ?? ($_SESSION['updated_receipt_id'] ?? 0));
+unset($_SESSION['updated_receipt_id']);
 ?>
 
 <!-- Custom Confirm Modal -->
@@ -90,6 +92,19 @@ $isAdmin   = $isAdmin ?? false;
         <div style="display:flex;gap:.75rem;">
             <button onclick="closeModal()" style="flex:1;padding:.7rem;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;font-size:.9rem;color:black;transition:background .15s">إلغاء</button>
             <button id="confirmBtn" style="flex:1;padding:.7rem;border-radius:8px;border:none;background:#e24b4a;color:#fff;cursor:pointer;font-size:.9rem;transition:background .15s">حذف</button>
+        </div>
+    </div>
+</div>
+
+<!-- Receipt Updated Modal -->
+<div id="receiptUpdatedModal" class="receipt-updated-modal" aria-hidden="true">
+    <div class="receipt-updated-dialog" role="dialog" aria-modal="true" aria-labelledby="receiptUpdatedTitle">
+        <div class="receipt-updated-icon">✓</div>
+        <h2 id="receiptUpdatedTitle">تم تحديث الإيصال</h2>
+        <p>تم حفظ التعديل وتحديث إجمالي المدفوع في قاعدة البيانات.</p>
+        <div class="receipt-updated-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeReceiptUpdatedModal()">إغلاق</button>
+            <button type="button" class="btn btn-primary" onclick="showUpdatedReceipt()">عرض الإيصال</button>
         </div>
     </div>
 </div>
@@ -130,6 +145,60 @@ table th {
     to   { opacity:1; transform:scale(1) translateY(0); }
 }
 #confirmModal.open { display:flex; }
+
+.receipt-updated-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+.receipt-updated-modal.open { display: flex; }
+.receipt-updated-dialog {
+    width: min(420px, 100%);
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.6rem;
+    text-align: center;
+    box-shadow: 0 24px 64px rgba(0,0,0,.22);
+    animation: modalIn .2s cubic-bezier(.34,1.56,.64,1);
+}
+.receipt-updated-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(152,195,121,.16);
+    color: #98C379;
+    border: 1px solid rgba(152,195,121,.45);
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+.receipt-updated-dialog h2 {
+    font-size: 1.15rem;
+    margin: 0 0 .5rem;
+}
+.receipt-updated-dialog p {
+    color: var(--text-muted, #ffffffb3);
+    font-size: .92rem;
+    margin: 0 0 1.35rem;
+    line-height: 1.7;
+}
+.receipt-updated-actions {
+    display: flex;
+    gap: .75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
 
 /* ══════════════════════════════════════════════════════════════════
    RESULT COUNT
@@ -696,12 +765,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
             <?php if ($canFilter('created')): ?>
             <div class="filter-pair">
                 <div class="filter-group">
-                    <label>تاريخ العملية — من</label>
+                    <label>تاريخ الانشاء — من</label>
                     <input type="date" name="created_from"
                            value="<?= htmlspecialchars($filters['created_from'] ?? '') ?>">
                 </div>
                 <div class="filter-group">
-                    <label>تاريخ العملية — إلى</label>
+                    <label>تاريخ الانشاء — إلى</label>
                     <input type="date" name="created_to"
                            value="<?= htmlspecialchars($filters['created_to'] ?? '') ?>">
                 </div>
@@ -1436,6 +1505,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 (function () {
     const BASE_URL   = <?= json_encode(APP_URL) ?>;
     const CSRF_TOKEN = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;
+    const UPDATED_RECEIPT_ID = <?= (int) $updatedReceiptId ?>;
 
     function openOverlay(id) {
         const overlay = document.getElementById(id);
@@ -1490,6 +1560,27 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
         frame.src = `${BASE_URL}/receipt/edit?id=${encodeURIComponent(id)}`;
         openOverlay('receiptEditOverlay');
     };
+
+    window.closeReceiptUpdatedModal = function() {
+        const modal = document.getElementById('receiptUpdatedModal');
+        if (!modal) return;
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+    };
+
+    window.showUpdatedReceipt = function() {
+        if (!UPDATED_RECEIPT_ID) return;
+        closeReceiptUpdatedModal();
+        window.loadReceiptModal(UPDATED_RECEIPT_ID);
+    };
+
+    if (UPDATED_RECEIPT_ID) {
+        const modal = document.getElementById('receiptUpdatedModal');
+        if (modal) {
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden', 'false');
+        }
+    }
 
     function bindReceiptOverlayActions(root) {
         root.querySelectorAll('[data-rm-evidence]').forEach(button => {
@@ -1563,8 +1654,16 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
         if (event.target === event.currentTarget) closeReceiptEvidence();
     });
 
+    document.getElementById('receiptUpdatedModal')?.addEventListener('click', event => {
+        if (event.target === event.currentTarget) closeReceiptUpdatedModal();
+    });
+
     document.addEventListener('keydown', event => {
         if (event.key !== 'Escape') return;
+        if (document.getElementById('receiptUpdatedModal')?.classList.contains('open')) {
+            closeReceiptUpdatedModal();
+            return;
+        }
         if (document.getElementById('receiptEvidenceLightbox')?.classList.contains('open')) {
             closeReceiptEvidence();
             return;
@@ -1576,4 +1675,3 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 </script>
 
 <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
-
