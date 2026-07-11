@@ -2012,23 +2012,23 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         else { f.classList.remove('visible'); i.required = false; i.value = ''; }
         refreshRenRequiredState();
     }
-    function renValidateRenewalType() {
-    const curr = document.getElementById('ren-rt-current'), prev = document.getElementById('ren-rt-previous');
-    const mismatch = document.getElementById('ren-type-mismatch-error'), required = document.getElementById('ren-type-required-error');
-    const cardC = document.getElementById('ren-card-current'), cardP = document.getElementById('ren-card-previous');
-    mismatch.classList.remove('visible'); required.classList.remove('visible');
-    [cardC, cardP].forEach(c => c && c.classList.remove('card-invalid'));
-    const chosen = curr?.checked ? 'current_renewal' : prev?.checked ? 'previous_renewal' : null;
-    if (!chosen) { required.classList.add('visible'); return false; }
-    if (chosen === SERVER_RENEWAL_TYPE) return true;
-    const wrongCard = chosen === 'current_renewal' ? cardC : cardP;
-    if (wrongCard) wrongCard.classList.add('card-invalid');
-    const pillClass = SERVER_RENEWAL_TYPE === 'current_renewal' ? 'current' : 'previous';
-    document.getElementById('ren-type-mismatch-msg').innerHTML =
-        `اخترت <strong>${RENEWAL_TYPE_LABELS[chosen]}</strong> لكن الصحيح هو:<br>` +
-        `<span class="correct-answer-pill ${pillClass}">${RENEWAL_TYPE_LABELS[SERVER_RENEWAL_TYPE]}</span>`;
-    mismatch.classList.add('visible'); refreshRenRequiredState(); return false;
-}
+//     function renValidateRenewalType() {
+//     const curr = document.getElementById('ren-rt-current'), prev = document.getElementById('ren-rt-previous');
+//     const mismatch = document.getElementById('ren-type-mismatch-error'), required = document.getElementById('ren-type-required-error');
+//     const cardC = document.getElementById('ren-card-current'), cardP = document.getElementById('ren-card-previous');
+//     mismatch.classList.remove('visible'); required.classList.remove('visible');
+//     [cardC, cardP].forEach(c => c && c.classList.remove('card-invalid'));
+//     const chosen = curr?.checked ? 'current_renewal' : prev?.checked ? 'previous_renewal' : null;
+//     if (!chosen) { required.classList.add('visible'); return false; }
+//     if (chosen === SERVER_RENEWAL_TYPE) return true;
+//     const wrongCard = chosen === 'current_renewal' ? cardC : cardP;
+//     if (wrongCard) wrongCard.classList.add('card-invalid');
+//     const pillClass = SERVER_RENEWAL_TYPE === 'current_renewal' ? 'current' : 'previous';
+//     document.getElementById('ren-type-mismatch-msg').innerHTML =
+//         `اخترت <strong>${RENEWAL_TYPE_LABELS[chosen]}</strong> لكن الصحيح هو:<br>` +
+//         `<span class="correct-answer-pill ${pillClass}">${RENEWAL_TYPE_LABELS[SERVER_RENEWAL_TYPE]}</span>`;
+//     mismatch.classList.add('visible'); refreshRenRequiredState(); return false;
+// }
     document.getElementById('ren-rt-current')?.addEventListener('change',  renValidateRenewalType);
     document.getElementById('ren-rt-previous')?.addEventListener('change', renValidateRenewalType);
     document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
