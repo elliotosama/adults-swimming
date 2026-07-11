@@ -2029,8 +2029,8 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
 //         `<span class="correct-answer-pill ${pillClass}">${RENEWAL_TYPE_LABELS[SERVER_RENEWAL_TYPE]}</span>`;
 //     mismatch.classList.add('visible'); refreshRenRequiredState(); return false;
 // }
-    document.getElementById('ren-rt-current')?.addEventListener('change',  renValidateRenewalType);
-    document.getElementById('ren-rt-previous')?.addEventListener('change', renValidateRenewalType);
+    // document.getElementById('ren-rt-current')?.addEventListener('change',  renValidateRenewalType);
+    // document.getElementById('ren-rt-previous')?.addEventListener('change', renValidateRenewalType);
     document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
         const { missing, firstInvalid } = refreshRenRequiredState();
         if (missing.length) {

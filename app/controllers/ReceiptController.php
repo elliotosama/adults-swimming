@@ -590,30 +590,30 @@ private function validate(array $data): array {
     // ════════════════════════════════════════════════════════════════════════
 
 
-private function resolveRenewalType(string $lastSession): string {
-    if (!$lastSession) return 'current_renewal';
+// private function resolveRenewalType(string $lastSession): string {
+//     if (!$lastSession) return 'current_renewal';
 
-    try {
-        $lastDate = new DateTime($lastSession);
-    } catch (\Exception $e) {
-        return 'current_renewal';
-    }
+//     try {
+//         $lastDate = new DateTime($lastSession);
+//     } catch (\Exception $e) {
+//         return 'current_renewal';
+//     }
 
-    // The renewal cutoff is always the 21st of the month the last
-    // session fell in — NOT the 21st of today's month. If "today" is
-    // on or after that date, the grace period has expired and it's a
-    // previous_renewal, whether that happens later in the same month
-    // or after rolling into a following month.
-    //
-    // e.g. last_session = 2026-06-18 → cutoff = 2026-06-21.
-    //   renewing on 2026-06-20  → current_renewal   (before cutoff)
-    //   renewing on 2026-06-21  → previous_renewal  (on/after cutoff)
-    //   renewing on 2026-07-06  → previous_renewal  (well past cutoff)
-    $cutoff = new DateTime($lastDate->format('Y-m') . '-21');
-    $today  = new DateTime();
+//     // The renewal cutoff is always the 21st of the month the last
+//     // session fell in — NOT the 21st of today's month. If "today" is
+//     // on or after that date, the grace period has expired and it's a
+//     // previous_renewal, whether that happens later in the same month
+//     // or after rolling into a following month.
+//     //
+//     // e.g. last_session = 2026-06-18 → cutoff = 2026-06-21.
+//     //   renewing on 2026-06-20  → current_renewal   (before cutoff)
+//     //   renewing on 2026-06-21  → previous_renewal  (on/after cutoff)
+//     //   renewing on 2026-07-06  → previous_renewal  (well past cutoff)
+//     $cutoff = new DateTime($lastDate->format('Y-m') . '-21');
+//     $today  = new DateTime();
 
-    return ($today < $cutoff) ? 'current_renewal' : 'previous_renewal';
-}
+//     return ($today < $cutoff) ? 'current_renewal' : 'previous_renewal';
+// }
 
     // ════════════════════════════════════════════════════════════════════════
     // checkRenewalEligibility
