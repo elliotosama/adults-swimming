@@ -15,8 +15,11 @@ $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
                     <th>#</th>
                     <th>اسم الكابتن</th>
                     <th>رقم الهاتف</th>
+                    <th>العمر</th>
+                    <th>البريد الإلكتروني</th>
                     <th>الحالة</th>
                     <th>الفروع</th>
+                    <th>البطاقة</th>
                     <th>تاريخ الإنشاء</th>
                     <th>الإجراءات</th>
                 </tr>
@@ -27,6 +30,8 @@ $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
                         <td style="color:var(--muted);font-size:.82rem"><?= $c['id'] ?></td>
                         <td><strong><?= htmlspecialchars($c['captain_name']) ?></strong></td>
                         <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['phone_number'] ?? '—') ?></td>
+                        <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars((string)($c['age'] ?? '—')) ?></td>
+                        <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['email'] ?? '—') ?></td>
                         <td>
                             <?php if ($c['visible']): ?>
                                 <span class="badge badge-success">نشط</span>
@@ -36,6 +41,19 @@ $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
                         </td>
                         <td style="font-size:.82rem;color:var(--muted)">
                             <?= $c['branch_names'] ? htmlspecialchars($c['branch_names']) : '—' ?>
+                        </td>
+                        <td style="font-size:.82rem">
+                            <?php if (!empty($c['ssn_card_path'])):
+                                $cardUrl = APP_URL . '/' . htmlspecialchars($c['ssn_card_path']);
+                                $isPdf   = str_ends_with(strtolower($c['ssn_card_path']), '.pdf');
+                            ?>
+                                <button type="button" class="btn btn-sm btn-secondary js-view-card"
+                                        data-url="<?= $cardUrl ?>" data-pdf="<?= $isPdf ? '1' : '0' ?>">
+                                    📎 عرض
+                                </button>
+                            <?php else: ?>
+                                <span style="color:var(--muted)">—</span>
+                            <?php endif; ?>
                         </td>
                         <td style="color:var(--muted);font-size:.85rem"><?= htmlspecialchars($c['created_at'] ?? '—') ?></td>
                         <td>

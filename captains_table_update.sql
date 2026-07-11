@@ -1,0 +1,4 @@
+ALTER TABLE captains
+    ADD COLUMN age INT(2),
+    ADD COLUMN ssu_card_path VARCHAR(255),
+    ADD COLUMN email VARCHAR(255) UNIQUE;

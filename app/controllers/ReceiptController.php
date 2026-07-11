@@ -1643,13 +1643,6 @@ public function update(): void {
                             $eligibilityError = $check['message'];
                             $client = null;
                         }
-                    } elseif ($blockType === 'not_completed_no_refund') {
-                        $eligibilityError = sprintf(
-                            'لا يمكن تجديد الاشتراك لأن الإيصال السابق لهذا العميل غير مكتمل '
-                            . 'ولم يتم استرداد ما يكفي منه. '
-                            . 'يرجى إتمام الدفع أو الاسترداد قبل التجديد.'
-                        );
-                        $client = null;
                     } else {
                         $eligibilityError = $check['message'];
                         $client = null;

@@ -50,6 +50,29 @@ if (!$ajaxPartial) {
     border: 1px solid color-mix(in srgb, var(--accent, #00b4d8) 30%, transparent);
 }
 .branch-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.id-card-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.id-card-preview img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+.id-card-preview .file-icon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
 </style>
 
 <div class="page-header">
@@ -92,12 +115,43 @@ if (!$ajaxPartial) {
         </div>
 
         <div class="detail-row">
+            <div class="detail-label">العمر</div>
+            <div style="color:#fff"><?= htmlspecialchars((string)($captain['age'] ?? '—')) ?></div>
+        </div>
+
+        <div class="detail-row">
+            <div class="detail-label">البريد الإلكتروني</div>
+            <div style="color:#fff"><?= htmlspecialchars($captain['email'] ?? '—') ?></div>
+        </div>
+
+        <div class="detail-row">
             <div class="detail-label">الحالة</div>
             <div>
                 <?php if ($captain['visible']): ?>
                     <span class="badge badge-success">نشط</span>
                 <?php else: ?>
                     <span class="badge badge-danger">معطّل</span>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="detail-row">
+            <div class="detail-label">صورة البطاقة</div>
+            <div>
+                <?php if (!empty($captain['ssn_card_path'])):
+                    $cardUrl = APP_URL . '/' . htmlspecialchars($captain['ssn_card_path']);
+                    $isPdf   = str_ends_with(strtolower($captain['ssn_card_path']), '.pdf');
+                ?>
+                    <div class="id-card-preview">
+                        <?php if ($isPdf): ?>
+                            <span class="file-icon">📄</span>
+                        <?php else: ?>
+                            <img src="<?= $cardUrl ?>" alt="صورة البطاقة">
+                        <?php endif; ?>
+                        <a href="<?= $cardUrl ?>" target="_blank" rel="noopener" class="btn btn-sm btn-secondary">عرض الملف</a>
+                    </div>
+                <?php else: ?>
+                    <span style="color:#fff">—</span>
                 <?php endif; ?>
             </div>
         </div>

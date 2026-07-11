@@ -146,7 +146,16 @@ captains table {
 
 
 
-updates
-captains duplicates
+updates => Done
+captains duplicates =>
 download refund pdfs
 ui in receipts
+make branch_manager can add captain but can not remove it
+
+
+
+
+run this on the server => {
+  mkdir -p public/uploads/captains_ids
+  chmod 755 public/uploads/captains_ids
+}

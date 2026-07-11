@@ -6,9 +6,22 @@ class CaptainController {
     private CaptainModel $captains;
     private BranchModel  $branchModel;
 
+    private string $uploadDir;     // absolute filesystem path
+    private string $uploadRelBase; // path stored in DB / used to build URLs
+
+    private const MAX_UPLOAD_SIZE = 5 * 1024 * 1024; // 5MB
+    private const ALLOWED_MIMES = [
+        'image/jpeg'       => 'jpg',
+        'image/png'        => 'png',
+        'image/webp'       => 'webp',
+        'application/pdf'  => 'pdf',
+    ];
+
     public function __construct() {
-        $this->captains    = new CaptainModel();
-        $this->branchModel = new BranchModel();
+        $this->captains       = new CaptainModel();
+        $this->branchModel    = new BranchModel();
+        $this->uploadRelBase  = 'uploads/captains_ids/';
+        $this->uploadDir      = ROOT . '/public/' . $this->uploadRelBase;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -40,9 +53,13 @@ class CaptainController {
     }
 
     private function parseForm(): array {
+        $age = trim($_POST['age'] ?? '');
+
         return [
             'captain_name' => trim($_POST['captain_name'] ?? ''),
             'phone_number' => trim($_POST['phone_number'] ?? ''),
+            'age'          => $age !== '' ? (int) $age : null,
+            'email'        => trim($_POST['email'] ?? '') ?: null,
             'visible'      => ($_POST['visible'] ?? '1') === '1' ? 1 : 0,
             'branch_ids'   => array_map('intval', $_POST['branch_ids'] ?? []),
         ];
@@ -57,6 +74,12 @@ class CaptainController {
         if (!empty($data['phone_number']) && !preg_match('/^[0-9\+\-\s\(\)]{7,20}$/', $data['phone_number']))
             $errors[] = 'رقم الهاتف غير صحيح.';
 
+        if ($data['age'] !== null && ($data['age'] < 18 || $data['age'] > 90))
+            $errors[] = 'العمر يجب أن يكون بين 18 و 90 سنة.';
+
+        if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL))
+            $errors[] = 'البريد الإلكتروني غير صحيح.';
+
         return $errors;
     }
 
@@ -65,6 +88,58 @@ class CaptainController {
         return $user['role'] === 'area_manager'
             ? ['area_manager_id' => $user['id']]
             : [];
+    }
+
+    // ── ID card upload handling ─────────────────────────────────────────────
+
+    /**
+     * Processes $_FILES['ssn_card_path'] if present.
+     * Returns ['path' => string|null, 'errors' => string[]]
+     * 'path' is null when no file was uploaded (not an error) or on failure.
+     */
+    private function processIdUpload(): array {
+        if (empty($_FILES['ssn_card_path']) || $_FILES['ssn_card_path']['error'] === UPLOAD_ERR_NO_FILE) {
+            return ['path' => null, 'errors' => []];
+        }
+
+        $file = $_FILES['ssn_card_path'];
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            return ['path' => null, 'errors' => ['حدث خطأ أثناء رفع صورة البطاقة.']];
+        }
+
+        if ($file['size'] > self::MAX_UPLOAD_SIZE) {
+            return ['path' => null, 'errors' => ['حجم الملف كبير جداً (الحد الأقصى 5 ميجابايت).']];
+        }
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime  = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!isset(self::ALLOWED_MIMES[$mime])) {
+            return ['path' => null, 'errors' => ['صيغة الملف غير مدعومة. الصيغ المسموحة: JPG, PNG, WEBP, PDF.']];
+        }
+
+        if (!is_dir($this->uploadDir)) {
+            mkdir($this->uploadDir, 0755, true);
+        }
+
+        $filename    = 'id_' . uniqid('', true) . '.' . self::ALLOWED_MIMES[$mime];
+        $destination = $this->uploadDir . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+            return ['path' => null, 'errors' => ['تعذر حفظ الملف على الخادم.']];
+        }
+
+        return ['path' => $this->uploadRelBase . $filename, 'errors' => []];
+    }
+
+    private function deleteIdFile(?string $relativePath): void {
+        if (!$relativePath) return;
+        $full = ROOT . '/public/' . ltrim($relativePath, '/');
+        if (is_file($full)) {
+            @unlink($full);
+        }
     }
 
     // ── INDEX ─────────────────────────────────────────────────────────────────
@@ -145,6 +220,28 @@ class CaptainController {
             return;
         }
 
+        $upload = $this->processIdUpload();
+        if ($upload['errors']) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'errors' => $upload['errors']], 422);
+                return;
+            }
+
+            $this->flash('flash_error', implode('<br>', $upload['errors']));
+            $this->renderView('create', [
+                'pageTitle'   => 'كابتن جديد',
+                'breadcrumb'  => 'الإدارة · الكباتن · كابتن جديد',
+                'captain'     => $data,
+                'errors'      => $upload['errors'],
+                'isEdit'      => false,
+                'branches'    => $this->branchModel->findVisible(),
+                'assignedIds' => $data['branch_ids'],
+            ]);
+            return;
+        }
+
+        $data['ssn_card_path'] = $upload['path'];
+
         $newId = $this->captains->create($data);
         $this->captains->syncBranches($newId, $data['branch_ids']);
 
@@ -167,7 +264,7 @@ class CaptainController {
         auth_require(['admin', 'area_manager']);
 
         $user    = auth_user();
-        $id      = (int) ($_GET['id'] ?? 0);
+        $id      = $_GET['id'] ?? '';
         $captain = $this->captains->findById($id);
 
         if (!$captain) {
@@ -214,7 +311,7 @@ class CaptainController {
         auth_require(['admin', 'area_manager']);
 
         $user    = auth_user();
-        $id      = (int) ($_GET['id'] ?? 0);
+        $id      = $_GET['id'] ?? '';
         $captain = $this->captains->findById($id);
 
         if (!$captain) {
@@ -256,7 +353,7 @@ class CaptainController {
         auth_require(['admin', 'area_manager']);
 
         $user    = auth_user();
-        $id      = (int) ($_GET['id'] ?? 0);
+        $id      = $_GET['id'] ?? '';
         $captain = $this->captains->findById($id);
 
         if (!$captain) {
@@ -280,9 +377,9 @@ class CaptainController {
             return;
         }
 
-        $data   = $this->parseForm();
+        $data = $this->parseForm();
         if ($user['role'] === 'area_manager') {
-            $data['visible'] = (int)($captain['visible'] ?? 1);
+            $data['visible'] = (int) ($captain['visible'] ?? 1);
         }
         $errors = $this->validate($data);
 
@@ -309,6 +406,39 @@ class CaptainController {
             return;
         }
 
+        $upload = $this->processIdUpload();
+        if ($upload['errors']) {
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => false, 'errors' => $upload['errors']], 422);
+                return;
+            }
+
+            $this->flash('flash_error', implode('<br>', $upload['errors']));
+            $this->renderView('edit', [
+                'pageTitle'   => 'تعديل الكابتن',
+                'breadcrumb'  => 'الإدارة · الكباتن · تعديل',
+                'captain'     => array_merge($captain, $data),
+                'errors'      => $upload['errors'],
+                'isEdit'      => true,
+                'branches'    => $this->branchModel->findVisible($this->branchFilters($user)),
+                'assignedIds' => $data['branch_ids'],
+            ]);
+            return;
+        }
+
+        if ($upload['path']) {
+            // New card uploaded — remove the old file, if any
+            $this->deleteIdFile($captain['ssn_card_path'] ?? null);
+            $data['ssn_card_path'] = $upload['path'];
+        } elseif (!empty($_POST['remove_ssn_card'])) {
+            // Explicitly removed without replacement
+            $this->deleteIdFile($captain['ssn_card_path'] ?? null);
+            $data['ssn_card_path'] = null;
+        } else {
+            // Keep whatever was already there
+            $data['ssn_card_path'] = $captain['ssn_card_path'] ?? null;
+        }
+
         $this->captains->update($id, $data);
         $this->captains->syncBranches($id, $data['branch_ids']);
 
@@ -330,7 +460,7 @@ class CaptainController {
     public function destroy(): void {
         auth_require(['admin']);
 
-        $id      = (int) ($_GET['id'] ?? 0);
+        $id      = $_GET['id'] ?? '';
         $captain = $this->captains->findById($id);
 
         if (!$captain) {

@@ -26,6 +26,14 @@ require ROOT . '/views/includes/layout_top.php';
     </div>
 </div>
 
+<!-- ID Card Lightbox -->
+<div id="cardLightbox" class="card-lightbox-overlay">
+    <div class="card-lightbox-panel">
+        <button type="button" id="cardLightboxClose" class="card-lightbox-close">✕</button>
+        <div id="cardLightboxBody" class="card-lightbox-body"></div>
+    </div>
+</div>
+
 <style>
 @keyframes modalIn {
     from { opacity:0; transform:scale(.92) translateY(8px); }
@@ -56,6 +64,51 @@ require ROOT . '/views/includes/layout_top.php';
     margin-top: 60px;
     padding: .5rem 1.5rem 1.5rem;
     animation: modalIn .2s cubic-bezier(.34,1.56,.64,1);
+}
+
+.card-lightbox-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,.75);
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
+.card-lightbox-overlay.open { display: flex; }
+.card-lightbox-panel {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.card-lightbox-body img {
+    max-width: 90vw;
+    max-height: 85vh;
+    border-radius: 10px;
+    display: block;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.card-lightbox-body iframe {
+    width: 85vw;
+    height: 85vh;
+    border: none;
+    border-radius: 10px;
+    background: #fff;
+}
+.card-lightbox-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1.6rem;
+    cursor: pointer;
+    line-height: 1;
 }
 </style>
 
@@ -140,59 +193,7 @@ require ROOT . '/views/includes/layout_top.php';
 <!-- Table -->
 <div class="card">
     <div id="captainTableWrap">
-        <?php if (empty($captains)): ?>
-            <div class="empty-state">
-                <div class="empty-icon">🧑‍✈️</div>
-                <p>لا يوجد كباتن تطابق البحث.</p>
-                <?php if (!empty($filters['search']) || !empty($filters['branch_id']) || !empty($filters['visible'])): ?>
-                    <a href="<?= APP_URL ?>/admin/captains" class="btn btn-secondary" style="margin-top:1rem">إعادة ضبط الفلاتر</a>
-                <?php endif; ?>
-            </div>
-        <?php else: ?>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>اسم الكابتن</th>
-                            <th>رقم الهاتف</th>
-                            <th>الحالة</th>
-                            <th>الفروع</th>
-                            <th>تاريخ الإنشاء</th>
-                            <th>الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($captains as $c): ?>
-                            <tr>
-                                <td style="color:var(--muted);font-size:.82rem"><?= $c['id'] ?></td>
-                                <td><strong><?= htmlspecialchars($c['captain_name']) ?></strong></td>
-                                <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['phone_number'] ?? '—') ?></td>
-                                <td>
-                                    <?php if ($c['visible']): ?>
-                                        <span class="badge badge-success">نشط</span>
-                                    <?php else: ?>
-                                        <span class="badge badge-danger">معطّل</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td style="font-size:.82rem;color:var(--muted)">
-                                    <?= $c['branch_names'] ? htmlspecialchars($c['branch_names']) : '—' ?>
-                                </td>
-                                <td style="color:var(--muted);font-size:.85rem"><?= htmlspecialchars($c['created_at'] ?? '—') ?></td>
-                                <td>
-                                    <div class="td-actions">
-                                        <a href="<?= APP_URL ?>/admin/captains/show?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <div style="padding:.75rem 1.2rem;font-size:.8rem;color:var(--muted);border-top:1px solid var(--border)">
-                عرض <?= count($captains) ?> كابتن
-            </div>
-        <?php endif; ?>
+        <?php require ROOT . '/views/admin/captains/_table.php'; ?>
     </div>
 </div>
 
@@ -217,6 +218,10 @@ require ROOT . '/views/includes/layout_top.php';
 
     const captainModal     = document.getElementById('captainModal');
     const captainModalBody = document.getElementById('captainModalBody');
+
+    const cardLightbox      = document.getElementById('cardLightbox');
+    const cardLightboxBody  = document.getElementById('cardLightboxBody');
+    const cardLightboxClose = document.getElementById('cardLightboxClose');
 
     let debounceTimer    = null;
     let _pendingDeleteId = null;
@@ -264,6 +269,14 @@ require ROOT . '/views/includes/layout_top.php';
             </div>`;
     }
 
+    // ── Build ID-card button cell (no image loaded until clicked) ────────
+    function cardCell(c) {
+        if (!c.ssn_card_path) return '<span style="color:var(--muted)">—</span>';
+        const url = `${APP_URL}/${c.ssn_card_path}`;
+        const isPdf = /\.pdf$/i.test(c.ssn_card_path);
+        return `<button type="button" class="btn btn-sm btn-secondary js-view-card" data-url="${url}" data-pdf="${isPdf ? '1' : '0'}">📎 عرض</button>`;
+    }
+
     // ── Render captains array into #captainTableWrap ─────────────────────
     function renderTable(captains) {
         updateCountBadge(captains.length);
@@ -282,12 +295,15 @@ require ROOT . '/views/includes/layout_top.php';
                 <td style="color:var(--muted);font-size:.82rem">${esc(c.id)}</td>
                 <td><strong>${esc(c.captain_name)}</strong></td>
                 <td style="font-size:.85rem;color:var(--muted)">${esc(c.phone_number || '—')}</td>
+                <td style="font-size:.85rem;color:var(--muted)">${esc(c.age || '—')}</td>
+                <td style="font-size:.85rem;color:var(--muted)">${esc(c.email || '—')}</td>
                 <td>
                     ${c.visible == 1
                         ? '<span class="badge badge-success">نشط</span>'
                         : '<span class="badge badge-danger">معطّل</span>'}
                 </td>
                 <td style="font-size:.82rem;color:var(--muted)">${esc(c.branch_names || '—')}</td>
+                <td style="font-size:.82rem">${cardCell(c)}</td>
                 <td style="color:var(--muted);font-size:.85rem">${esc(c.created_at || '—')}</td>
                 <td>${actionButtons(c)}</td>
             </tr>`).join('');
@@ -300,8 +316,11 @@ require ROOT . '/views/includes/layout_top.php';
                             <th>#</th>
                             <th>اسم الكابتن</th>
                             <th>رقم الهاتف</th>
+                            <th>العمر</th>
+                            <th>البريد الإلكتروني</th>
                             <th>الحالة</th>
                             <th>الفروع</th>
+                            <th>البطاقة</th>
                             <th>تاريخ الإنشاء</th>
                             <th>الإجراءات</th>
                         </tr>
@@ -363,6 +382,27 @@ require ROOT . '/views/includes/layout_top.php';
     });
 
     // ══════════════════════════════════════════════════════════════════
+    // ID Card Lightbox
+    // ══════════════════════════════════════════════════════════════════
+
+    function openCardLightbox(url, isPdf) {
+        cardLightboxBody.innerHTML = isPdf
+            ? `<iframe src="${url}"></iframe>`
+            : `<img src="${url}" alt="بطاقة">`;
+        cardLightbox.classList.add('open');
+    }
+
+    function closeCardLightbox() {
+        cardLightbox.classList.remove('open');
+        cardLightboxBody.innerHTML = '';
+    }
+
+    cardLightboxClose.addEventListener('click', closeCardLightbox);
+    cardLightbox.addEventListener('click', function (e) {
+        if (e.target === cardLightbox) closeCardLightbox();
+    });
+
+    // ══════════════════════════════════════════════════════════════════
     // Captain modal (create / edit / show)
     // ══════════════════════════════════════════════════════════════════
 
@@ -405,6 +445,13 @@ require ROOT . '/views/includes/layout_top.php';
                 openCaptainModal(link.href);
                 return;
             }
+        }
+
+        const viewCardBtn = e.target.closest('.js-view-card');
+        if (viewCardBtn) {
+            e.preventDefault();
+            openCardLightbox(viewCardBtn.dataset.url, viewCardBtn.dataset.pdf === '1');
+            return;
         }
 
         if (e.target.closest('.js-modal-close')) {

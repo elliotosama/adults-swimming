@@ -62,7 +62,7 @@ class CaptainModel {
 
     // ── Single captain with assigned branch IDs ───────────────────────────────
 
-    public function findById(int $id): array|false {
+    public function findById(string $id): array|false {
         $stmt = $this->db->prepare('SELECT * FROM captains WHERE id = ?');
         $stmt->execute([$id]);
         $captain = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -76,7 +76,7 @@ class CaptainModel {
 
     // ── Get branch IDs assigned to a captain ──────────────────────────────────
 
-    public function getBranchIds(int $captainId): array {
+    public function getBranchIds(string $captainId): array {
         $stmt = $this->db->prepare('
             SELECT branch_id FROM captain_branch WHERE captain_id = ?
         ');
@@ -86,7 +86,7 @@ class CaptainModel {
 
     // ── Check if captain belongs to any branch managed by this user ───────────
 
-    public function isManagedBy(int $captainId, int $userId): bool {
+    public function isManagedBy(string $captainId, int $userId): bool {
         $stmt = $this->db->prepare('
             SELECT COUNT(*)
             FROM captain_branch cb
@@ -100,7 +100,7 @@ class CaptainModel {
 
     // ── Sync pivot table (delete → reinsert) ──────────────────────────────────
 
-    public function syncBranches(int $captainId, array $branchIds): void {
+    public function syncBranches(string $captainId, array $branchIds): void {
         $stmt = $this->db->prepare('DELETE FROM captain_branch WHERE captain_id = ?');
         $stmt->execute([$captainId]);
 
@@ -119,7 +119,7 @@ class CaptainModel {
 
     // ── Name uniqueness check ─────────────────────────────────────────────────
 
-    public function nameExists(string $name, int $excludeId = 0): bool {
+    public function nameExists(string $name, string $excludeId = ''): bool {
         $stmt = $this->db->prepare('
             SELECT COUNT(*) FROM captains
             WHERE captain_name = ? AND id != ?
@@ -128,52 +128,96 @@ class CaptainModel {
         return (bool) $stmt->fetchColumn();
     }
 
+    // ── Generate next id in the format c-N ─────────────────────────────────────
+
+    private function generateNextId(): string {
+        // Pull the highest numeric suffix currently in use, locking the rows
+        // so a concurrent create() can't grab the same number.
+        $stmt = $this->db->prepare("
+            SELECT id FROM captains
+            WHERE id REGEXP '^c-[0-9]+$'
+            ORDER BY CAST(SUBSTRING(id, 3) AS UNSIGNED) DESC
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $stmt->execute();
+        $lastId = $stmt->fetchColumn();
+
+        $nextNumber = 1;
+        if ($lastId) {
+            $nextNumber = (int) substr($lastId, 2) + 1;
+        }
+
+        return 'c-' . $nextNumber;
+    }
+
     // ── Create ────────────────────────────────────────────────────────────────
 
-    public function create(array $data): int {
-        $stmt = $this->db->prepare('
-            INSERT INTO captains
-                (captain_name, phone_number, visible, created_at, created_by)
-            VALUES
-                (:captain_name, :phone_number, :visible, CURDATE(), :created_by)
-        ');
-        $stmt->execute([
-            ':captain_name' => $data['captain_name'],
-            ':phone_number' => $data['phone_number'] ?: null,
-            ':visible'      => $data['visible'],
-            ':created_by'   => $data['created_by'] ?? null,
-        ]);
-        return (int) $this->db->lastInsertId();
+    public function create(array $data): string {
+        $this->db->beginTransaction();
+
+        try {
+            $newId = $this->generateNextId();
+
+            $stmt = $this->db->prepare('
+                INSERT INTO captains
+                    (id, captain_name, phone_number, age, email, ssn_card_path, visible, created_at, created_by)
+                VALUES
+                    (:id, :captain_name, :phone_number, :age, :email, :ssn_card_path, :visible, CURDATE(), :created_by)
+            ');
+            $stmt->execute([
+                ':id'            => $newId,
+                ':captain_name'  => $data['captain_name'],
+                ':phone_number'  => $data['phone_number'] ?: null,
+                ':age'           => $data['age'] ?? null,
+                ':email'         => $data['email'] ?: null,
+                ':ssn_card_path' => $data['ssn_card_path'] ?? null,
+                ':visible'       => $data['visible'],
+                ':created_by'    => $data['created_by'] ?? null,
+            ]);
+
+            $this->db->commit();
+            return $newId;
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
     }
 
     // ── Update ────────────────────────────────────────────────────────────────
 
-    public function update(int $id, array $data): void {
+    public function update(string $id, array $data): void {
         $stmt = $this->db->prepare('
             UPDATE captains SET
-                captain_name = :captain_name,
-                phone_number = :phone_number,
-                visible      = :visible
+                captain_name  = :captain_name,
+                phone_number  = :phone_number,
+                age           = :age,
+                email         = :email,
+                ssn_card_path = :ssn_card_path,
+                visible       = :visible
             WHERE id = :id
         ');
         $stmt->execute([
-            ':captain_name' => $data['captain_name'],
-            ':phone_number' => $data['phone_number'] ?: null,
-            ':visible'      => $data['visible'],
-            ':id'           => $id,
+            ':captain_name'  => $data['captain_name'],
+            ':phone_number'  => $data['phone_number'] ?: null,
+            ':age'           => $data['age'] ?? null,
+            ':email'         => $data['email'] ?: null,
+            ':ssn_card_path' => $data['ssn_card_path'] ?? null,
+            ':visible'       => $data['visible'],
+            ':id'            => $id,
         ]);
     }
 
     // ── Soft-delete ───────────────────────────────────────────────────────────
 
-    public function hide(int $id): void {
+    public function hide(string $id): void {
         $stmt = $this->db->prepare('UPDATE captains SET visible = 0 WHERE id = ?');
         $stmt->execute([$id]);
     }
 
     // ── Reactivate ────────────────────────────────────────────────────────────
 
-    public function show(int $id): void {
+    public function show(string $id): void {
         $stmt = $this->db->prepare('UPDATE captains SET visible = 1 WHERE id = ?');
         $stmt->execute([$id]);
     }
