@@ -2605,13 +2605,7 @@ public function manage(): void {
                         $eligibilityError = $check['message'];
                         $renewClient = null;
                     }
-                } elseif ($blockType === 'not_completed_no_refund') {
-                    $eligibilityError =
-                        'لا يمكن تجديد الاشتراك لأن الإيصال السابق لهذا العميل غير مكتمل '
-                        . 'ولم يتم استرداد ما يكفي منه. '
-                        . 'يرجى إتمام الدفع أو الاسترداد قبل التجديد.';
-                    $renewClient = null;
-                } else {
+                }  else {
                     $eligibilityError = $check['message'];
                     $renewClient = null;
                 }
