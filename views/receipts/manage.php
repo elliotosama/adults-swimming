@@ -1809,17 +1809,21 @@ let refreshClientRequiredState = () => ({ missing: [], firstInvalid: null });
             sel.appendChild(o);
         });
     }
-    function populateCaptains(capSelId, branchId, savedCaptainId) {
-        const captains = CAPTAINS_BY_BRANCH[branchId] || [];
-        const sel = document.getElementById(capSelId);
-        sel.innerHTML = captains.length ? '<option value="">— اختر الكابتن —</option>' : '<option value="">— لا يوجد كباتن —</option>';
-        captains.forEach(c => {
-            const o = document.createElement('option');
-            o.value = c.id; o.textContent = c.name;
-            if (String(c.id) === savedCaptainId) o.selected = true;
-            sel.appendChild(o);
-        });
-    }
+
+
+function populateCaptains(capSelId, branchId, savedCaptainId) {
+    const sel = document.getElementById(capSelId);
+    const previousValue = sel ? sel.value : '';           // ← remember current pick
+    const captains = CAPTAINS_BY_BRANCH[branchId] || [];
+    sel.innerHTML = captains.length ? '<option value="">— اختر الكابتن —</option>' : '<option value="">— لا يوجد كباتن —</option>';
+    captains.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.id; o.textContent = c.name;
+        if (String(c.id) === previousValue || String(c.id) === savedCaptainId) o.selected = true;  // ← preserve if still valid for this branch
+        sel.appendChild(o);
+    });
+}
+
     function getPlanOption(selId)   { return document.getElementById(selId)?.options[document.getElementById(selId)?.selectedIndex]; }
     function getPlanPrice(selId)    { return parseFloat(getPlanOption(selId)?.dataset.price)    || 0; }
     function getPlanSessions(selId) { return parseInt(getPlanOption(selId)?.dataset.sessions)   || 0; }

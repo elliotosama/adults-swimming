@@ -126,23 +126,25 @@ class ReceiptController {
         exit;
     }
 
-    private function validate(array $data): array {
-        $errors = [];
+private function validate(array $data): array {
+    $errors = [];
 
-        if (empty($data['branch_id']))
-            $errors[] = 'يجب اختيار الفرع.';
+    if (empty($data['branch_id']))
+        $errors[] = 'يجب اختيار الفرع.';
 
-        if (!empty($data['first_session']) && !empty($data['last_session'])
-            && $data['last_session'] < $data['first_session']) {
-            $errors[] = 'تاريخ آخر جلسة لا يمكن أن يكون قبل تاريخ أول جلسة.';
-        }
+    if (empty($data['captain_id']))                     // ← add this
+        $errors[] = 'يجب اختيار الكابتن.';               // ← add this
 
-        if (empty($data['payment_method']))
-            $errors[] = 'يجب اختيار طريقة الدفع.';
-
-        return $errors;
+    if (!empty($data['first_session']) && !empty($data['last_session'])
+        && $data['last_session'] < $data['first_session']) {
+        $errors[] = 'تاريخ آخر جلسة لا يمكن أن يكون قبل تاريخ أول جلسة.';
     }
 
+    if (empty($data['payment_method']))
+        $errors[] = 'يجب اختيار طريقة الدفع.';
+
+    return $errors;
+}
     private function parseFilters(): array {
         return [
             'search'               => trim($_GET['search']               ?? ''),
