@@ -168,7 +168,7 @@ $receiptNotes = array_values(array_filter(array_map(function ($t) {
         <a href="<?= APP_URL ?>/receipt/pdf?id=<?= $receipt['id'] ?>" target="_blank" class="btn btn-sm btn-secondary">⬇️ PDF عربي</a>
         <a href="<?= APP_URL ?>/receipt/pdf?id=<?= $receipt['id'] ?>&lang=en" target="_blank" class="btn btn-sm btn-secondary">⬇️ PDF English</a>
         <?php if (!empty($receipt['is_refunded'])): ?>
-        <a href="<?= APP_URL ?>/receipt/refund-pdf?id=<?= $receipt['id'] ?>" target="_blank" class="btn btn-sm btn-secondary">↩️ إيصال الاسترداد</a>
+        <a href="<?= APP_URL ?>/receipt/refund-pdf?id=<?= $receipt['id'] ?>" target="_blank" class="btn btn-sm btn-secondary">↩️  تحميل إيصال الاسترداد</a>
         <?php endif; ?>
         <a href="<?= $waLink ?>" target="_blank" class="btn btn-sm btn-primary">💬 واتساب</a>
         <button type="button" class="btn btn-sm btn-primary" id="rm-send-email-btn" data-receipt-id="<?= $receipt['id'] ?>" <?= $clientEmail ? '' : 'disabled title="لا يوجد بريد إلكتروني"' ?>>✉️ إرسال بريد</button>
