@@ -216,7 +216,7 @@ $receiptsRow['previous_renewal'] = (int) ($renewalTypes['previous_renewal'] ?? 0
 
                 SELECT
                     CASE
-                        WHEN al.action IN ('created_captain', 'captain_added_to_branch', 'captain_removed_from_branch') THEN 'captain'
+                        WHEN al.action IN ('created_captain', 'captain_added_to_branch', 'captain_removed_from_branch', 'updated_captain_branch_assignment') THEN 'captain'
                         ELSE 'branch'
                     END AS log_type,
                     NULL AS entity_id,
@@ -231,7 +231,8 @@ $receiptsRow['previous_renewal'] = (int) ($renewalTypes['previous_renewal'] ?? 0
                     'updated_branch',
                     'created_captain',
                     'captain_added_to_branch',
-                    'captain_removed_from_branch'
+                    'captain_removed_from_branch',
+                    'updated_captain_branch_assignment'
                 )
             ) recent_activity
             ORDER BY changed_at DESC
@@ -251,7 +252,8 @@ $receiptsRow['previous_renewal'] = (int) ($renewalTypes['previous_renewal'] ?? 0
             WHERE al.action IN (
                 'created_captain',
                 'captain_added_to_branch',
-                'captain_removed_from_branch'
+                'captain_removed_from_branch',
+                'updated_captain_branch_assignment'
             )
             ORDER BY al.id DESC
             LIMIT 10

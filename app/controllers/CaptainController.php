@@ -137,6 +137,17 @@ class CaptainController {
             : [];
     }
 
+    private function branchAssignmentForManagedBranches(array $captain, array $postedBranchIds, array $managedBranchIds): array {
+        $postedBranchIds = array_values(array_unique(array_filter(array_map('intval', $postedBranchIds))));
+        $managedBranchIds = array_values(array_unique(array_filter(array_map('intval', $managedBranchIds))));
+        $existingBranchIds = array_values(array_unique(array_filter(array_map('intval', $captain['branch_ids'] ?? []))));
+
+        $unmanagedExisting = array_values(array_diff($existingBranchIds, $managedBranchIds));
+        $managedSelection = array_values(array_intersect($postedBranchIds, $managedBranchIds));
+
+        return array_values(array_unique(array_merge($unmanagedExisting, $managedSelection)));
+    }
+
     // ── ID card upload handling ─────────────────────────────────────────────
 
     /**
@@ -450,6 +461,7 @@ class CaptainController {
             'branches'    => $this->branchModel->findVisible($this->branchFilters($user)),
             'assignedIds' => $captain['branch_ids'],
             'ajaxPartial' => $this->isAjax(),
+            'branchAssignmentOnly' => $user['role'] === 'area_manager',
         ]);
     }
 
@@ -483,10 +495,45 @@ class CaptainController {
             return;
         }
 
-        $data = $this->parseForm();
         if ($user['role'] === 'area_manager') {
-            $data['visible'] = (int) ($captain['visible'] ?? 1);
+            $managedBranchIds = $this->managerBranchIds((int) $user['id']);
+            if (empty($managedBranchIds)) {
+                $errors = ['حسابك غير مرتبط بأي فرع.'];
+                if ($this->isAjax()) {
+                    $this->jsonResponse(['success' => false, 'errors' => $errors], 422);
+                    return;
+                }
+                $this->flash('flash_error', implode('<br>', $errors));
+                $this->redirect('/admin/captains');
+                return;
+            }
+
+            $branchIds = $this->branchAssignmentForManagedBranches(
+                $captain,
+                array_map('intval', $_POST['branch_ids'] ?? []),
+                $managedBranchIds
+            );
+            $this->captains->syncBranches($id, $branchIds);
+
+            $branchNames = $this->branchNames($branchIds);
+            log_action(
+                'updated_captain_branch_assignment',
+                "id: {$id}, name: {$captain['captain_name']}, role: {$user['role']}, branches: {$branchNames}",
+                $user['id']
+            );
+
+            $message = 'تم تحديث فروع الكابتن "' . htmlspecialchars($captain['captain_name']) . '" بنجاح.';
+            if ($this->isAjax()) {
+                $this->jsonResponse(['success' => true, 'message' => $message, 'id' => $id]);
+                return;
+            }
+
+            $this->flash('flash_success', $message);
+            $this->redirect('/admin/captains');
+            return;
         }
+
+        $data = $this->parseForm();
         $errors = $this->validate($data);
 
         if (!$errors && $this->captains->nameExists($data['captain_name'], $id)) {

@@ -5,6 +5,7 @@
 
 $ajaxPartial = $ajaxPartial ?? false;
 $assignedIds = $assignedIds ?? [];
+$branchAssignmentOnly = $branchAssignmentOnly ?? false;
 $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
 
 if (!$ajaxPartial) {
@@ -99,113 +100,131 @@ $existingCertificateIsPdf = $existingCertificate && str_ends_with(strtolower($ex
     <form method="POST" action="<?= APP_URL . $action ?>" class="js-captain-form" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
 
-        <p class="section-divider">بيانات الكابتن</p>
-
-        <div class="form-group">
-            <label class="form-label" for="captain_name">اسم الكابتن <span style="color:var(--danger)">*</span></label>
-            <input type="text" id="captain_name" name="captain_name" class="form-control"
-                   value="<?= htmlspecialchars($captain['captain_name'] ?? '') ?>"
-                   required minlength="2" placeholder="أدخل اسم الكابتن">
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label class="form-label" for="phone_number">رقم الهاتف الأساسي <span style="color:var(--danger)">*</span></label>
-                <input type="tel" id="phone_number" name="phone_number" class="form-control"
-                       value="<?= htmlspecialchars($captain['phone_number'] ?? '') ?>"
-                       required placeholder="مثال: 01274593603">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="secondary_phone_number">رقم الهاتف الإضافي <span style="color:var(--danger)">*</span></label>
-                <input type="tel" id="secondary_phone_number" name="secondary_phone_number" class="form-control"
-                       value="<?= htmlspecialchars($captain['secondary_phone_number'] ?? '') ?>"
-                       required placeholder="مثال: +201274593603">
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label class="form-label" for="age">العمر</label>
-                <input type="number" id="age" name="age" class="form-control" min="18" max="90"
-                       value="<?= htmlspecialchars((string)($captain['age'] ?? '')) ?>"
-                       placeholder="مثال: 30">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="email">البريد الإلكتروني</label>
-                <input type="email" id="email" name="email" class="form-control"
-                       value="<?= htmlspecialchars($captain['email'] ?? '') ?>"
-                       placeholder="example@email.com">
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label" for="academic_qualification">المؤهل العلمي</label>
-            <input type="text" id="academic_qualification" name="academic_qualification" class="form-control"
-                   value="<?= htmlspecialchars($captain['academic_qualification'] ?? '') ?>"
-                   placeholder="مثال: بكالوريوس تربية رياضية">
-        </div>
-
-        <?php if ($isAdmin): ?>
-            <div class="form-group">
-                <label class="form-label" for="visible">الحالة</label>
-                <select id="visible" name="visible" class="form-control">
-                    <option value="1" <?= ($captain['visible'] ?? 1) == 1 ? 'selected' : '' ?>>✅ نشط</option>
-                    <option value="0" <?= ($captain['visible'] ?? 1) == 0 ? 'selected' : '' ?>>❌ معطّل</option>
-                </select>
+        <?php if ($branchAssignmentOnly): ?>
+            <p class="section-divider">بيانات الكابتن</p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">اسم الكابتن</label>
+                    <div class="form-control" style="height:auto;min-height:42px;display:flex;align-items:center;">
+                        <?= htmlspecialchars($captain['captain_name'] ?? '—') ?>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">رقم الهاتف الأساسي</label>
+                    <div class="form-control" style="height:auto;min-height:42px;display:flex;align-items:center;">
+                        <?= htmlspecialchars($captain['phone_number'] ?? '—') ?>
+                    </div>
+                </div>
             </div>
         <?php else: ?>
-            <input type="hidden" name="visible" value="<?= (int)($captain['visible'] ?? 1) ?>">
+            <p class="section-divider">بيانات الكابتن</p>
+
+            <div class="form-group">
+                <label class="form-label" for="captain_name">اسم الكابتن <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="captain_name" name="captain_name" class="form-control"
+                       value="<?= htmlspecialchars($captain['captain_name'] ?? '') ?>"
+                       required minlength="2" placeholder="أدخل اسم الكابتن">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="phone_number">رقم الهاتف الأساسي <span style="color:var(--danger)">*</span></label>
+                    <input type="tel" id="phone_number" name="phone_number" class="form-control"
+                           value="<?= htmlspecialchars($captain['phone_number'] ?? '') ?>"
+                           required placeholder="مثال: 01274593603">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="secondary_phone_number">رقم الهاتف الإضافي <span style="color:var(--danger)">*</span></label>
+                    <input type="tel" id="secondary_phone_number" name="secondary_phone_number" class="form-control"
+                           value="<?= htmlspecialchars($captain['secondary_phone_number'] ?? '') ?>"
+                           required placeholder="مثال: +201274593603">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="age">العمر</label>
+                    <input type="number" id="age" name="age" class="form-control" min="18" max="90"
+                           value="<?= htmlspecialchars((string)($captain['age'] ?? '')) ?>"
+                           placeholder="مثال: 30">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="email">البريد الإلكتروني</label>
+                    <input type="email" id="email" name="email" class="form-control"
+                           value="<?= htmlspecialchars($captain['email'] ?? '') ?>"
+                           placeholder="example@email.com">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="academic_qualification">المؤهل العلمي</label>
+                <input type="text" id="academic_qualification" name="academic_qualification" class="form-control"
+                       value="<?= htmlspecialchars($captain['academic_qualification'] ?? '') ?>"
+                       placeholder="مثال: بكالوريوس تربية رياضية">
+            </div>
+
+            <?php if ($isAdmin): ?>
+                <div class="form-group">
+                    <label class="form-label" for="visible">الحالة</label>
+                    <select id="visible" name="visible" class="form-control">
+                        <option value="1" <?= ($captain['visible'] ?? 1) == 1 ? 'selected' : '' ?>>✅ نشط</option>
+                        <option value="0" <?= ($captain['visible'] ?? 1) == 0 ? 'selected' : '' ?>>❌ معطّل</option>
+                    </select>
+                </div>
+            <?php else: ?>
+                <input type="hidden" name="visible" value="<?= (int)($captain['visible'] ?? 1) ?>">
+            <?php endif; ?>
+
+            <p class="section-divider">صورة البطاقة (الرقم القومي)</p>
+
+            <div class="form-group">
+                <label class="form-label" for="ssn_card_path">رفع صورة البطاقة</label>
+                <input type="file" id="ssn_card_path" name="ssn_card_path" class="form-control"
+                       accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
+                <p style="font-size:.75rem;color:var(--muted);margin-top:4px">JPG, PNG, WEBP أو PDF — بحد أقصى 5 ميجابايت.</p>
+
+                <?php if ($existingCard): ?>
+                    <div class="card-preview">
+                        <?php if ($existingCardIsPdf): ?>
+                            <span class="file-icon">📄</span>
+                        <?php else: ?>
+                            <img src="<?= APP_URL . '/' . htmlspecialchars($existingCard) ?>" alt="صورة البطاقة">
+                        <?php endif; ?>
+                        <a href="<?= APP_URL . '/' . htmlspecialchars($existingCard) ?>" target="_blank" rel="noopener">عرض الملف الحالي</a>
+                    </div>
+                    <label class="remove-card-check">
+                        <input type="checkbox" name="remove_ssn_card" value="1">
+                        إزالة صورة البطاقة الحالية
+                    </label>
+                <?php endif; ?>
+            </div>
+
+            <p class="section-divider">الشهادة</p>
+
+            <div class="form-group">
+                <label class="form-label" for="certificate_image_path">رفع صورة الشهادة</label>
+                <input type="file" id="certificate_image_path" name="certificate_image_path" class="form-control"
+                       accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
+                <p style="font-size:.75rem;color:var(--muted);margin-top:4px">JPG, PNG, WEBP أو PDF — بحد أقصى 5 ميجابايت.</p>
+
+                <?php if ($existingCertificate): ?>
+                    <div class="card-preview">
+                        <?php if ($existingCertificateIsPdf): ?>
+                            <span class="file-icon">📄</span>
+                        <?php else: ?>
+                            <img src="<?= APP_URL . '/' . htmlspecialchars($existingCertificate) ?>" alt="صورة الشهادة">
+                        <?php endif; ?>
+                        <a href="<?= APP_URL . '/' . htmlspecialchars($existingCertificate) ?>" target="_blank" rel="noopener">عرض الملف الحالي</a>
+                    </div>
+                    <label class="remove-card-check">
+                        <input type="checkbox" name="remove_certificate_image" value="1">
+                        إزالة صورة الشهادة الحالية
+                    </label>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
-
-        <p class="section-divider">صورة البطاقة (الرقم القومي)</p>
-
-        <div class="form-group">
-            <label class="form-label" for="ssn_card_path">رفع صورة البطاقة</label>
-            <input type="file" id="ssn_card_path" name="ssn_card_path" class="form-control"
-                   accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
-            <p style="font-size:.75rem;color:var(--muted);margin-top:4px">JPG, PNG, WEBP أو PDF — بحد أقصى 5 ميجابايت.</p>
-
-            <?php if ($existingCard): ?>
-                <div class="card-preview">
-                    <?php if ($existingCardIsPdf): ?>
-                        <span class="file-icon">📄</span>
-                    <?php else: ?>
-                        <img src="<?= APP_URL . '/' . htmlspecialchars($existingCard) ?>" alt="صورة البطاقة">
-                    <?php endif; ?>
-                    <a href="<?= APP_URL . '/' . htmlspecialchars($existingCard) ?>" target="_blank" rel="noopener">عرض الملف الحالي</a>
-                </div>
-                <label class="remove-card-check">
-                    <input type="checkbox" name="remove_ssn_card" value="1">
-                    إزالة صورة البطاقة الحالية
-                </label>
-            <?php endif; ?>
-        </div>
-
-        <p class="section-divider">الشهادة</p>
-
-        <div class="form-group">
-            <label class="form-label" for="certificate_image_path">رفع صورة الشهادة</label>
-            <input type="file" id="certificate_image_path" name="certificate_image_path" class="form-control"
-                   accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
-            <p style="font-size:.75rem;color:var(--muted);margin-top:4px">JPG, PNG, WEBP أو PDF — بحد أقصى 5 ميجابايت.</p>
-
-            <?php if ($existingCertificate): ?>
-                <div class="card-preview">
-                    <?php if ($existingCertificateIsPdf): ?>
-                        <span class="file-icon">📄</span>
-                    <?php else: ?>
-                        <img src="<?= APP_URL . '/' . htmlspecialchars($existingCertificate) ?>" alt="صورة الشهادة">
-                    <?php endif; ?>
-                    <a href="<?= APP_URL . '/' . htmlspecialchars($existingCertificate) ?>" target="_blank" rel="noopener">عرض الملف الحالي</a>
-                </div>
-                <label class="remove-card-check">
-                    <input type="checkbox" name="remove_certificate_image" value="1">
-                    إزالة صورة الشهادة الحالية
-                </label>
-            <?php endif; ?>
-        </div>
 
         <p class="section-divider">الفروع المُعيَّنة</p>
 
@@ -231,7 +250,7 @@ $existingCertificateIsPdf = $existingCertificate && str_ends_with(strtolower($ex
 
         <div style="display:flex;gap:8px;margin-top:2rem;">
             <button type="submit" class="btn btn-primary">
-                <?= $isEdit ? '💾 حفظ التعديلات' : '✅ إضافة الكابتن' ?>
+                <?= $branchAssignmentOnly ? '💾 حفظ الفروع' : ($isEdit ? '💾 حفظ التعديلات' : '✅ إضافة الكابتن') ?>
             </button>
             <?php if ($ajaxPartial): ?>
                 <button type="button" class="btn btn-secondary js-modal-close">إلغاء</button>

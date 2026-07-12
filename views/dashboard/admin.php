@@ -7,6 +7,7 @@ function adminActivityLabel(string $action): string {
         'created_captain' => 'أضاف كابتن',
         'captain_added_to_branch' => 'أضاف كابتن إلى فرعه',
         'captain_removed_from_branch' => 'أزال كابتن من فرعه',
+        'updated_captain_branch_assignment' => 'عدّل فروع كابتن',
     ];
 
     return $labels[$action] ?? $action;

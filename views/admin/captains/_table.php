@@ -82,7 +82,9 @@ $managerBranchIds = array_map('intval', $managerBranchIds ?? []);
                             <div class="td-actions">
                                 <a href="<?= APP_URL ?>/admin/captains/show?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
                                 <?php if ($canEdit): ?>
-                                    <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
+                                    <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">
+                                        <?= $role === 'area_manager' ? 'الفروع' : 'تعديل' ?>
+                                    </a>
                                 <?php endif; ?>
                                 <?php if ($isBranchManager): ?>
                                     <?php

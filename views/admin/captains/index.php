@@ -262,7 +262,7 @@ require ROOT . '/views/includes/layout_top.php';
     // ── Build action buttons ─────────────────────────────────────────────
     function actionButtons(c) {
         const editBtn = canEdit
-            ? `<a href="${APP_URL}/admin/captains/edit?id=${c.id}" class="btn btn-sm btn-warning">تعديل</a>`
+            ? `<a href="${APP_URL}/admin/captains/edit?id=${c.id}" class="btn btn-sm btn-warning">${role === 'area_manager' ? 'الفروع' : 'تعديل'}</a>`
             : '';
         const deleteBtn = isAdmin
             ? `<button type="button" class="btn btn-sm btn-danger js-delete-captain" data-id="${c.id}" data-name="${esc(c.captain_name)}">حذف</button>`
