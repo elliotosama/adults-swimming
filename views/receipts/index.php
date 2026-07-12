@@ -79,6 +79,8 @@ function renewalTypeLabel(?string $type): string {
 
 $canFilter = fn(string $key): bool => in_array($key, $allowedFilters ?? [], true);
 $isAdmin   = $isAdmin ?? false;
+$canViewReceiptUpdates = $canViewReceiptUpdates ?? $isAdmin;
+$logsButtonLabel = $canViewReceiptUpdates ? 'المعاملات والتعديلات' : 'المعاملات الماليه';
 $updatedReceiptId = (int) ($_GET['updated_receipt_id'] ?? ($_SESSION['updated_receipt_id'] ?? 0));
 unset($_SESSION['updated_receipt_id']);
 ?>
@@ -1002,7 +1004,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
                             <td>
                                 <div class="td-actions">
                                     <button type="button" class="btn btn-sm btn-secondary" onclick="loadReceiptModal(<?= (int)$r['id'] ?>)">عرض الإيصال</button>
-                                    <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal(<?= (int)$r['id'] ?>)"><?= $isAdmin ? 'المعاملات والتعديلات' : 'المعاملات الماليه' ?></button>
+                                    <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal(<?= (int)$r['id'] ?>)"><?= $logsButtonLabel ?></button>
                                 </div>
                             </td>
                         </tr>
@@ -1065,7 +1067,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 <div class="receipt-overlay" id="receiptLogsOverlay" aria-hidden="true">
     <div class="receipt-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="receiptLogsTitle">
         <div class="receipt-overlay-header">
-            <h2 class="receipt-overlay-title" id="receiptLogsTitle"><?= $isAdmin ? 'المعاملات والتعديلات' : 'المعاملات الماليه' ?></h2>
+            <h2 class="receipt-overlay-title" id="receiptLogsTitle"><?= $logsButtonLabel ?></h2>
             <button type="button" class="receipt-overlay-close" onclick="closeReceiptOverlay('receiptLogsOverlay')" aria-label="إغلاق">✕</button>
         </div>
         <div class="receipt-overlay-body" id="receiptLogsBody"></div>
@@ -1103,6 +1105,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
     const BASE_URL   = <?= json_encode(APP_URL) ?>;
     const IS_ADMIN   = <?= json_encode($isAdmin) ?>;
+    const CAN_VIEW_RECEIPT_UPDATES = <?= json_encode($canViewReceiptUpdates) ?>;
     const PER_PAGE   = <?= (int) ($perPage ?? 25) ?>;
 
     let livePage     = 1;
@@ -1203,7 +1206,7 @@ function buildRow(r) {
         <td>
             <div class="td-actions">
                 <button type="button" class="btn btn-sm btn-secondary" onclick="loadReceiptModal('${esc(r.id)}')">عرض الإيصال</button>
-                <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal('${esc(r.id)}')">${IS_ADMIN ? 'المعاملات والتعديلات' : 'المعاملات الماليه'}</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal('${esc(r.id)}')">${CAN_VIEW_RECEIPT_UPDATES ? 'المعاملات والتعديلات' : 'المعاملات الماليه'}</button>
             </div>
         </td>
     </tr>`;

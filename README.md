@@ -1,38 +1,7 @@
-- [x] remove delete button from every account => Done
-- [x] add button in manage page to download receipt directly => Done
-- [x] check working time in renewal tab => Done
-- [x] the number of total receipts i in arabic in receipts page => Done
-- [x] icon is just an icon
-- [x] i don't want the system to stomre renewal type by it's own i just want to validate it and the user choose renwal type and if its wrong i want the system rais error message => Done
-- [x] when i search with branch manager account it should get the users from this branch only => Done
-- [x] in renewal tab make the search with client id or phone number only => Done
-- [x] renewal type in receipts page should be in arabic => Done
-- [x] add validation if email exists => Done
-- [x] show the image in the same page in show receipt page => Done
-
-
-
-- [x] if i choose cash remove upload
-- [x] error message appear twice
-- [x] please login message appear after login
-
-osamaitech123456@gmail.com
-
-
-
 admin => rahma@gmail.com : fJ@S8@UM
 area manager => abdullah.ezzat@gmail.com : PD#pi87h
 customer service => naira.elbanna@gmail.com : 9tYB$4Wv
 branch manager => abdullah.ezaat.2@gmail.com : $mJvM9Fn
-
-- [x] in refund should appear the last receipt only
-- [x] can not make another payment on a refunded receipt
-- [x] check if this email or phone number has exist aleardy in a new receipt or not if exists rais error message to tell him this client has a new receipt already
-- [x] upload evidance required in all payment method except cash and don't appear cash in customer service account
-- [x] in refund searching using receipt id does not work
-- [x] in payment search should be phone number or receipt id
-- [x] check receipt type when renew a receipt "if my last receipt end date is 18/4 and i renewd a receipt in 20/4 it will be current renewal but if the renewed at 21/4 it will be previous renewal becuase my month ends at 21
-- [x] in show receipt show remaining and paid amount
 # bugs in pdf
 ---
 - [ ] ajax in transactions page
@@ -145,12 +114,26 @@ captains table {
 
 
 
+- [ ] ui in receipts
+- [ ] make branch_manager can add captain but can not remove it
+- [ ] check the user 01018043530 has receipts on the old system or not because it created this receipt yasterday and now can not make a payment because receipt not found
+- [ ] replace receipt id in receipt pdf to client id
+- [ ] make branch manager can edit level captain and first session and exercise time only
+- [ ] when i filter with 11/7 and 10/7 i got the same receipts but in 10 i got one more
+- [ ] complete admin functionality on the server
+- [ ] add captain functionality for branch manger
+- [ ] another payment in receipt notes
+- [ ] check update functionality because it remove the old data
+- [ ] success message after editing receipt
+- [ ] remove receipt transactions for branch manger and customer service and area manager
+- [ ] in edit add option to add another payment evidence and only admin can remove the payment evidence
+- [ ] when i edit receipt it removes filters in index page
+- [ ] check 01125260919 receipt because it created two times
+- [ ] check 01102816922 receipt because it created two times
+- [ ] remove height from receipts index page
 
-updates => Done
-captains duplicates =>
-download refund pdfs
-ui in receipts
-make branch_manager can add captain but can not remove it
+
+
 
 
 

@@ -1,6 +1,8 @@
 <?php
 // app/models/ClientModel.php
 
+require_once dirname(__DIR__) . '/helpers/PhoneHelper.php';
+
 class ClientModel {
 
     private PDO $db;
@@ -76,11 +78,16 @@ class ClientModel {
     // ── Uniqueness checks ─────────────────────────────────────────────────────
 
     public function phoneExists(string $phone, int $excludeId = 0): bool {
+        return (bool) $this->findByPhone($phone, $excludeId);
+    }
+
+    public function findByPhone(string $phone, int $excludeId = 0): array|false {
+        [$phoneSql, $params] = PhoneHelper::buildSearchCondition($phone);
         $stmt = $this->db->prepare("
-            SELECT COUNT(*) FROM clients WHERE phone = ? AND id != ? AND visible = 1
+            SELECT * FROM clients WHERE {$phoneSql} AND id != ? LIMIT 1
         ");
-        $stmt->execute([$phone, $excludeId]);
-        return (bool) $stmt->fetchColumn();
+        $stmt->execute(array_merge($params, [$excludeId]));
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     public function emailExists(string $email, int $excludeId = 0): bool {

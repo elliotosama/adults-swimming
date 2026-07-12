@@ -66,6 +66,206 @@ class ReceiptController {
             : [];
     }
 
+    private function areaManagerBranchIds(): array {
+        $user = auth_user();
+        return $user['role'] === 'area_manager'
+            ? array_map('intval', $this->receipts->getBranchIdsByArea($user['id']))
+            : [];
+    }
+
+    private function captainBelongsToBranch(string $captainId, int $branchId): bool {
+        if ($captainId === '' || $branchId <= 0) {
+            return false;
+        }
+
+        $stmt = get_db()->prepare("
+            SELECT 1
+            FROM captain_branch cb
+            JOIN captains c ON c.id = cb.captain_id
+            WHERE cb.branch_id = ?
+              AND cb.captain_id = ?
+              AND c.visible = 1
+            LIMIT 1
+        ");
+        $stmt->execute([$branchId, $captainId]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    private function captainsForBranch(int $branchId): array {
+        $stmt = get_db()->prepare("
+            SELECT ca.id, ca.captain_name
+            FROM captain_branch cb
+            JOIN captains ca ON ca.id = cb.captain_id
+            WHERE cb.branch_id = ? AND ca.visible = 1
+            ORDER BY ca.captain_name
+        ");
+        $stmt->execute([$branchId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function latestPaymentEvidence(int $receiptId): string {
+        $stmt = get_db()->prepare("
+            SELECT attachment
+            FROM transactions
+            WHERE receipt_id = ? AND type = 'payment' AND attachment IS NOT NULL AND attachment <> ''
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$receiptId]);
+        return (string) ($stmt->fetchColumn() ?: '');
+    }
+
+    private function latestPaymentTransactionId(int $receiptId): int {
+        $stmt = get_db()->prepare("
+            SELECT id
+            FROM transactions
+            WHERE receipt_id = ? AND type = 'payment'
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$receiptId]);
+        return (int) ($stmt->fetchColumn() ?: 0);
+    }
+
+    private function replaceLatestPaymentEvidence(int $receiptId, string $path): bool {
+        $transactionId = $this->latestPaymentTransactionId($receiptId);
+        if ($transactionId <= 0) {
+            return false;
+        }
+
+        $update = get_db()->prepare("UPDATE transactions SET attachment = ? WHERE id = ?");
+        $update->execute([$path, $transactionId]);
+        return true;
+    }
+
+    private function normalizeGender(string $gender): string {
+        return match ($gender) {
+            'male' => 'ذكر',
+            'female' => 'أنثى',
+            default => $gender,
+        };
+    }
+
+    private function calculateSessionDates(array $data): array {
+        $firstSession = trim((string) ($data['first_session'] ?? ''));
+        $branchId     = (int) ($data['branch_id'] ?? 0);
+        $planId       = (int) ($data['plan_id'] ?? 0);
+
+        if ($firstSession === '' || $branchId <= 0 || $planId <= 0) {
+            return [
+                'last_session'    => (string) ($data['last_session'] ?? ''),
+                'renewal_session' => (string) ($data['renewal_session'] ?? ''),
+            ];
+        }
+
+        $start = DateTimeImmutable::createFromFormat('!Y-m-d', $firstSession);
+        if (!$start || $start->format('Y-m-d') !== $firstSession) {
+            return [
+                'last_session'    => (string) ($data['last_session'] ?? ''),
+                'renewal_session' => (string) ($data['renewal_session'] ?? ''),
+            ];
+        }
+
+        $stmt = get_db()->prepare("
+            SELECT b.working_days1, b.working_days2, b.working_days3,
+                   p.number_of_sessions
+            FROM branches b
+            JOIN prices p ON p.id = ?
+            WHERE b.id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$planId, $branchId]);
+        $meta = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $sessions = (int) ($meta['number_of_sessions'] ?? 0);
+        $days     = $this->workingDaysForLevel($meta, (int) ($data['level'] ?? 0));
+        if ($sessions <= 0 || !$days) {
+            return [
+                'last_session'    => (string) ($data['last_session'] ?? ''),
+                'renewal_session' => (string) ($data['renewal_session'] ?? ''),
+            ];
+        }
+
+        return $this->buildSessionDates($start, $days, $sessions, !empty($data['double']));
+    }
+
+    private function workingDaysForLevel(array $branchMeta, int $level): array {
+        $slot = match ($level) {
+            1 => 'working_days1',
+            2 => 'working_days2',
+            3 => 'working_days3',
+            default => '',
+        };
+
+        $days = $slot ? $this->splitWorkingDays((string) ($branchMeta[$slot] ?? '')) : [];
+        if ($days) {
+            return $days;
+        }
+
+        $all = [];
+        foreach (['working_days1', 'working_days2', 'working_days3'] as $fallbackSlot) {
+            $all = array_merge($all, $this->splitWorkingDays((string) ($branchMeta[$fallbackSlot] ?? '')));
+        }
+        return array_values(array_unique($all));
+    }
+
+    private function splitWorkingDays(string $value): array {
+        return array_values(array_filter(array_map('trim', explode(',', $value)), static fn($day) => $day !== ''));
+    }
+
+    private function buildSessionDates(DateTimeImmutable $start, array $allowedDays, int $totalSessions, bool $isDouble): array {
+        $startDayName = $start->format('l');
+        $activeDays   = $this->pickActiveDays($startDayName, $allowedDays, $totalSessions, $isDouble);
+        if (!$activeDays) {
+            return ['renewal_session' => '', 'last_session' => ''];
+        }
+
+        $sessionsPerVisit = $isDouble ? 2 : 1;
+        $totalVisits      = (int) ceil($totalSessions / $sessionsPerVisit);
+        $dates            = [];
+        $cursor           = $start;
+
+        for ($safety = 0; count($dates) < $totalVisits && $safety < 365; $safety++) {
+            if (in_array($cursor->format('l'), $activeDays, true)) {
+                $dates[] = $cursor->format('Y-m-d');
+            }
+            $cursor = $cursor->modify('+1 day');
+        }
+
+        if (count($dates) < 2) {
+            return ['renewal_session' => '', 'last_session' => $dates[0] ?? ''];
+        }
+
+        return [
+            'renewal_session' => $dates[count($dates) - 2],
+            'last_session'    => $dates[count($dates) - 1],
+        ];
+    }
+
+    private function pickActiveDays(string $startDayName, array $allowedDays, int $totalSessions, bool $isDouble): array {
+        $idx = array_search($startDayName, $allowedDays, true);
+        if ($idx === false) {
+            return [];
+        }
+
+        $pairStart = $idx % 2 === 0 ? $idx : $idx - 1;
+        $pair1     = array_slice($allowedDays, $pairStart, 2);
+        if (($pair1[0] ?? '') !== $startDayName) {
+            $pair1 = array_reverse($pair1);
+        }
+
+        if (!$isDouble) {
+            return $totalSessions >= 8 ? $pair1 : [$startDayName];
+        }
+
+        if ($totalSessions >= 8) {
+            $pair2Start = $pairStart === 0 ? 2 : 0;
+            return array_values(array_unique(array_merge($pair1, array_slice($allowedDays, $pair2Start, 2))));
+        }
+
+        return $pair1;
+    }
+
 
 private function parseForm(): array {
     return [
@@ -73,7 +273,7 @@ private function parseForm(): array {
         'phone'           => trim($_POST['full_phone']       ?? trim($_POST['phone'] ?? '')),
         'client_email'    => trim($_POST['client_email']     ?? ''),
         'client_age'      => (int)($_POST['client_age']      ?? 0) ?: null,
-        'client_gender'   => trim($_POST['client_gender']    ?? ''),
+        'client_gender'   => $this->normalizeGender(trim($_POST['client_gender']    ?? '')),
         'client_id'       => (int) ($_POST['client_id']      ?? 0),
         'creator_id'      => (int) ($_POST['creator_id']     ?? 0),
         'captain_id'      => trim($_POST['captain_id']       ?? ''),   // ← was (int) cast — broke non-numeric IDs like "c-289"
@@ -238,27 +438,51 @@ private function validate(array $data): array {
     // formDropdowns
     // ════════════════════════════════════════════════════════════════════════
 
-    private function formDropdowns(): array {
+    private function formDropdowns(?array $allowedBranchIds = null): array {
         $db = get_db();
 
-        $branches = $db->query("
+        $branchWhere = 'b.visible = 1';
+        $branchParams = [];
+        if ($allowedBranchIds !== null) {
+            $allowedBranchIds = array_values(array_unique(array_map('intval', $allowedBranchIds)));
+            if (!$allowedBranchIds) {
+                $allowedBranchIds = [0];
+            }
+            $placeholders = implode(',', array_fill(0, count($allowedBranchIds), '?'));
+            $branchWhere .= " AND b.id IN ({$placeholders})";
+            $branchParams = $allowedBranchIds;
+        }
+
+        $branchStmt = $db->prepare("
             SELECT b.id, b.branch_name,
                    b.working_days1, b.working_days2, b.working_days3,
                    b.working_time_from, b.working_time_to,
                    c.id AS country_id, c.country, c.country_code
             FROM branches b
             JOIN countries c ON c.id = b.country_id
-            WHERE b.visible = 1
+            WHERE {$branchWhere}
             ORDER BY b.branch_name
-        ")->fetchAll(PDO::FETCH_ASSOC);
+        ");
+        $branchStmt->execute($branchParams);
+        $branches = $branchStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $captainRows = $db->query("
+        $captainWhere = 'c.visible = 1';
+        $captainParams = [];
+        if ($allowedBranchIds !== null) {
+            $placeholders = implode(',', array_fill(0, count($allowedBranchIds), '?'));
+            $captainWhere .= " AND cb.branch_id IN ({$placeholders})";
+            $captainParams = $allowedBranchIds;
+        }
+
+        $captainStmt = $db->prepare("
             SELECT cb.branch_id, c.id, c.captain_name
             FROM captain_branch cb
             JOIN captains c ON c.id = cb.captain_id
-            WHERE c.visible = 1
+            WHERE {$captainWhere}
             ORDER BY c.captain_name
-        ")->fetchAll(PDO::FETCH_ASSOC);
+        ");
+        $captainStmt->execute($captainParams);
+        $captainRows = $captainStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $captainsByBranch = [];
         foreach ($captainRows as $row) {
@@ -528,6 +752,14 @@ private function validate(array $data): array {
                 LIMIT 1
             ");
             $stmt->execute(array_merge($phoneParams, $allowedBranchIds));
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) return $row;
+
+            // Client phone numbers are globally unique. A branch manager must
+            // still be able to renew an existing client even if that client's
+            // previous receipt belongs to another branch.
+            $stmt = $db->prepare("SELECT * FROM clients WHERE {$phoneSql} LIMIT 1");
+            $stmt->execute($phoneParams);
         } else {
             $stmt = $db->prepare("SELECT * FROM clients WHERE {$phoneSql} LIMIT 1");
             $stmt->execute($phoneParams);
@@ -740,6 +972,7 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
         $scope   = $this->roleScope();
         $filters = array_merge($this->resolveFilters(), $scope['forced']);
         $page    = max(1, (int) ($_GET['page'] ?? 1));
+        $role    = auth_user()['role'];
 
         $result   = $this->receipts->search($filters, $page, self::PER_PAGE);
         $receipts = $result['data'];
@@ -771,7 +1004,8 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
             'perPage'        => self::PER_PAGE,
             'branches'       => $branches,
             'creators'       => $creators,
-            'isAdmin'        => (auth_user()['role'] === 'admin'),
+            'isAdmin'        => ($role === 'admin'),
+            'canViewReceiptUpdates' => in_array($role, ['admin', 'branch_manager'], true),
         ]);
     }
 
@@ -1263,13 +1497,50 @@ public function show(): void {
             exit;
         }
 
-        $isAdmin = auth_user()['role'] === 'admin';
+        $role = auth_user()['role'];
+        if ($role === 'branch_manager') {
+            $managedBranchIds = $this->managerBranchIds();
+            if (!in_array((int) ($receipt['branch_id'] ?? 0), $managedBranchIds, true)) {
+                http_response_code(403);
+                echo '<p style="padding:2rem;color:#E06C75">Access denied.</p>';
+                exit;
+            }
+        }
+
+        $isAdmin = $role === 'admin';
+        $canViewReceiptUpdates = in_array($role, ['admin', 'branch_manager'], true);
+        $auditLogs = $canViewReceiptUpdates ? $this->auditLog->findByReceipt($id) : [];
+        $captainNames = [];
+
+        $captainIds = [];
+        foreach ($auditLogs as $log) {
+            if (($log['field_name'] ?? '') !== 'captain_id') {
+                continue;
+            }
+            foreach (['old_value', 'new_value'] as $key) {
+                $captainId = trim((string) ($log[$key] ?? ''));
+                if ($captainId !== '') {
+                    $captainIds[$captainId] = true;
+                }
+            }
+        }
+        if ($captainIds) {
+            $ids = array_keys($captainIds);
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = get_db()->prepare("SELECT id, captain_name FROM captains WHERE id IN ({$placeholders})");
+            $stmt->execute($ids);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $captain) {
+                $captainNames[(string) $captain['id']] = (string) $captain['captain_name'];
+            }
+        }
 
         $this->renderView('_logs_modal', [
             'receipt'      => $receipt,
             'transactions' => $this->transactions->findByReceipt($id),
-            'auditLogs'    => $isAdmin ? $this->auditLog->findByReceipt($id) : [],
+            'auditLogs'    => $auditLogs,
+            'captainNames' => $captainNames,
             'isAdmin'      => $isAdmin,
+            'canViewReceiptUpdates' => $canViewReceiptUpdates,
         ]);
     }
 
@@ -1292,6 +1563,23 @@ public function edit(): void {
         $this->flash('flash_error', 'الإيصال غير موجود.');
         $this->redirect('/receipts');
         return;
+    }
+
+    $user = auth_user();
+    $role = $user['role'];
+    $allowedBranchIds = null;
+    if ($role === 'branch_manager') {
+        $allowedBranchIds = $this->managerBranchIds();
+        if (!in_array((int) ($receipt['branch_id'] ?? 0), $allowedBranchIds, true)) {
+            http_response_code(403);
+            die('Access denied.');
+        }
+    } elseif ($role === 'area_manager') {
+        $allowedBranchIds = $this->areaManagerBranchIds();
+        if (!in_array((int) ($receipt['branch_id'] ?? 0), $allowedBranchIds, true)) {
+            http_response_code(403);
+            die('Access denied.');
+        }
     }
 
     $db = get_db();
@@ -1322,25 +1610,18 @@ public function edit(): void {
     if ($lastPm && empty($receipt['payment_method'])) {
         $receipt['payment_method'] = $lastPm;
     }
+    $receipt['transaction_evidence'] = $this->latestPaymentEvidence($id);
 
-    $captainStmt = $db->prepare("
-        SELECT ca.id, ca.captain_name
-        FROM captain_branch cb
-        JOIN captains ca ON ca.id = cb.captain_id
-        WHERE cb.branch_id = ? AND ca.visible = 1
-        ORDER BY ca.captain_name
-    ");
-    $captainStmt->execute([$receipt['branch_id'] ?? 0]);
-    $captains = $captainStmt->fetchAll(PDO::FETCH_ASSOC);
+    $captains = $this->captainsForBranch((int) ($receipt['branch_id'] ?? 0));
 
-    $this->renderView('edit', array_merge($this->formDropdowns(), [
+    $this->renderView('edit', array_merge($this->formDropdowns($allowedBranchIds), [
         'pageTitle'  => 'تعديل الإيصال',
         'breadcrumb' => 'لوحة التحكم · الإيصالات · تعديل',
         'receipt'    => $receipt,
         'captains'   => $captains,
         'errors'     => [],
         'isEdit'     => true,
-        'isAdmin'    => (auth_user()['role'] === 'admin'),
+        'isAdmin'    => ($role === 'admin'),
     ]));
 }
 
@@ -1365,7 +1646,23 @@ public function update(): void {
     $isAdmin            = ($user['role'] === 'admin');
     $isCustomerService  = ($user['role'] === 'customer_service');
     $isBranchManager    = ($user['role'] === 'branch_manager');
-    $isRestrictedScheduleEditor = $isCustomerService || $isBranchManager;
+    $isAreaManager      = ($user['role'] === 'area_manager');
+    $isRestrictedScheduleEditor = $isCustomerService || $isBranchManager || $isAreaManager;
+    $allowedBranchIds = null;
+
+    if ($isBranchManager) {
+        $allowedBranchIds = $this->managerBranchIds();
+        if (!in_array((int) ($receipt['branch_id'] ?? 0), $allowedBranchIds, true)) {
+            http_response_code(403);
+            die('Access denied.');
+        }
+    } elseif ($isAreaManager) {
+        $allowedBranchIds = $this->areaManagerBranchIds();
+        if (!in_array((int) ($receipt['branch_id'] ?? 0), $allowedBranchIds, true)) {
+            http_response_code(403);
+            die('Access denied.');
+        }
+    }
 
     $data['client_id']      = (int)    $receipt['client_id'];
     $data['creator_id']     = (int)    $receipt['creator_id'];
@@ -1373,20 +1670,55 @@ public function update(): void {
     $data['pdf_path']       = (string) ($receipt['pdf_path'] ?? '');
     $data['renewal_type']   = (string) ($receipt['renewal_type'] ?? 'new');
 
-    if ($isRestrictedScheduleEditor) {
+    if ($isBranchManager) {
+        $data = array_merge($data, [
+            'client_name'     => '',
+            'phone'           => '',
+            'client_email'    => '',
+            'client_age'      => null,
+            'client_gender'   => '',
+            'branch_id'       => (int) ($receipt['branch_id'] ?? 0),
+            'plan_id'         => (int) ($receipt['plan_id'] ?? 0) ?: null,
+            'last_session'    => (string) ($receipt['last_session'] ?? ''),
+            'renewal_session' => (string) ($receipt['renewal_session'] ?? ''),
+            'receipt_status'  => (string) ($receipt['receipt_status'] ?? 'not_completed'),
+            'payment_method'  => (string) (($receipt['payment_method'] ?? '') ?: 'preserved'),
+            'notes'           => (string) ($receipt['notes'] ?? ''),
+            'renewal_type'    => (string) ($receipt['renewal_type'] ?? 'new'),
+            'pdf_path'        => (string) ($receipt['pdf_path'] ?? ''),
+        ]);
+    } elseif ($isAreaManager) {
+        $data = array_merge($data, [
+            'client_name'     => '',
+            'phone'           => '',
+            'client_email'    => '',
+            'client_age'      => null,
+            'client_gender'   => '',
+            'plan_id'         => (int) ($receipt['plan_id'] ?? 0) ?: null,
+            'last_session'    => (string) ($receipt['last_session'] ?? ''),
+            'renewal_session' => (string) ($receipt['renewal_session'] ?? ''),
+            'receipt_status'  => (string) ($receipt['receipt_status'] ?? 'not_completed'),
+            'payment_method'  => (string) (($receipt['payment_method'] ?? '') ?: 'preserved'),
+            'notes'           => (string) ($receipt['notes'] ?? ''),
+            'renewal_type'    => (string) ($receipt['renewal_type'] ?? 'new'),
+            'pdf_path'        => (string) ($receipt['pdf_path'] ?? ''),
+        ]);
+    } elseif ($isCustomerService) {
         $data['client_name']     = '';
         $data['phone']           = '';
         $data['client_email']    = '';
         $data['client_age']      = null;
         $data['client_gender']   = '';
-        $data['branch_id']       = $isBranchManager ? (int)($receipt['branch_id'] ?? 0) : $data['branch_id'];
         $data['plan_id']         = (int) ($receipt['plan_id'] ?? 0) ?: null;
-        $data['level']           = $isCustomerService ? ((int) ($receipt['level'] ?? 0) ?: null) : $data['level'];
         $data['last_session']    = (string) ($receipt['last_session'] ?? '');
         $data['renewal_session'] = (string) ($receipt['renewal_session'] ?? '');
-        $data['payment_method']  = $data['payment_method'] ?: 'preserved';
+        $data['payment_method']  = $data['payment_method'] ?: (string) (($receipt['payment_method'] ?? '') ?: 'preserved');
         $data['notes']           = '';
     }
+
+    $calculatedSessions = $this->calculateSessionDates($data);
+    $data['last_session']    = $calculatedSessions['last_session'];
+    $data['renewal_session'] = $calculatedSessions['renewal_session'];
 
     // Only admin can submit a total_paid override; anyone else's value is ignored.
     if (!$isAdmin) {
@@ -1396,14 +1728,33 @@ public function update(): void {
 
     $errors = $this->validate($data);
 
+    if ($data['first_session'] !== '' && $data['last_session'] === '') {
+        $errors[] = 'تعذر حساب تاريخ آخر جلسة. يرجى اختيار تاريخ أول جلسة من أيام عمل المستوى المحدد.';
+    }
+
+    if ($isAreaManager && $allowedBranchIds !== null && !in_array((int) $data['branch_id'], $allowedBranchIds, true)) {
+        $errors[] = 'يجب اختيار فرع من الفروع التي تديرها.';
+    }
+
+    if (($isBranchManager || $isAreaManager) && !$this->captainBelongsToBranch($data['captain_id'], (int) $data['branch_id'])) {
+        $errors[] = 'يجب اختيار كابتن من نفس فرع الإيصال.';
+    }
+
+    if (($isAdmin || $isBranchManager || $isAreaManager)
+        && !empty($_FILES['transaction_evidence']['tmp_name'])
+        && $this->latestPaymentTransactionId($id) <= 0) {
+        $errors[] = 'لا توجد دفعة مسجلة لهذا الإيصال لإضافة إثبات دفع لها.';
+    }
+
     if ($errors) {
         $editReceipt = $isRestrictedScheduleEditor
             ? array_merge($receipt, [
-                'branch_id'     => $isCustomerService ? $data['branch_id'] : ($receipt['branch_id'] ?? null),
+                'branch_id'     => ($isCustomerService || $isAreaManager) ? $data['branch_id'] : ($receipt['branch_id'] ?? null),
                 'captain_id'    => $data['captain_id'],
-                'level'         => $isBranchManager ? $data['level'] : ($receipt['level'] ?? null),
+                'level'         => $data['level'],
                 'first_session' => $data['first_session'],
                 'exercise_time' => $data['exercise_time'],
+                'transaction_evidence' => $receipt['transaction_evidence'] ?? $this->latestPaymentEvidence($id),
             ])
             : array_merge($receipt, $data, [
                 'age'    => $data['client_age'],
@@ -1411,10 +1762,11 @@ public function update(): void {
             ]);
 
         $this->flash('flash_error', implode('<br>', $errors));
-        $this->renderView('edit', array_merge($this->formDropdowns(), [
+        $this->renderView('edit', array_merge($this->formDropdowns($allowedBranchIds), [
             'pageTitle'  => 'تعديل الإيصال',
             'breadcrumb' => 'لوحة التحكم · الإيصالات · تعديل',
             'receipt'    => $editReceipt,
+            'captains'   => $this->captainsForBranch((int) ($editReceipt['branch_id'] ?? 0)),
             'errors'     => $errors,
             'isEdit'     => true,
             'isAdmin'    => $isAdmin,
@@ -1572,14 +1924,32 @@ public function update(): void {
         }
     }
 
+    $uploadedEvidencePath = null;
+    $oldEvidencePath = $this->latestPaymentEvidence($id);
+    if (($isAdmin || $isBranchManager || $isAreaManager) && !empty($_FILES['transaction_evidence']['tmp_name'])) {
+        $uploadedEvidencePath = $this->handleEvidenceUpload();
+        if ($uploadedEvidencePath && $this->replaceLatestPaymentEvidence($id, $uploadedEvidencePath)) {
+            $this->auditLog->log(
+                $id,
+                $user['id'],
+                $user['role'],
+                'transaction_evidence',
+                $oldEvidencePath,
+                $uploadedEvidencePath
+            );
+        }
+    }
+
     // ── Update receipt ────────────────────────────────────────────────────
     $this->receipts->update($id, $data);
 
-    $updatedReceipt = $this->receipts->findById($id);
-    $planPrice      = (float) ($updatedReceipt['plan_price'] ?? 0);
-    $autoStatus     = $this->autoReceiptStatus($id, $planPrice);
-    $db->prepare("UPDATE receipts SET receipt_status = ? WHERE id = ?")
-       ->execute([$autoStatus, $id]);
+    if (!$isBranchManager && !$isAreaManager) {
+        $updatedReceipt = $this->receipts->findById($id);
+        $planPrice      = (float) ($updatedReceipt['plan_price'] ?? 0);
+        $autoStatus     = $this->autoReceiptStatus($id, $planPrice);
+        $db->prepare("UPDATE receipts SET receipt_status = ? WHERE id = ?")
+           ->execute([$autoStatus, $id]);
+    }
 
     log_action('updated_receipt', "id: {$id}", auth_user()['id']);
     $_SESSION['updated_receipt_id'] = $id;

@@ -12,6 +12,42 @@ function rlmValue($value): string {
     return $value === '' ? '—' : $value;
 }
 
+function rlmIsImagePath(string $raw): bool {
+    $path = parse_url($raw, PHP_URL_PATH) ?: $raw;
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true);
+}
+
+function rlmRenderAuditValue(string $field, $value, array $captainNames = []): string {
+    $raw = trim((string)($value ?? ''));
+    if ($raw === '') {
+        return '—';
+    }
+
+    if ($field === 'captain_id') {
+        return htmlspecialchars($captainNames[$raw] ?? $raw);
+    }
+
+    if ($field === 'transaction_evidence') {
+        $url = rlmEvidenceUrl($raw);
+        if ($url === '') {
+            return '—';
+        }
+
+        if (rlmIsImagePath($raw)) {
+            return '<button type="button" class="rlm-evidence rlm-evidence-thumb" data-rm-evidence="'
+                . htmlspecialchars($url)
+                . '" aria-label="عرض إثبات الدفع">'
+                . '<img src="' . htmlspecialchars($url) . '" alt="إثبات الدفع">'
+                . '</button>';
+        }
+
+        return '<a href="' . htmlspecialchars($url) . '" target="_blank" class="rlm-evidence rlm-evidence-file">PDF</a>';
+    }
+
+    return htmlspecialchars(rlmValue($raw));
+}
+
 function rlmFieldLabel(string $field): string {
     $labels = [
         'edit_history' => 'سجل تعديلات قديم',
@@ -31,6 +67,7 @@ function rlmFieldLabel(string $field): string {
         'exercise_time' => 'وقت التمرين',
         'level' => 'المستوى',
         'plan_id' => 'الاشتراك',
+        'transaction_evidence' => 'إثبات الدفع',
     ];
 
     return $labels[$field] ?? $field;
@@ -98,6 +135,7 @@ $typeMap = [
     'discount' => ['rlm-badge-warning', 'خصم'],
 ];
 $isAdmin = $isAdmin ?? false;
+$canViewReceiptUpdates = $canViewReceiptUpdates ?? $isAdmin;
 ?>
 <div class="rlm">
 <style>
@@ -236,6 +274,8 @@ $isAdmin = $isAdmin ?? false;
 }
 .rlm-old { color: var(--rlm-danger); }
 .rlm-new { color: var(--rlm-success); }
+.rlm-old .rlm-evidence,
+.rlm-new .rlm-evidence { color: var(--rlm-text); }
 .rlm-arrow { color: var(--rlm-muted); }
 .rlm-badge {
     display: inline-flex;
@@ -265,6 +305,19 @@ $isAdmin = $isAdmin ?? false;
     height: 44px;
     object-fit: cover;
     display: block;
+}
+.rlm-evidence-thumb {
+    width: 54px;
+    height: 46px;
+    padding: 0;
+    background: var(--rlm-bg);
+    cursor: pointer;
+}
+.rlm-evidence-thumb:hover {
+    border-color: var(--rlm-primary);
+}
+.rlm-evidence-file {
+    padding: 8px 10px;
 }
 .rlm-history-list {
     display: flex;
@@ -343,7 +396,7 @@ $isAdmin = $isAdmin ?? false;
         </div>
     </div>
 
-    <div class="rlm-grid <?= $isAdmin ? '' : 'transactions-only' ?>">
+    <div class="rlm-grid <?= $canViewReceiptUpdates ? '' : 'transactions-only' ?>">
         <section class="rlm-box">
             <div class="rlm-box-header">
                 <h3> المعاملات الماليه</h3>
@@ -406,7 +459,7 @@ $isAdmin = $isAdmin ?? false;
             </div>
         </section>
 
-        <?php if ($isAdmin): ?>
+        <?php if ($canViewReceiptUpdates): ?>
         <section class="rlm-box">
             <div class="rlm-box-header">
                 <h3>تحديثات الإيصال</h3>
@@ -433,9 +486,9 @@ $isAdmin = $isAdmin ?? false;
                                     <?= rlmRenderEditHistory($log['new_value'] ?? null) ?>
                                 <?php else: ?>
                                 <div class="rlm-change">
-                                    <div class="rlm-old"><?= htmlspecialchars(rlmValue($log['old_value'] ?? null)) ?></div>
+                                    <div class="rlm-old"><?= rlmRenderAuditValue($fieldName, $log['old_value'] ?? null, $captainNames ?? []) ?></div>
                                     <span class="rlm-arrow">←</span>
-                                    <div class="rlm-new"><?= htmlspecialchars(rlmValue($log['new_value'] ?? null)) ?></div>
+                                    <div class="rlm-new"><?= rlmRenderAuditValue($fieldName, $log['new_value'] ?? null, $captainNames ?? []) ?></div>
                                 </div>
                                 <?php endif; ?>
                             </article>

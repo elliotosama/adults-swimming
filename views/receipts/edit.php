@@ -43,6 +43,7 @@ $action  = APP_URL . '/receipt/edit?id=' . $receipt['id'];
 $role              = $_SESSION['user']['role'] ?? '';
 $isCustomerService = ($role === 'customer_service');
 $isBranchManager   = ($role === 'branch_manager');
+$isAreaManager     = ($role === 'area_manager');
 
 // $csAllowed = true for fields that customer_service is also allowed to edit.
 $lock = function(bool $adminOnly, bool $csAllowed = false) use ($isAdmin, $isEdit, $isCustomerService): string {
@@ -53,12 +54,13 @@ $lock = function(bool $adminOnly, bool $csAllowed = false) use ($isAdmin, $isEdi
 };
 
 // Convenience flags used for role-specific label/lock rendering.
-$canEditBranch   = $isAdmin || $isCustomerService || (!$isBranchManager && !$isCustomerService);
-$canEditCaptain  = $isAdmin || $isCustomerService || $isBranchManager;
-$canEditSchedule = $isAdmin || $isCustomerService || $isBranchManager;
-$canEditPlan     = $isAdmin || (!$isCustomerService && !$isBranchManager);
-$canEditLevel    = $isAdmin || $isCustomerService || $isBranchManager;
-$canEditPayment  = $isAdmin || (!$isCustomerService && !$isBranchManager);
+$canEditBranch   = $isAdmin || $isCustomerService || $isAreaManager;
+$canEditCaptain  = $isAdmin || $isCustomerService || $isBranchManager || $isAreaManager;
+$canEditSchedule = $isAdmin || $isCustomerService || $isBranchManager || $isAreaManager;
+$canEditPlan     = $isAdmin;
+$canEditLevel    = $isAdmin || $isCustomerService || $isBranchManager || $isAreaManager;
+$canEditPayment  = $isAdmin;
+$canUploadEvidence = $isAdmin || $isBranchManager || $isAreaManager;
 
 /*
  * total_paid  = real sum of all payment transactions (injected by controller)
@@ -278,6 +280,23 @@ select.form-control:disabled {
 }
 
 .field-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.form-control.field-invalid {
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 3px rgba(224,108,117,0.15) !important;
+}
+.inline-error {
+    display: none;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #2D1E20;
+    border: 1px solid #5C3C40;
+    border-radius: var(--radius);
+    color: #F0A8AD;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.inline-error.visible { display: flex; }
 
 /* Computed / read-only fields */
 .computed-field .form-control {
@@ -434,6 +453,8 @@ select.form-control:disabled {
                     🔓 خدمة العملاء — تعديل الفرع، الكابتن، المستوى، تاريخ أول جلسة، وقت التمرين فقط
                 <?php elseif ($isBranchManager): ?>
                     🔓 مدير فرع — تعديل الكابتن، المستوى، تاريخ أول جلسة، وقت التمرين فقط
+                <?php elseif ($isAreaManager): ?>
+                    🔓 مدير منطقة — تعديل الفرع، الكابتن، المستوى، تاريخ أول جلسة، وقت التمرين فقط
                 <?php else: ?>
                     🔒 مستخدم — تعديل محدود
                 <?php endif; ?>
@@ -449,6 +470,8 @@ select.form-control:disabled {
             <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الكابتن</strong> و<strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>وقت التمرين</strong> فقط. باقي البيانات للقراءة فقط.</span>
         <?php elseif ($isBranchManager): ?>
             <span>ℹ️ يمكنك تعديل <strong>الكابتن</strong> و<strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>وقت التمرين</strong> فقط. باقي البيانات للقراءة فقط.</span>
+        <?php elseif ($isAreaManager): ?>
+            <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الكابتن</strong> و<strong>المستوى</strong> و<strong>تاريخ أول جلسة</strong> و<strong>وقت التمرين</strong> فقط. ويمكنك رفع إثبات دفع جديد.</span>
         <?php else: ?>
             <span>ℹ️ يمكنك تعديل <strong>الفرع</strong> و<strong>الخطة</strong> وبيانات <strong>الدفع</strong> فقط. بيانات العميل، المستوى، تاريخ أول جلسة، والكابتن للقراءة فقط.</span>
         <?php endif; ?>
@@ -608,6 +631,8 @@ select.form-control:disabled {
                     <span class="section-lock">🔒 الخطة للقراءة فقط</span>
                 <?php elseif ($isBranchManager): ?>
                     <span class="section-lock">🔒 الفرع والخطة للقراءة فقط</span>
+                <?php elseif ($isAreaManager): ?>
+                    <span class="section-lock">🔒 الخطة للقراءة فقط</span>
                 <?php elseif (!$canEditCaptain): ?>
                     <span class="section-lock">🔒 المستوى والكابتن لخدمة العملاء والمدير فقط</span>
                 <?php endif; ?>
@@ -705,7 +730,7 @@ select.form-control:disabled {
                 <span class="section-title">الجلسات</span>
                 <?php if (!$isAdmin): ?>
                     <span class="section-lock">
-                        <?php if ($isCustomerService || $isBranchManager): ?>
+                        <?php if ($isCustomerService || $isBranchManager || $isAreaManager): ?>
                             🔒 تاريخ التجديد، تاريخ آخر جلسة، والجلسة المزدوجة للقراءة فقط
                         <?php else: ?>
                             🔒 تاريخ أول جلسة، وقت التمرين، والجلسة المزدوجة للمدير وخدمة العملاء فقط
@@ -732,10 +757,22 @@ select.form-control:disabled {
                             وقت التمرين
                             <?= $canEditSchedule ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
                         </label>
-                        <input type="time" name="exercise_time" class="form-control"
+                        <input type="time" name="exercise_time" id="exercise_time" class="form-control"
                                value="<?= htmlspecialchars($receipt['exercise_time'] ?? '') ?>"
                                <?= $canEditSchedule ? '' : 'disabled' ?>
                                <?= $canEditSchedule ? 'required' : '' ?>>
+                        <div class="inline-error" id="time_error">
+                            <span>⚠️</span><span id="time_error_msg">وقت التمرين خارج ساعات عمل الفرع.</span>
+                        </div>
+                    </div>
+
+                    <div class="inline-error full" id="day_error">
+                        <span>⚠️</span>
+                        <span>تاريخ أول جلسة يجب أن يكون من أيام عمل هذا المستوى: <strong id="day_error_hint"></strong></span>
+                    </div>
+
+                    <div class="inline-error full" id="past_date_error">
+                        <span>⚠️</span><span>لا يمكن اختيار تاريخ سابق.</span>
                     </div>
 
                     <div class="form-field computed-field">
@@ -788,7 +825,8 @@ select.form-control:disabled {
             <div class="section-header">
                 <div class="section-icon">💳</div>
                 <span class="section-title">الدفع</span>
-                <?php if ($isCustomerService || $isBranchManager): ?><span class="section-lock">🔒 للقراءة فقط</span><?php endif; ?>
+                <?php if ($isCustomerService): ?><span class="section-lock">🔒 للقراءة فقط</span><?php endif; ?>
+                <?php if ($isBranchManager || $isAreaManager): ?><span class="section-lock">🔒 بيانات الدفع للقراءة فقط، ويمكن رفع إثبات جديد</span><?php endif; ?>
             </div>
             <div class="section-body">
                 <div class="form-grid">
@@ -846,8 +884,8 @@ select.form-control:disabled {
                     <div class="form-field" id="evidence-field">
                         <label class="form-label">إثبات الدفع</label>
                         <input type="file" name="transaction_evidence" id="transaction_evidence"
-                               class="form-control" accept="image/*,application/pdf" <?= $canEditPayment ? '' : 'disabled' ?>>
-                        <span class="field-hint">صورة أو ملف PDF</span>
+                               class="form-control" accept="image/*,application/pdf" <?= $canUploadEvidence ? '' : 'disabled' ?>>
+                        <span class="field-hint"><?= $canUploadEvidence ? 'رفع ملف جديد سيستبدل إثبات آخر دفعة مسجلة' : 'صورة أو ملف PDF' ?></span>
                         <?php if (!empty($receipt['transaction_evidence'])): ?>
                             <span class="field-hint">
                                 الملف الحالي:
@@ -872,7 +910,7 @@ select.form-control:disabled {
 
         <div class="form-actions">
             <a href="<?= APP_URL ?>/receipts" class="btn btn-secondary">إلغاء</a>
-            <button type="submit" class="btn btn-primary">💾 حفظ التعديلات</button>
+            <button type="submit" class="btn btn-primary" id="submitBtn">💾 حفظ التعديلات</button>
         </div>
 
     </form>
@@ -880,12 +918,52 @@ select.form-control:disabled {
 
 <script>
 (function () {
+    const BRANCH_META = {};
+    <?php foreach (($branches ?? []) as $b):
+        $daysByLevel = [];
+        foreach ([1 => 'working_days1', 2 => 'working_days2', 3 => 'working_days3'] as $level => $slot) {
+            $days = [];
+            if (!empty($b[$slot])) {
+                foreach (array_map('trim', explode(',', $b[$slot])) as $d) {
+                    if ($d !== '') $days[] = $d;
+                }
+            }
+            $daysByLevel[$level] = array_values(array_unique($days));
+        }
+        $fallbackDays = array_values(array_unique(array_merge($daysByLevel[1], $daysByLevel[2], $daysByLevel[3])));
+        $timeFrom = isset($b['working_time_from']) ? substr($b['working_time_from'], 0, 5) : '';
+        $timeTo   = isset($b['working_time_to'])   ? substr($b['working_time_to'], 0, 5) : '';
+    ?>
+    BRANCH_META[<?= (int)$b['id'] ?>] = {
+        days_by_level: <?= json_encode($daysByLevel) ?>,
+        days: <?= json_encode($fallbackDays) ?>,
+        working_time_from: <?= json_encode($timeFrom) ?>,
+        working_time_to: <?= json_encode($timeTo) ?>
+    };
+    <?php endforeach; ?>
+
     const CAPTAINS_BY_BRANCH = <?= json_encode($captainsByBranch ?? new stdClass()) ?>;
     const SAVED_CAPTAIN_ID   = <?= json_encode((string)($receipt['captain_id'] ?? '')) ?>;
     const IS_ADMIN           = <?= json_encode($isAdmin) ?>;
+    const CAN_UPLOAD_EVIDENCE = <?= json_encode($canUploadEvidence) ?>;
+    const TODAY              = <?= json_encode(date('Y-m-d')) ?>;
 
     const branchSelect  = document.getElementById('branch');
     const captainSelect = document.getElementById('captain');
+    const planSelect    = document.getElementById('planSelect');
+    const levelSelect   = document.querySelector('[name="level"]');
+    const startDateIn   = document.getElementById('start_date');
+    const renewalIn     = document.getElementById('renewal_date');
+    const lastDateIn    = document.getElementById('last_date');
+    const doubleChk     = document.getElementById('double');
+    const exerciseTimeIn = document.getElementById('exercise_time');
+    const dayErrorEl    = document.getElementById('day_error');
+    const dayErrorHint  = document.getElementById('day_error_hint');
+    const pastDateErrorEl = document.getElementById('past_date_error');
+    const timeErrorEl   = document.getElementById('time_error');
+    const timeErrorMsg  = document.getElementById('time_error_msg');
+    const submitBtn     = document.getElementById('submitBtn');
+    const form          = document.getElementById('receiptForm');
 
     function populateCaptains() {
         if (!branchSelect || !captainSelect || captainSelect.disabled) return;
@@ -910,8 +988,143 @@ select.form-control:disabled {
     }
 
     if (branchSelect) {
-        branchSelect.addEventListener('change', populateCaptains);
+        branchSelect.addEventListener('change', () => {
+            populateCaptains();
+            updateSessionDates();
+            validateExerciseTime();
+        });
         populateCaptains();
+    }
+
+    function branchMeta() {
+        return branchSelect ? (BRANCH_META[branchSelect.value] || null) : null;
+    }
+
+    function selectedSessions() {
+        const opt = planSelect ? planSelect.options[planSelect.selectedIndex] : null;
+        return parseInt(opt?.dataset.sessions, 10) || 0;
+    }
+
+    function selectedLevelDays(meta) {
+        if (!meta) return [];
+        const level = levelSelect ? String(levelSelect.value || '') : '';
+        return (level && meta.days_by_level && meta.days_by_level[level] && meta.days_by_level[level].length)
+            ? meta.days_by_level[level]
+            : (meta.days || []);
+    }
+
+    function formatLocalDate(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function pickActiveDays(startDayName, allowedDays, totalSessions, isDouble) {
+        const idx = allowedDays.indexOf(startDayName);
+        if (idx === -1) return [];
+        const pairStart = idx % 2 === 0 ? idx : idx - 1;
+        const pair1 = allowedDays.slice(pairStart, pairStart + 2);
+        if (pair1[0] !== startDayName) pair1.reverse();
+        if (!isDouble) return totalSessions >= 8 ? pair1 : [startDayName];
+        if (totalSessions >= 8) {
+            const pair2Start = pairStart === 0 ? 2 : 0;
+            return [...new Set([...pair1, ...allowedDays.slice(pair2Start, pair2Start + 2)])];
+        }
+        return pair1;
+    }
+
+    function buildSessionDates(firstSession, allowedDays, totalSessions, isDouble) {
+        const sessionsPerVisit = isDouble ? 2 : 1;
+        const totalVisits = Math.ceil(totalSessions / sessionsPerVisit);
+        const start = new Date(firstSession + 'T00:00:00');
+        const startDayName = start.toLocaleDateString('en-US', { weekday: 'long' });
+        const activeDays = pickActiveDays(startDayName, allowedDays, totalSessions, isDouble);
+        if (!activeDays.length) return { renewal: '', last: '' };
+
+        const dates = [];
+        const cursor = new Date(start);
+        let safety = 0;
+        while (dates.length < totalVisits && safety < 365) {
+            if (activeDays.includes(cursor.toLocaleDateString('en-US', { weekday: 'long' }))) {
+                dates.push(formatLocalDate(cursor));
+            }
+            cursor.setDate(cursor.getDate() + 1);
+            safety++;
+        }
+        if (dates.length < 2) return { renewal: '', last: dates[0] || '' };
+        return { renewal: dates[dates.length - 2], last: dates[dates.length - 1] };
+    }
+
+    function updateSessionDates() {
+        if (!startDateIn || !renewalIn || !lastDateIn) return true;
+
+        const startDate = startDateIn.value;
+        renewalIn.value = '';
+        lastDateIn.value = '';
+        dayErrorEl?.classList.remove('visible');
+        pastDateErrorEl?.classList.remove('visible');
+        startDateIn.classList.remove('field-invalid');
+        if (dayErrorHint) dayErrorHint.textContent = '';
+
+        if (!startDate) return true;
+        if (startDate < TODAY) {
+            pastDateErrorEl?.classList.add('visible');
+            startDateIn.classList.add('field-invalid');
+            return false;
+        }
+
+        const meta = branchMeta();
+        const allowedDays = selectedLevelDays(meta);
+        if (!meta || !allowedDays.length) return true;
+
+        const startDayName = new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+        if (!allowedDays.includes(startDayName)) {
+            if (dayErrorHint) dayErrorHint.textContent = allowedDays.join('، ');
+            dayErrorEl?.classList.add('visible');
+            startDateIn.classList.add('field-invalid');
+            return false;
+        }
+
+        const total = selectedSessions();
+        if (!total) return true;
+
+        const result = buildSessionDates(startDate, allowedDays, total, doubleChk?.checked ?? false);
+        renewalIn.value = result.renewal;
+        lastDateIn.value = result.last;
+        return true;
+    }
+
+    function timeToMinutes(time) {
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+    }
+
+    function validateExerciseTime() {
+        if (!exerciseTimeIn) return true;
+        const time = exerciseTimeIn.value;
+        timeErrorEl?.classList.remove('visible');
+        exerciseTimeIn.classList.remove('field-invalid');
+        if (!time) return true;
+
+        const meta = branchMeta();
+        if (!meta?.working_time_from || !meta?.working_time_to) return true;
+
+        const value = timeToMinutes(time);
+        const from = timeToMinutes(meta.working_time_from);
+        let to = timeToMinutes(meta.working_time_to);
+        if (to === 0) to = 24 * 60;
+
+        const inRange = from <= to ? value >= from && value <= to : value >= from || value <= to;
+        if (!inRange) {
+            if (timeErrorMsg) {
+                timeErrorMsg.textContent = `وقت التمرين يجب أن يكون بين ${meta.working_time_from} و ${meta.working_time_to}.`;
+            }
+            timeErrorEl?.classList.add('visible');
+            exerciseTimeIn.classList.add('field-invalid');
+            return false;
+        }
+        return true;
     }
 
     // ── Payment evidence toggle ──────────────────────────────────────────────
@@ -920,7 +1133,7 @@ select.form-control:disabled {
 
     function toggleEvidence() {
         const val = pmSelect ? pmSelect.value : '';
-        evidField.classList.toggle('visible', val !== '' && val !== 'cash');
+        evidField?.classList.toggle('visible', CAN_UPLOAD_EVIDENCE || (val !== '' && val !== 'cash'));
     }
 
     if (pmSelect) {
@@ -933,8 +1146,6 @@ select.form-control:disabled {
     // total_refunded is FIXED for this session (from server).
     // total_paid is FIXED for non-admins, but live-editable for admin.
 
-    const form          = document.getElementById('receiptForm');
-    const planSelect    = document.getElementById('planSelect');
     const planPriceDisp = document.getElementById('planPriceDisplay');
     const totalPaidInput= document.getElementById('totalPaidDisplay');
     const remainInput   = document.getElementById('remainingAmount');
@@ -968,12 +1179,41 @@ select.form-control:disabled {
     }
 
     if (planSelect) {
-        planSelect.addEventListener('change', updateRemaining);
+        planSelect.addEventListener('change', () => {
+            updateRemaining();
+            updateSessionDates();
+        });
+    }
+    if (levelSelect) {
+        levelSelect.addEventListener('change', updateSessionDates);
+    }
+    if (doubleChk) {
+        doubleChk.addEventListener('change', updateSessionDates);
+    }
+    if (startDateIn) {
+        startDateIn.addEventListener('change', updateSessionDates);
+    }
+    if (exerciseTimeIn) {
+        exerciseTimeIn.addEventListener('change', validateExerciseTime);
+        exerciseTimeIn.addEventListener('blur', validateExerciseTime);
     }
     if (IS_ADMIN && totalPaidInput) {
         totalPaidInput.addEventListener('input', updateRemaining);
     }
+    if (form) {
+        form.addEventListener('submit', event => {
+            const datesOk = updateSessionDates();
+            const timeOk = validateExerciseTime();
+            if (!datesOk || !timeOk) {
+                event.preventDefault();
+                const firstError = form.querySelector('.inline-error.visible');
+                firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    }
     updateRemaining(); // run on load
+    updateSessionDates();
+    validateExerciseTime();
 })();
 </script>
 

@@ -46,8 +46,17 @@ class ClientController {
             $errors[] = 'رقم الهاتف مطلوب.';
         elseif (!preg_match('/^[\d\s\+\-\(\)]{7,20}$/', $data['phone']))
             $errors[] = 'رقم الهاتف غير صالح.';
-        elseif ($this->clients->phoneExists($data['phone'], $id))
-            $errors[] = 'رقم الهاتف مستخدم بالفعل.';
+        else {
+            $phoneOwner = $this->clients->findByPhone($data['phone'], $id);
+            if ($phoneOwner) {
+                $errors[] = sprintf(
+                    'رقم الهاتف مستخدم بالفعل بواسطة العميل #%s: %s (%s).',
+                    htmlspecialchars((string) $phoneOwner['id']),
+                    htmlspecialchars($phoneOwner['client_name'] ?? ''),
+                    htmlspecialchars($phoneOwner['phone'] ?? '')
+                );
+            }
+        }
 
         if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL))
             $errors[] = 'البريد الإلكتروني غير صالح.';

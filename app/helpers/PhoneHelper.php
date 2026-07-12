@@ -72,9 +72,20 @@ class PhoneHelper
         if (!$digits) return [];
 
         $variants = [];
+        $matchedExplicitCountry = false;
 
         foreach (self::$rules as $cc => $rule) {
             $ccDigits = ltrim($cc, '+');
+            $hasExplicitCountry = str_starts_with($digits, $ccDigits)
+                || str_starts_with($digits, '00' . $ccDigits);
+
+            if (!$hasExplicitCountry && self::hasAnyExplicitCountry($digits)) {
+                continue;
+            }
+
+            if ($hasExplicitCountry) {
+                $matchedExplicitCountry = true;
+            }
 
             // Strip country code prefix → get local part
             $local = $digits;
@@ -93,11 +104,33 @@ class PhoneHelper
             $variants[] = '00' . $ccDigits . $localWithout0;   // 00201012345678
         }
 
+        if (!$variants && !$matchedExplicitCountry) {
+            $variants[] = $digits;
+            $variants[] = '+' . $digits;
+        }
+
         // Add the raw digits themselves as a final catch-all
         $variants[] = $digits;
         $variants[] = '+' . $digits;
 
         return array_unique(array_filter($variants));
+    }
+
+    private static function hasAnyExplicitCountry(string $digits): bool
+    {
+        foreach (array_keys(self::$rules) as $cc) {
+            $ccDigits = ltrim($cc, '+');
+            if (str_starts_with($digits, $ccDigits) || str_starts_with($digits, '00' . $ccDigits)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function phoneDigitsSql(string $column = 'phone'): string
+    {
+        return "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE({$column}, '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), '.', ''), CHAR(9), '')";
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -109,17 +142,30 @@ class PhoneHelper
     //   $stmt = $db->prepare("SELECT * FROM clients WHERE {$sql}");
     //   $stmt->execute($params);
     // ─────────────────────────────────────────────────────────────────────
-    public static function buildSearchCondition(string $raw): array
+    public static function buildSearchCondition(string $raw, string $column = 'phone'): array
     {
         $variants  = self::searchVariants($raw);
         if (!$variants) return ['1=0', []];
 
         $placeholders = implode(',', array_fill(0, count($variants), '?'));
         // Also add a LIKE clause for partial suffix matching
-        $digits = preg_replace('/\D/', '', $raw);
+        $digits       = preg_replace('/\D/', '', $raw);
+        $digitVariants = array_values(array_unique(array_filter(array_map(
+            static fn($variant) => preg_replace('/\D/', '', $variant),
+            $variants
+        ))));
+        $digitPlaceholders = implode(',', array_fill(0, count($digitVariants), '?'));
+        $phoneDigitsSql    = self::phoneDigitsSql($column);
 
-        $sql    = "(phone IN ({$placeholders}) OR phone LIKE ?)";
+        $sql = "({$column} IN ({$placeholders}) OR {$column} LIKE ?";
         $params = array_merge($variants, ['%' . $digits]);
+
+        if ($digitVariants) {
+            $sql .= " OR {$phoneDigitsSql} IN ({$digitPlaceholders}) OR {$phoneDigitsSql} LIKE ?";
+            $params = array_merge($params, $digitVariants, ['%' . $digits]);
+        }
+
+        $sql .= ")";
 
         return [$sql, $params];
     }
