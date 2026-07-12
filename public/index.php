@@ -171,6 +171,8 @@ $routes = [
     ['POST', '/admin/captains/edit',     fn () => $captain->update()],
     ['POST', '/admin/captains/delete',   fn () => $captain->destroy()],
     ['GET', '/admin/captains/search', fn() => $captain->ajaxSearch()],
+    ['POST', '/admin/captains/add-to-my-branch', fn() => $captain->addToMyBranch()],
+    ['POST', '/admin/captains/remove-from-my-branch', fn() => $captain->removeFromMyBranch()],
 
     // countries
     ['GET',  '/country',        fn () => $country->index()],

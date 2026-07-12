@@ -1,5 +1,6 @@
 <?php
 // app/models/CaptainModel.php
+require_once dirname(__DIR__) . '/helpers/PhoneHelper.php';
 
 class CaptainModel {
 
@@ -22,9 +23,11 @@ class CaptainModel {
         }
 
         if (!empty($filters['search'])) {
-            $where[]  = '(c.captain_name LIKE ? OR c.phone_number LIKE ?)';
+            [$primaryPhoneSql, $primaryPhoneParams] = PhoneHelper::buildSearchCondition($filters['search'], 'c.phone_number');
+            [$secondaryPhoneSql, $secondaryPhoneParams] = PhoneHelper::buildSearchCondition($filters['search'], 'c.secondary_phone_number');
+            $where[]  = "(c.captain_name LIKE ? OR {$primaryPhoneSql} OR {$secondaryPhoneSql})";
             $params[] = '%' . $filters['search'] . '%';
-            $params[] = '%' . $filters['search'] . '%';
+            $params = array_merge($params, $primaryPhoneParams, $secondaryPhoneParams);
         }
 
         if (!empty($filters['branch_id'])) {
@@ -41,9 +44,21 @@ class CaptainModel {
             $params[] = (int) $filters['area_manager_id'];
         }
 
+        if (!empty($filters['managed_branch_ids'])) {
+            $placeholders = implode(',', array_fill(0, count($filters['managed_branch_ids']), '?'));
+            $where[] = "c.id IN (
+                            SELECT captain_id FROM captain_branch
+                            WHERE branch_id IN ({$placeholders})
+                        )";
+            foreach ($filters['managed_branch_ids'] as $branchId) {
+                $params[] = (int) $branchId;
+            }
+        }
+
         $sql = '
             SELECT c.*,
-                   GROUP_CONCAT(b.branch_name ORDER BY b.branch_name SEPARATOR ", ") AS branch_names
+                   GROUP_CONCAT(b.branch_name ORDER BY b.branch_name SEPARATOR ", ") AS branch_names,
+                   GROUP_CONCAT(cb.branch_id ORDER BY cb.branch_id SEPARATOR ",") AS branch_ids_csv
             FROM captains c
             LEFT JOIN captain_branch cb ON cb.captain_id = c.id
             LEFT JOIN branches b        ON b.id = cb.branch_id
@@ -117,6 +132,34 @@ class CaptainModel {
         }
     }
 
+    public function addBranches(string $captainId, array $branchIds): void {
+        if (empty($branchIds)) return;
+
+        $stmt = $this->db->prepare('
+            INSERT IGNORE INTO captain_branch (captain_id, branch_id) VALUES (?, ?)
+        ');
+
+        foreach ($branchIds as $branchId) {
+            $branchId = (int) $branchId;
+            if ($branchId > 0) {
+                $stmt->execute([$captainId, $branchId]);
+            }
+        }
+    }
+
+    public function removeBranches(string $captainId, array $branchIds): void {
+        $branchIds = array_values(array_filter(array_map('intval', $branchIds)));
+        if (empty($branchIds)) return;
+
+        $placeholders = implode(',', array_fill(0, count($branchIds), '?'));
+        $stmt = $this->db->prepare("
+            DELETE FROM captain_branch
+            WHERE captain_id = ?
+              AND branch_id IN ({$placeholders})
+        ");
+        $stmt->execute(array_merge([$captainId], $branchIds));
+    }
+
     // ── Name uniqueness check ─────────────────────────────────────────────────
 
     public function nameExists(string $name, string $excludeId = ''): bool {
@@ -125,6 +168,21 @@ class CaptainModel {
             WHERE captain_name = ? AND id != ?
         ');
         $stmt->execute([$name, $excludeId]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public function phoneExists(string $phone, string $excludeId = ''): bool {
+        [$primarySql, $primaryParams] = PhoneHelper::buildSearchCondition($phone, 'phone_number');
+        [$secondarySql, $secondaryParams] = PhoneHelper::buildSearchCondition($phone, 'secondary_phone_number');
+
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM captains
+            WHERE id != ?
+              AND ({$primarySql} OR {$secondarySql})
+        ");
+        $stmt->execute(array_merge([$excludeId], $primaryParams, $secondaryParams));
+
         return (bool) $stmt->fetchColumn();
     }
 
@@ -161,19 +219,22 @@ class CaptainModel {
 
             $stmt = $this->db->prepare('
                 INSERT INTO captains
-                    (id, captain_name, phone_number, age, email, ssn_card_path, visible, created_at, created_by)
+                    (id, captain_name, phone_number, secondary_phone_number, age, email, academic_qualification, ssn_card_path, certificate_image_path, visible, created_at, created_by)
                 VALUES
-                    (:id, :captain_name, :phone_number, :age, :email, :ssn_card_path, :visible, CURDATE(), :created_by)
+                    (:id, :captain_name, :phone_number, :secondary_phone_number, :age, :email, :academic_qualification, :ssn_card_path, :certificate_image_path, :visible, CURDATE(), :created_by)
             ');
             $stmt->execute([
-                ':id'            => $newId,
-                ':captain_name'  => $data['captain_name'],
-                ':phone_number'  => $data['phone_number'] ?: null,
-                ':age'           => $data['age'] ?? null,
-                ':email'         => $data['email'] ?: null,
-                ':ssn_card_path' => $data['ssn_card_path'] ?? null,
-                ':visible'       => $data['visible'],
-                ':created_by'    => $data['created_by'] ?? null,
+                ':id'                     => $newId,
+                ':captain_name'           => $data['captain_name'],
+                ':phone_number'           => $data['phone_number'] ?: null,
+                ':secondary_phone_number' => $data['secondary_phone_number'] ?: null,
+                ':age'                    => $data['age'] ?? null,
+                ':email'                  => $data['email'] ?: null,
+                ':academic_qualification' => $data['academic_qualification'] ?: null,
+                ':ssn_card_path'          => $data['ssn_card_path'] ?? null,
+                ':certificate_image_path' => $data['certificate_image_path'] ?? null,
+                ':visible'                => $data['visible'],
+                ':created_by'             => $data['created_by'] ?? null,
             ]);
 
             $this->db->commit();
@@ -191,20 +252,26 @@ class CaptainModel {
             UPDATE captains SET
                 captain_name  = :captain_name,
                 phone_number  = :phone_number,
+                secondary_phone_number = :secondary_phone_number,
                 age           = :age,
                 email         = :email,
+                academic_qualification = :academic_qualification,
                 ssn_card_path = :ssn_card_path,
+                certificate_image_path = :certificate_image_path,
                 visible       = :visible
             WHERE id = :id
         ');
         $stmt->execute([
-            ':captain_name'  => $data['captain_name'],
-            ':phone_number'  => $data['phone_number'] ?: null,
-            ':age'           => $data['age'] ?? null,
-            ':email'         => $data['email'] ?: null,
-            ':ssn_card_path' => $data['ssn_card_path'] ?? null,
-            ':visible'       => $data['visible'],
-            ':id'            => $id,
+            ':captain_name'           => $data['captain_name'],
+            ':phone_number'           => $data['phone_number'] ?: null,
+            ':secondary_phone_number' => $data['secondary_phone_number'] ?: null,
+            ':age'                    => $data['age'] ?? null,
+            ':email'                  => $data['email'] ?: null,
+            ':academic_qualification' => $data['academic_qualification'] ?: null,
+            ':ssn_card_path'          => $data['ssn_card_path'] ?? null,
+            ':certificate_image_path' => $data['certificate_image_path'] ?? null,
+            ':visible'                => $data['visible'],
+            ':id'                     => $id,
         ]);
     }
 

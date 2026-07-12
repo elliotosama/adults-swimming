@@ -10,7 +10,7 @@ function log_action(string $action, ?string $detail = null, ?int $user_id = null
              ?? null;
 
         $stmt = $pdo->prepare(
-            'INSERT INTO audit_log (user_id, action, detail, ip) VALUES (?, ?, ?, ?)'
+            'INSERT INTO audit_log (user_id, action, detail, ip, created_at) VALUES (?, ?, ?, ?, NOW())'
         );
         $stmt->execute([$uid, $action, $detail, $ip]);
     } catch (Throwable $e) {

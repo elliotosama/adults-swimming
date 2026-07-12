@@ -401,6 +401,8 @@
         <a class="nav-link" href="<?= APP_URL ?>/<?php echo $_SESSION['user']['role'] ?>/dashboard">لوحة التحكم</a>
         <?php if ($_SESSION['user']['role'] === 'admin' || $_SESSION['user']['role'] === 'area_manager'): ?>
             <a class="nav-link" href="<?= APP_URL ?>/admin/branches">الفروع</a>
+        <?php endif; ?>
+        <?php if (in_array($_SESSION['user']['role'], ['admin', 'area_manager', 'branch_manager'], true)): ?>
             <a class="nav-link" href="<?= APP_URL ?>/admin/captains">الكباتن</a>
         <?php endif; ?>
         <?php if ($_SESSION['user']['role'] === 'admin'): ?>

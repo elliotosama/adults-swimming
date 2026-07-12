@@ -13,6 +13,8 @@ if (!$ajaxPartial) {
 
 $existingCard = $captain['ssn_card_path'] ?? null;
 $existingCardIsPdf = $existingCard && str_ends_with(strtolower($existingCard), '.pdf');
+$existingCertificate = $captain['certificate_image_path'] ?? null;
+$existingCertificateIsPdf = $existingCertificate && str_ends_with(strtolower($existingCertificate), '.pdf');
 ?>
 
 <style>
@@ -108,25 +110,41 @@ $existingCardIsPdf = $existingCard && str_ends_with(strtolower($existingCard), '
 
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label" for="phone_number">رقم الهاتف</label>
+                <label class="form-label" for="phone_number">رقم الهاتف الأساسي <span style="color:var(--danger)">*</span></label>
                 <input type="tel" id="phone_number" name="phone_number" class="form-control"
                        value="<?= htmlspecialchars($captain['phone_number'] ?? '') ?>"
-                       placeholder="مثال: 0501234567">
+                       required placeholder="مثال: 01274593603">
             </div>
 
+            <div class="form-group">
+                <label class="form-label" for="secondary_phone_number">رقم الهاتف الإضافي <span style="color:var(--danger)">*</span></label>
+                <input type="tel" id="secondary_phone_number" name="secondary_phone_number" class="form-control"
+                       value="<?= htmlspecialchars($captain['secondary_phone_number'] ?? '') ?>"
+                       required placeholder="مثال: +201274593603">
+            </div>
+        </div>
+
+        <div class="form-row">
             <div class="form-group">
                 <label class="form-label" for="age">العمر</label>
                 <input type="number" id="age" name="age" class="form-control" min="18" max="90"
                        value="<?= htmlspecialchars((string)($captain['age'] ?? '')) ?>"
                        placeholder="مثال: 30">
             </div>
+
+            <div class="form-group">
+                <label class="form-label" for="email">البريد الإلكتروني</label>
+                <input type="email" id="email" name="email" class="form-control"
+                       value="<?= htmlspecialchars($captain['email'] ?? '') ?>"
+                       placeholder="example@email.com">
+            </div>
         </div>
 
         <div class="form-group">
-            <label class="form-label" for="email">البريد الإلكتروني</label>
-            <input type="email" id="email" name="email" class="form-control"
-                   value="<?= htmlspecialchars($captain['email'] ?? '') ?>"
-                   placeholder="example@email.com">
+            <label class="form-label" for="academic_qualification">المؤهل العلمي</label>
+            <input type="text" id="academic_qualification" name="academic_qualification" class="form-control"
+                   value="<?= htmlspecialchars($captain['academic_qualification'] ?? '') ?>"
+                   placeholder="مثال: بكالوريوس تربية رياضية">
         </div>
 
         <?php if ($isAdmin): ?>
@@ -161,6 +179,30 @@ $existingCardIsPdf = $existingCard && str_ends_with(strtolower($existingCard), '
                 <label class="remove-card-check">
                     <input type="checkbox" name="remove_ssn_card" value="1">
                     إزالة صورة البطاقة الحالية
+                </label>
+            <?php endif; ?>
+        </div>
+
+        <p class="section-divider">الشهادة</p>
+
+        <div class="form-group">
+            <label class="form-label" for="certificate_image_path">رفع صورة الشهادة</label>
+            <input type="file" id="certificate_image_path" name="certificate_image_path" class="form-control"
+                   accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
+            <p style="font-size:.75rem;color:var(--muted);margin-top:4px">JPG, PNG, WEBP أو PDF — بحد أقصى 5 ميجابايت.</p>
+
+            <?php if ($existingCertificate): ?>
+                <div class="card-preview">
+                    <?php if ($existingCertificateIsPdf): ?>
+                        <span class="file-icon">📄</span>
+                    <?php else: ?>
+                        <img src="<?= APP_URL . '/' . htmlspecialchars($existingCertificate) ?>" alt="صورة الشهادة">
+                    <?php endif; ?>
+                    <a href="<?= APP_URL . '/' . htmlspecialchars($existingCertificate) ?>" target="_blank" rel="noopener">عرض الملف الحالي</a>
+                </div>
+                <label class="remove-card-check">
+                    <input type="checkbox" name="remove_certificate_image" value="1">
+                    إزالة صورة الشهادة الحالية
                 </label>
             <?php endif; ?>
         </div>

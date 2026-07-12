@@ -3,7 +3,9 @@
 // Optional: $ajaxPartial — when true, renders without page chrome (SPA modal)
 
 $ajaxPartial = $ajaxPartial ?? false;
-$isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
+$role = $_SESSION['user']['role'] ?? '';
+$isAdmin = $role === 'admin';
+$canEdit = in_array($role, ['admin', 'area_manager'], true);
 
 if (!$ajaxPartial) {
     require ROOT . '/views/includes/layout_top.php';
@@ -81,7 +83,9 @@ if (!$ajaxPartial) {
         <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
     </div>
     <div style="display:flex;gap:8px;">
-        <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $captain['id'] ?>" class="btn btn-warning">✏️ تعديل</a>
+        <?php if ($canEdit): ?>
+            <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $captain['id'] ?>" class="btn btn-warning">✏️ تعديل</a>
+        <?php endif; ?>
         <?php if ($ajaxPartial): ?>
             <button type="button" class="btn btn-secondary js-modal-close">→ رجوع</button>
         <?php else: ?>
@@ -110,8 +114,13 @@ if (!$ajaxPartial) {
         </div>
 
         <div class="detail-row">
-            <div class="detail-label">رقم الهاتف</div>
+            <div class="detail-label">رقم الهاتف الأساسي</div>
             <div style="color:#fff"><?= htmlspecialchars($captain['phone_number'] ?? '—') ?></div>
+        </div>
+
+        <div class="detail-row">
+            <div class="detail-label">رقم الهاتف الإضافي</div>
+            <div style="color:#fff"><?= htmlspecialchars($captain['secondary_phone_number'] ?? '—') ?></div>
         </div>
 
         <div class="detail-row">
@@ -122,6 +131,11 @@ if (!$ajaxPartial) {
         <div class="detail-row">
             <div class="detail-label">البريد الإلكتروني</div>
             <div style="color:#fff"><?= htmlspecialchars($captain['email'] ?? '—') ?></div>
+        </div>
+
+        <div class="detail-row">
+            <div class="detail-label">المؤهل العلمي</div>
+            <div style="color:#fff"><?= htmlspecialchars($captain['academic_qualification'] ?? '—') ?></div>
         </div>
 
         <div class="detail-row">
@@ -157,6 +171,27 @@ if (!$ajaxPartial) {
         </div>
 
         <div class="detail-row">
+            <div class="detail-label">الشهادة</div>
+            <div>
+                <?php if (!empty($captain['certificate_image_path'])):
+                    $certificateUrl = APP_URL . '/' . htmlspecialchars($captain['certificate_image_path']);
+                    $certificateIsPdf = str_ends_with(strtolower($captain['certificate_image_path']), '.pdf');
+                ?>
+                    <div class="id-card-preview">
+                        <?php if ($certificateIsPdf): ?>
+                            <span class="file-icon">📄</span>
+                        <?php else: ?>
+                            <img src="<?= $certificateUrl ?>" alt="صورة الشهادة">
+                        <?php endif; ?>
+                        <a href="<?= $certificateUrl ?>" target="_blank" rel="noopener" class="btn btn-sm btn-secondary">عرض الملف</a>
+                    </div>
+                <?php else: ?>
+                    <span style="color:#fff">—</span>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="detail-row">
             <div class="detail-label">تاريخ الإنشاء</div>
             <div style="color:#fff;font-size:.85rem"><?= htmlspecialchars($captain['created_at'] ?? '—') ?></div>
         </div>
@@ -181,12 +216,14 @@ if (!$ajaxPartial) {
     </div>
 
     <div style="display:flex;gap:8px;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);">
-        <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $captain['id'] ?>" class="btn btn-sm btn-warning">✏️ تعديل</a>
+        <?php if ($canEdit): ?>
+            <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $captain['id'] ?>" class="btn btn-sm btn-warning">✏️ تعديل</a>
+        <?php endif; ?>
         <?php if ($isAdmin): ?>
             <?php if ($ajaxPartial): ?>
                 <button type="button"
                         class="btn btn-sm btn-danger js-delete-captain"
-                        data-id="<?= (int) $captain['id'] ?>"
+                        data-id="<?= htmlspecialchars($captain['id']) ?>"
                         data-name="<?= htmlspecialchars($captain['captain_name']) ?>">حذف</button>
             <?php else: ?>
                 <form method="POST"

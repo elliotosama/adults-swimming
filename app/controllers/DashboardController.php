@@ -215,7 +215,10 @@ $receiptsRow['previous_renewal'] = (int) ($renewalTypes['previous_renewal'] ?? 0
                 UNION ALL
 
                 SELECT
-                    'branch' AS log_type,
+                    CASE
+                        WHEN al.action IN ('created_captain', 'captain_added_to_branch', 'captain_removed_from_branch') THEN 'captain'
+                        ELSE 'branch'
+                    END AS log_type,
                     NULL AS entity_id,
                     al.action AS field_name,
                     al.detail AS old_value,
@@ -224,9 +227,33 @@ $receiptsRow['previous_renewal'] = (int) ($renewalTypes['previous_renewal'] ?? 0
                     u.username AS changed_by_name
                 FROM audit_log al
                 LEFT JOIN users u ON u.id = al.user_id
-                WHERE al.action = 'updated_branch'
+                WHERE al.action IN (
+                    'updated_branch',
+                    'created_captain',
+                    'captain_added_to_branch',
+                    'captain_removed_from_branch'
+                )
             ) recent_activity
             ORDER BY changed_at DESC
+            LIMIT 10
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        $recentCaptainAuditLog = $this->db->query("
+            SELECT
+                al.id,
+                al.action,
+                al.detail,
+                al.created_at,
+                u.username AS changed_by_name,
+                u.role AS changed_by_role
+            FROM audit_log al
+            LEFT JOIN users u ON u.id = al.user_id
+            WHERE al.action IN (
+                'created_captain',
+                'captain_added_to_branch',
+                'captain_removed_from_branch'
+            )
+            ORDER BY al.id DESC
             LIMIT 10
         ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -249,6 +276,7 @@ $receiptsRow['previous_renewal'] = (int) ($renewalTypes['previous_renewal'] ?? 0
             'recentReceipts'     => $recentReceipts,
             'recentTransactions' => $recentTransactions,
             'recentAuditLog'     => $recentAuditLog,
+            'recentCaptainAuditLog' => $recentCaptainAuditLog,
         ]);
     }
 

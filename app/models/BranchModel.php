@@ -47,6 +47,15 @@ public function findAll(array $filters = []): array
         $params['area_manager_id'] = (int) $filters['area_manager_id'];
     }
 
+    if (!empty($filters['branch_manager_id'])) {
+        $where[] = 'b.id IN (
+            SELECT branch_id
+            FROM user_branch
+            WHERE user_id = :branch_manager_id
+        )';
+        $params['branch_manager_id'] = (int) $filters['branch_manager_id'];
+    }
+
     if (($filters['visibility'] ?? '') === 'visible') {
         $where[] = 'b.visible = 1';
     } elseif (($filters['visibility'] ?? '') === 'hidden') {
@@ -92,6 +101,15 @@ public function findVisible(array $filters = []): array
             WHERE user_id = :area_manager_id
         )';
         $params['area_manager_id'] = (int) $filters['area_manager_id'];
+    }
+
+    if (!empty($filters['branch_manager_id'])) {
+        $where[] = 'b.id IN (
+            SELECT branch_id
+            FROM user_branch
+            WHERE user_id = :branch_manager_id
+        )';
+        $params['branch_manager_id'] = (int) $filters['branch_manager_id'];
     }
 
     $sql = '

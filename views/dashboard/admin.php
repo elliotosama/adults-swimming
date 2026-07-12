@@ -1,5 +1,16 @@
 <?php // views/dashboard/index.php
 require ROOT . '/views/includes/layout_top.php';
+
+function adminActivityLabel(string $action): string {
+    $labels = [
+        'updated_branch' => 'عدّل فرع',
+        'created_captain' => 'أضاف كابتن',
+        'captain_added_to_branch' => 'أضاف كابتن إلى فرعه',
+        'captain_removed_from_branch' => 'أزال كابتن من فرعه',
+    ];
+
+    return $labels[$action] ?? $action;
+}
 ?>
 
 <style>
@@ -712,6 +723,28 @@ body { font-size: 16px; }
 
 </div>
 
+<!-- ══ Captain Activity Log ═════════════════════════════════════════════ -->
+<?php if (!empty($recentCaptainAuditLog)): ?>
+<div class="section-title">🧑‍✈️ آخر تحديثات الكباتن</div>
+<div class="dash-card" style="margin-bottom:2rem">
+    <ul class="activity-list">
+        <?php foreach ($recentCaptainAuditLog as $log): ?>
+        <li>
+            <div class="activity-icon">🧑‍✈️</div>
+            <div class="activity-text">
+                <strong><?= htmlspecialchars($log['changed_by_name'] ?? 'مستخدم') ?></strong>
+                <?= htmlspecialchars(adminActivityLabel((string)($log['action'] ?? ''))) ?>
+                <?php if (!empty($log['detail'])): ?>
+                    — <em><?= htmlspecialchars($log['detail']) ?></em>
+                <?php endif; ?>
+                <div class="activity-time"><?= htmlspecialchars($log['created_at'] ?? '') ?></div>
+            </div>
+        </li>
+        <?php endforeach; ?>
+    </ul>
+</div>
+<?php endif; ?>
+
 <!-- ══ Recent Activity Log ═════════════════════════════════════════════ -->
 <?php if (!empty($recentAuditLog)): ?>
 <div class="section-title">🕐 آخر التعديلات والنشاطات</div>
@@ -722,8 +755,8 @@ body { font-size: 16px; }
             <div class="activity-icon">✏️</div>
             <div class="activity-text">
                 <strong><?= htmlspecialchars($log['changed_by_name'] ?? 'مستخدم') ?></strong>
-                <?php if (($log['log_type'] ?? '') === 'branch'): ?>
-                    عدّل فرع
+                <?php if (in_array(($log['log_type'] ?? ''), ['branch', 'captain'], true)): ?>
+                    <?= htmlspecialchars(adminActivityLabel((string)($log['field_name'] ?? ''))) ?>
                     <?php if (!empty($log['old_value'])): ?>
                         — <em><?= htmlspecialchars($log['old_value']) ?></em>
                     <?php endif; ?>

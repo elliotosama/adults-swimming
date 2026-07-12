@@ -122,7 +122,7 @@ require ROOT . '/views/includes/layout_top.php';
         </h1>
         <p class="breadcrumb">لوحة التحكم · الكباتن</p>
     </div>
-    <?php if ($_SESSION['user']['role'] === 'admin'): ?>
+    <?php if (in_array($_SESSION['user']['role'], ['admin', 'branch_manager'], true)): ?>
     <a href="<?= APP_URL ?>/admin/captains/create" class="btn btn-primary">
         + إضافة كابتن جديد
     </a>
@@ -151,7 +151,7 @@ require ROOT . '/views/includes/layout_top.php';
                    id="filterSearch"
                    name="search"
                    class="form-control"
-                   placeholder="الاسم أو رقم الهاتف..."
+                   placeholder="الاسم أو أي رقم هاتف..."
                    value="<?= htmlspecialchars($filters['search'] ?? '') ?>"
                    autocomplete="off">
         </div>
@@ -201,7 +201,11 @@ require ROOT . '/views/includes/layout_top.php';
 (function () {
     const AJAX_URL = '<?= APP_URL ?>/admin/captains/search';
     const APP_URL  = '<?= APP_URL ?>';
-    const isAdmin  = <?= json_encode($_SESSION['user']['role'] === 'admin') ?>;
+    const role     = <?= json_encode($_SESSION['user']['role'] ?? '') ?>;
+    const isAdmin  = role === 'admin';
+    const canEdit  = ['admin', 'area_manager'].includes(role);
+    const isBranchManager = role === 'branch_manager';
+    const managerBranchIds = <?= json_encode(array_map('intval', $managerBranchIds ?? [])) ?>;
 
     const form             = document.getElementById('filterForm');
     const wrap             = document.getElementById('captainTableWrap');
@@ -257,14 +261,28 @@ require ROOT . '/views/includes/layout_top.php';
 
     // ── Build action buttons ─────────────────────────────────────────────
     function actionButtons(c) {
+        const editBtn = canEdit
+            ? `<a href="${APP_URL}/admin/captains/edit?id=${c.id}" class="btn btn-sm btn-warning">تعديل</a>`
+            : '';
         const deleteBtn = isAdmin
             ? `<button type="button" class="btn btn-sm btn-danger js-delete-captain" data-id="${c.id}" data-name="${esc(c.captain_name)}">حذف</button>`
+            : '';
+        const branchIds = String(c.branch_ids_csv || '')
+            .split(',')
+            .map(id => parseInt(id, 10))
+            .filter(Boolean);
+        const isInMyBranch = managerBranchIds.some(id => branchIds.includes(id));
+        const branchBtn = isBranchManager
+            ? `<button type="button"
+                       class="btn btn-sm ${isInMyBranch ? 'btn-danger js-remove-from-branch' : 'btn-primary js-add-to-branch'}"
+                       data-id="${esc(c.id)}">${isInMyBranch ? 'إزالة من فرعي' : 'إضافة لفرعي'}</button>`
             : '';
 
         return `
             <div class="td-actions">
                 <a href="${APP_URL}/admin/captains/show?id=${c.id}" class="btn btn-sm btn-secondary">عرض</a>
-                <a href="${APP_URL}/admin/captains/edit?id=${c.id}" class="btn btn-sm btn-warning">تعديل</a>
+                ${editBtn}
+                ${branchBtn}
                 ${deleteBtn}
             </div>`;
     }
@@ -274,6 +292,13 @@ require ROOT . '/views/includes/layout_top.php';
         if (!c.ssn_card_path) return '<span style="color:var(--muted)">—</span>';
         const url = `${APP_URL}/${c.ssn_card_path}`;
         const isPdf = /\.pdf$/i.test(c.ssn_card_path);
+        return `<button type="button" class="btn btn-sm btn-secondary js-view-card" data-url="${url}" data-pdf="${isPdf ? '1' : '0'}">📎 عرض</button>`;
+    }
+
+    function certificateCell(c) {
+        if (!c.certificate_image_path) return '<span style="color:var(--muted)">—</span>';
+        const url = `${APP_URL}/${c.certificate_image_path}`;
+        const isPdf = /\.pdf$/i.test(c.certificate_image_path);
         return `<button type="button" class="btn btn-sm btn-secondary js-view-card" data-url="${url}" data-pdf="${isPdf ? '1' : '0'}">📎 عرض</button>`;
     }
 
@@ -295,8 +320,10 @@ require ROOT . '/views/includes/layout_top.php';
                 <td style="color:var(--muted);font-size:.82rem">${esc(c.id)}</td>
                 <td><strong>${esc(c.captain_name)}</strong></td>
                 <td style="font-size:.85rem;color:var(--muted)">${esc(c.phone_number || '—')}</td>
+                <td style="font-size:.85rem;color:var(--muted)">${esc(c.secondary_phone_number || '—')}</td>
                 <td style="font-size:.85rem;color:var(--muted)">${esc(c.age || '—')}</td>
                 <td style="font-size:.85rem;color:var(--muted)">${esc(c.email || '—')}</td>
+                <td style="font-size:.85rem;color:var(--muted)">${esc(c.academic_qualification || '—')}</td>
                 <td>
                     ${c.visible == 1
                         ? '<span class="badge badge-success">نشط</span>'
@@ -304,6 +331,7 @@ require ROOT . '/views/includes/layout_top.php';
                 </td>
                 <td style="font-size:.82rem;color:var(--muted)">${esc(c.branch_names || '—')}</td>
                 <td style="font-size:.82rem">${cardCell(c)}</td>
+                <td style="font-size:.82rem">${certificateCell(c)}</td>
                 <td style="color:var(--muted);font-size:.85rem">${esc(c.created_at || '—')}</td>
                 <td>${actionButtons(c)}</td>
             </tr>`).join('');
@@ -315,12 +343,15 @@ require ROOT . '/views/includes/layout_top.php';
                         <tr>
                             <th>#</th>
                             <th>اسم الكابتن</th>
-                            <th>رقم الهاتف</th>
+                            <th>رقم الهاتف الأساسي</th>
+                            <th>رقم الهاتف الإضافي</th>
                             <th>العمر</th>
                             <th>البريد الإلكتروني</th>
+                            <th>المؤهل العلمي</th>
                             <th>الحالة</th>
                             <th>الفروع</th>
                             <th>البطاقة</th>
+                            <th>الشهادة</th>
                             <th>تاريخ الإنشاء</th>
                             <th>الإجراءات</th>
                         </tr>
@@ -397,6 +428,30 @@ require ROOT . '/views/includes/layout_top.php';
         cardLightboxBody.innerHTML = '';
     }
 
+    function updateMyBranch(captainId, action) {
+        const csrf = document.getElementById('globalCsrfToken').value;
+        const endpoint = action === 'add' ? 'add-to-my-branch' : 'remove-from-my-branch';
+
+        fetch(`${APP_URL}/admin/captains/${endpoint}?id=${encodeURIComponent(captainId)}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `csrf_token=${encodeURIComponent(csrf)}`,
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                fetchCaptains();
+                showToast(data.message || 'تم الحفظ بنجاح.', 'success');
+            } else {
+                showToast(data.message || 'حدث خطأ أثناء الحفظ.', 'error');
+            }
+        })
+        .catch(() => showToast('حدث خطأ أثناء الحفظ.', 'error'));
+    }
+
     cardLightboxClose.addEventListener('click', closeCardLightbox);
     cardLightbox.addEventListener('click', function (e) {
         if (e.target === cardLightbox) closeCardLightbox();
@@ -451,6 +506,20 @@ require ROOT . '/views/includes/layout_top.php';
         if (viewCardBtn) {
             e.preventDefault();
             openCardLightbox(viewCardBtn.dataset.url, viewCardBtn.dataset.pdf === '1');
+            return;
+        }
+
+        const addBranchBtn = e.target.closest('.js-add-to-branch');
+        if (addBranchBtn) {
+            e.preventDefault();
+            updateMyBranch(addBranchBtn.dataset.id, 'add');
+            return;
+        }
+
+        const removeBranchBtn = e.target.closest('.js-remove-from-branch');
+        if (removeBranchBtn) {
+            e.preventDefault();
+            updateMyBranch(removeBranchBtn.dataset.id, 'remove');
             return;
         }
 

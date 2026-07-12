@@ -1,6 +1,10 @@
 <?php // views/admin/captains/_table.php
 // Shared by index.php (initial render) and the AJAX search endpoint
-$isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
+$role = $_SESSION['user']['role'] ?? '';
+$isAdmin = $role === 'admin';
+$canEdit = in_array($role, ['admin', 'area_manager'], true);
+$isBranchManager = $role === 'branch_manager';
+$managerBranchIds = array_map('intval', $managerBranchIds ?? []);
 ?>
 <?php if (empty($captains)): ?>
     <div class="empty-state">
@@ -14,12 +18,15 @@ $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
                 <tr>
                     <th>#</th>
                     <th>اسم الكابتن</th>
-                    <th>رقم الهاتف</th>
+                    <th>رقم الهاتف الأساسي</th>
+                    <th>رقم الهاتف الإضافي</th>
                     <th>العمر</th>
                     <th>البريد الإلكتروني</th>
+                    <th>المؤهل العلمي</th>
                     <th>الحالة</th>
                     <th>الفروع</th>
                     <th>البطاقة</th>
+                    <th>الشهادة</th>
                     <th>تاريخ الإنشاء</th>
                     <th>الإجراءات</th>
                 </tr>
@@ -30,8 +37,10 @@ $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
                         <td style="color:var(--muted);font-size:.82rem"><?= $c['id'] ?></td>
                         <td><strong><?= htmlspecialchars($c['captain_name']) ?></strong></td>
                         <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['phone_number'] ?? '—') ?></td>
+                        <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['secondary_phone_number'] ?? '—') ?></td>
                         <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars((string)($c['age'] ?? '—')) ?></td>
                         <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['email'] ?? '—') ?></td>
+                        <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['academic_qualification'] ?? '—') ?></td>
                         <td>
                             <?php if ($c['visible']): ?>
                                 <span class="badge badge-success">نشط</span>
@@ -55,11 +64,37 @@ $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
                                 <span style="color:var(--muted)">—</span>
                             <?php endif; ?>
                         </td>
+                        <td style="font-size:.82rem">
+                            <?php if (!empty($c['certificate_image_path'])):
+                                $certificateUrl = APP_URL . '/' . htmlspecialchars($c['certificate_image_path']);
+                                $certificateIsPdf = str_ends_with(strtolower($c['certificate_image_path']), '.pdf');
+                            ?>
+                                <button type="button" class="btn btn-sm btn-secondary js-view-card"
+                                        data-url="<?= $certificateUrl ?>" data-pdf="<?= $certificateIsPdf ? '1' : '0' ?>">
+                                    📎 عرض
+                                </button>
+                            <?php else: ?>
+                                <span style="color:var(--muted)">—</span>
+                            <?php endif; ?>
+                        </td>
                         <td style="color:var(--muted);font-size:.85rem"><?= htmlspecialchars($c['created_at'] ?? '—') ?></td>
                         <td>
                             <div class="td-actions">
                                 <a href="<?= APP_URL ?>/admin/captains/show?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">عرض</a>
-                                <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
+                                <?php if ($canEdit): ?>
+                                    <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">تعديل</a>
+                                <?php endif; ?>
+                                <?php if ($isBranchManager): ?>
+                                    <?php
+                                        $captainBranchIds = array_filter(array_map('intval', explode(',', (string)($c['branch_ids_csv'] ?? ''))));
+                                        $isInMyBranch = !empty(array_intersect($managerBranchIds, $captainBranchIds));
+                                    ?>
+                                    <button type="button"
+                                            class="btn btn-sm <?= $isInMyBranch ? 'btn-danger js-remove-from-branch' : 'btn-primary js-add-to-branch' ?>"
+                                            data-id="<?= htmlspecialchars($c['id']) ?>">
+                                        <?= $isInMyBranch ? 'إزالة من فرعي' : 'إضافة لفرعي' ?>
+                                    </button>
+                                <?php endif; ?>
                                 <?php if ($isAdmin): ?>
                                     <form method="POST" action="<?= APP_URL ?>/admin/captains/delete?id=<?= $c['id'] ?>"
                                           style="display:inline"
