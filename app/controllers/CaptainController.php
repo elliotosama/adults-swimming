@@ -86,14 +86,6 @@ class CaptainController {
             }
         }
 
-        if ($data['phone_number'] !== '' && $data['secondary_phone_number'] !== '') {
-            $primary = PhoneHelper::normalize($data['phone_number'], '+20');
-            $secondary = PhoneHelper::normalize($data['secondary_phone_number'], '+20');
-            if ($primary && $secondary && $primary === $secondary) {
-                $errors[] = 'رقم الهاتف الأساسي والإضافي لا يمكن أن يكونا نفس الرقم.';
-            }
-        }
-
         if ($data['age'] !== null && ($data['age'] < 18 || $data['age'] > 90))
             $errors[] = 'العمر يجب أن يكون بين 18 و 90 سنة.';
 
