@@ -6,6 +6,19 @@ $ajaxPartial = $ajaxPartial ?? false;
 $role = $_SESSION['user']['role'] ?? '';
 $isAdmin = $role === 'admin';
 $canEdit = in_array($role, ['admin', 'area_manager'], true);
+$isBranchManager = $role === 'branch_manager';
+$managerBranchIds = array_map('intval', $managerBranchIds ?? []);
+$captainBranchIds = array_values(array_filter(array_map('intval', $captain['branch_ids'] ?? [])));
+$isInMyBranch = $isBranchManager && !empty(array_intersect($managerBranchIds, $captainBranchIds));
+$captainWhatsappMessage = is_file(ROOT . '/message.txt') ? trim((string) file_get_contents(ROOT . '/message.txt')) : '';
+$whatsappUrl = '';
+if (!empty($captain['phone_number']) && $captainWhatsappMessage !== '') {
+    $normalizedPhone = PhoneHelper::normalize((string)$captain['phone_number'], '+20');
+    $whatsappDigits = $normalizedPhone ? preg_replace('/\D/', '', $normalizedPhone) : '';
+    if ($whatsappDigits) {
+        $whatsappUrl = 'https://wa.me/' . $whatsappDigits . '?text=' . rawurlencode($captainWhatsappMessage);
+    }
+}
 
 if (!$ajaxPartial) {
     require ROOT . '/views/includes/layout_top.php';
@@ -86,6 +99,32 @@ if (!$ajaxPartial) {
         <?php if ($canEdit): ?>
             <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $captain['id'] ?>" class="btn btn-warning">✏️ تعديل</a>
         <?php endif; ?>
+        <?php if ($whatsappUrl): ?>
+            <a href="<?= htmlspecialchars($whatsappUrl) ?>" target="_blank" rel="noopener" class="btn btn-success">واتساب</a>
+        <?php endif; ?>
+        <?php if ($isBranchManager): ?>
+            <button type="button"
+                    class="btn <?= $isInMyBranch ? 'btn-danger js-remove-from-branch' : 'btn-primary js-add-to-branch' ?>"
+                    data-id="<?= htmlspecialchars($captain['id']) ?>">
+                <?= $isInMyBranch ? 'إزالة من فرعي' : 'إضافة لفرعي' ?>
+            </button>
+        <?php endif; ?>
+        <?php if ($isAdmin): ?>
+            <?php if ($ajaxPartial): ?>
+                <button type="button"
+                        class="btn btn-danger js-delete-captain"
+                        data-id="<?= htmlspecialchars($captain['id']) ?>"
+                        data-name="<?= htmlspecialchars($captain['captain_name']) ?>">حذف</button>
+            <?php else: ?>
+                <form method="POST"
+                      action="<?= APP_URL ?>/admin/captains/delete?id=<?= $captain['id'] ?>"
+                      style="display:inline"
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا الكابتن؟')">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                    <button type="submit" class="btn btn-danger">حذف</button>
+                </form>
+            <?php endif; ?>
+        <?php endif; ?>
         <?php if ($ajaxPartial): ?>
             <button type="button" class="btn btn-secondary js-modal-close">→ رجوع</button>
         <?php else: ?>
@@ -111,6 +150,11 @@ if (!$ajaxPartial) {
         <div class="detail-row">
             <div class="detail-label">اسم الكابتن</div>
             <div><strong><?= htmlspecialchars($captain['captain_name']) ?></strong></div>
+        </div>
+
+        <div class="detail-row">
+            <div class="detail-label">الاسم المختصر</div>
+            <div style="color:#fff"><?= htmlspecialchars($captain['nickname'] ?? '—') ?></div>
         </div>
 
         <div class="detail-row">
@@ -219,6 +263,16 @@ if (!$ajaxPartial) {
         <?php if ($canEdit): ?>
             <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $captain['id'] ?>" class="btn btn-sm btn-warning">✏️ تعديل</a>
         <?php endif; ?>
+        <?php if ($whatsappUrl): ?>
+            <a href="<?= htmlspecialchars($whatsappUrl) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-success">واتساب</a>
+        <?php endif; ?>
+        <?php if ($isBranchManager): ?>
+            <button type="button"
+                    class="btn btn-sm <?= $isInMyBranch ? 'btn-danger js-remove-from-branch' : 'btn-primary js-add-to-branch' ?>"
+                    data-id="<?= htmlspecialchars($captain['id']) ?>">
+                <?= $isInMyBranch ? 'إزالة من فرعي' : 'إضافة لفرعي' ?>
+            </button>
+        <?php endif; ?>
         <?php if ($isAdmin): ?>
             <?php if ($ajaxPartial): ?>
                 <button type="button"
@@ -239,5 +293,48 @@ if (!$ajaxPartial) {
 </div>
 
 <?php if (!$ajaxPartial): ?>
+    <?php if ($isBranchManager): ?>
+        <script>
+        (function () {
+            function updateMyBranch(captainId, action) {
+                const endpoint = action === 'add' ? 'add-to-my-branch' : 'remove-from-my-branch';
+                const body = 'csrf_token=' + encodeURIComponent(<?= json_encode($_SESSION['csrf_token'] ?? '') ?>);
+
+                fetch(<?= json_encode(APP_URL . '/admin/captains/') ?> + endpoint + '?id=' + encodeURIComponent(captainId), {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert(data.message || 'حدث خطأ أثناء الحفظ.');
+                    }
+                })
+                .catch(() => alert('حدث خطأ أثناء الحفظ.'));
+            }
+
+            document.addEventListener('click', function (event) {
+                const addButton = event.target.closest('.js-add-to-branch');
+                if (addButton) {
+                    event.preventDefault();
+                    updateMyBranch(addButton.dataset.id, 'add');
+                    return;
+                }
+
+                const removeButton = event.target.closest('.js-remove-from-branch');
+                if (removeButton) {
+                    event.preventDefault();
+                    updateMyBranch(removeButton.dataset.id, 'remove');
+                }
+            });
+        })();
+        </script>
+    <?php endif; ?>
     <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
 <?php endif; ?>

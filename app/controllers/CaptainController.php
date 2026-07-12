@@ -1,6 +1,7 @@
 <?php
 // app/controllers/CaptainController.php
 require_once ROOT . '/app/helpers/PhoneHelper.php';
+require_once ROOT . '/app/Services/CaptainMessageMailer.php';
 
 class CaptainController {
 
@@ -58,11 +59,12 @@ class CaptainController {
 
         return [
             'captain_name' => trim($_POST['captain_name'] ?? ''),
+            'nickname'     => trim($_POST['nickname'] ?? ''),
             'phone_number' => trim($_POST['phone_number'] ?? ''),
             'secondary_phone_number' => trim($_POST['secondary_phone_number'] ?? ''),
             'age'          => $age !== '' ? (int) $age : null,
-            'email'        => trim($_POST['email'] ?? '') ?: null,
-            'academic_qualification' => trim($_POST['academic_qualification'] ?? '') ?: null,
+            'email'        => trim($_POST['email'] ?? ''),
+            'academic_qualification' => trim($_POST['academic_qualification'] ?? ''),
             'visible'      => ($_POST['visible'] ?? '1') === '1' ? 1 : 0,
             'branch_ids'   => array_map('intval', $_POST['branch_ids'] ?? []),
         ];
@@ -73,6 +75,9 @@ class CaptainController {
 
         if (strlen($data['captain_name']) < 2)
             $errors[] = 'اسم الكابتن يجب أن يكون حرفين على الأقل.';
+
+        if (strlen($data['nickname']) < 2)
+            $errors[] = 'الاسم المختصر يجب أن يكون حرفين على الأقل.';
 
         if ($data['phone_number'] === '')
             $errors[] = 'رقم الهاتف الأساسي مطلوب.';
@@ -86,11 +91,23 @@ class CaptainController {
             }
         }
 
+        if ($data['age'] === null)
+            $errors[] = 'العمر مطلوب.';
+
         if ($data['age'] !== null && ($data['age'] < 18 || $data['age'] > 90))
             $errors[] = 'العمر يجب أن يكون بين 18 و 90 سنة.';
 
-        if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL))
+        if ($data['email'] === '')
+            $errors[] = 'البريد الإلكتروني مطلوب.';
+
+        if ($data['email'] !== '' && !filter_var($data['email'], FILTER_VALIDATE_EMAIL))
             $errors[] = 'البريد الإلكتروني غير صحيح.';
+
+        if ($data['academic_qualification'] === '')
+            $errors[] = 'المؤهل العلمي مطلوب.';
+
+        if (empty($data['branch_ids']))
+            $errors[] = 'يجب اختيار فرع واحد على الأقل.';
 
         return $errors;
     }
@@ -129,6 +146,30 @@ class CaptainController {
         $names = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
         return $names ? implode(', ', $names) : '—';
+    }
+
+    private function captainMessage(): string {
+        $path = ROOT . '/message.txt';
+        if (!is_file($path)) {
+            return '';
+        }
+
+        return trim((string) file_get_contents($path));
+    }
+
+    private function sendCaptainMessageEmail(array $captain): bool {
+        $message = $this->captainMessage();
+        if ($message === '') {
+            return false;
+        }
+
+        try {
+            CaptainMessageMailer::send($captain, $message);
+            return true;
+        } catch (\Throwable $e) {
+            error_log('[CaptainMessageMailer] ' . $e->getMessage());
+            return false;
+        }
     }
 
     private function scopedBranchIdsForUser(array $user): array {
@@ -329,6 +370,12 @@ class CaptainController {
         $upload = $this->processIdUpload();
         $certificateUpload = $this->processCertificateUpload();
         $uploadErrors = array_merge($upload['errors'], $certificateUpload['errors']);
+        if (!$upload['path']) {
+            $uploadErrors[] = 'صورة البطاقة مطلوبة.';
+        }
+        if (!$certificateUpload['path']) {
+            $uploadErrors[] = 'صورة الشهادة مطلوبة.';
+        }
         if ($uploadErrors) {
             $this->deleteUploadFile($upload['path']);
             $this->deleteUploadFile($certificateUpload['path']);
@@ -356,6 +403,7 @@ class CaptainController {
 
         $newId = $this->captains->create($data);
         $this->captains->syncBranches($newId, $data['branch_ids']);
+        $emailSent = $this->sendCaptainMessageEmail(array_merge($data, ['id' => $newId]));
 
         $branchNames = $this->branchNames($data['branch_ids']);
         log_action(
@@ -363,8 +411,16 @@ class CaptainController {
             "id: {$newId}, name: {$data['captain_name']}, role: {$user['role']}, branches: {$branchNames}",
             $user['id']
         );
+        if ($emailSent) {
+            log_action('sent_captain_message_email', "id: {$newId}, to: {$data['email']}", $user['id']);
+        }
 
         $message = 'تم إضافة الكابتن "' . htmlspecialchars($data['captain_name']) . '" بنجاح.';
+        if (!empty($data['email'])) {
+            $message .= $emailSent
+                ? ' وتم إرسال الرسالة على البريد الإلكتروني.'
+                : ' لكن لم يتم إرسال رسالة البريد الإلكتروني.';
+        }
 
         if ($this->isAjax()) {
             $this->jsonResponse(['success' => true, 'message' => $message, 'id' => $newId]);
@@ -418,6 +474,7 @@ class CaptainController {
             'breadcrumb'       => 'الإدارة · الكباتن · ' . htmlspecialchars($captain['captain_name']),
             'captain'          => $captain,
             'assignedBranches' => $assignedBranches,
+            'managerBranchIds' => $user['role'] === 'branch_manager' ? $this->managerBranchIds((int) $user['id']) : [],
             'ajaxPartial'      => $this->isAjax(),
         ]);
     }
@@ -568,6 +625,12 @@ class CaptainController {
         $upload = $this->processIdUpload();
         $certificateUpload = $this->processCertificateUpload();
         $uploadErrors = array_merge($upload['errors'], $certificateUpload['errors']);
+        if (!$upload['path'] && (empty($captain['ssn_card_path']) || !empty($_POST['remove_ssn_card']))) {
+            $uploadErrors[] = 'صورة البطاقة مطلوبة.';
+        }
+        if (!$certificateUpload['path'] && (empty($captain['certificate_image_path']) || !empty($_POST['remove_certificate_image']))) {
+            $uploadErrors[] = 'صورة الشهادة مطلوبة.';
+        }
         if ($uploadErrors) {
             $this->deleteUploadFile($upload['path']);
             $this->deleteUploadFile($certificateUpload['path']);

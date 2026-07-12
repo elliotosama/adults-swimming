@@ -115,15 +115,30 @@ $existingCertificateIsPdf = $existingCertificate && str_ends_with(strtolower($ex
                         <?= htmlspecialchars($captain['phone_number'] ?? '—') ?>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">الاسم المختصر</label>
+                    <div class="form-control" style="height:auto;min-height:42px;display:flex;align-items:center;">
+                        <?= htmlspecialchars($captain['nickname'] ?? '—') ?>
+                    </div>
+                </div>
             </div>
         <?php else: ?>
             <p class="section-divider">بيانات الكابتن</p>
 
-            <div class="form-group">
-                <label class="form-label" for="captain_name">اسم الكابتن <span style="color:var(--danger)">*</span></label>
-                <input type="text" id="captain_name" name="captain_name" class="form-control"
-                       value="<?= htmlspecialchars($captain['captain_name'] ?? '') ?>"
-                       required minlength="2" placeholder="أدخل اسم الكابتن">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="captain_name">اسم الكابتن <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="captain_name" name="captain_name" class="form-control"
+                           value="<?= htmlspecialchars($captain['captain_name'] ?? '') ?>"
+                           required minlength="2" placeholder="أدخل اسم الكابتن">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="nickname">الاسم المختصر <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="nickname" name="nickname" class="form-control"
+                           value="<?= htmlspecialchars($captain['nickname'] ?? '') ?>"
+                           required minlength="2" placeholder="مثال: كابتن أحمد">
+                </div>
             </div>
 
             <div class="form-row">
@@ -144,23 +159,23 @@ $existingCertificateIsPdf = $existingCertificate && str_ends_with(strtolower($ex
 
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="age">العمر</label>
-                    <input type="number" id="age" name="age" class="form-control" min="18" max="90"
+                    <label class="form-label" for="age">العمر <span style="color:var(--danger)">*</span></label>
+                    <input type="number" id="age" name="age" class="form-control" min="18" max="90" required
                            value="<?= htmlspecialchars((string)($captain['age'] ?? '')) ?>"
                            placeholder="مثال: 30">
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="email">البريد الإلكتروني</label>
-                    <input type="email" id="email" name="email" class="form-control"
+                    <label class="form-label" for="email">البريد الإلكتروني <span style="color:var(--danger)">*</span></label>
+                    <input type="email" id="email" name="email" class="form-control" required
                            value="<?= htmlspecialchars($captain['email'] ?? '') ?>"
                            placeholder="example@email.com">
                 </div>
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="academic_qualification">المؤهل العلمي</label>
-                <input type="text" id="academic_qualification" name="academic_qualification" class="form-control"
+                <label class="form-label" for="academic_qualification">المؤهل العلمي <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="academic_qualification" name="academic_qualification" class="form-control" required
                        value="<?= htmlspecialchars($captain['academic_qualification'] ?? '') ?>"
                        placeholder="مثال: بكالوريوس تربية رياضية">
             </div>
@@ -180,8 +195,9 @@ $existingCertificateIsPdf = $existingCertificate && str_ends_with(strtolower($ex
             <p class="section-divider">صورة البطاقة (الرقم القومي)</p>
 
             <div class="form-group">
-                <label class="form-label" for="ssn_card_path">رفع صورة البطاقة</label>
+                <label class="form-label" for="ssn_card_path">رفع صورة البطاقة <span style="color:var(--danger)">*</span></label>
                 <input type="file" id="ssn_card_path" name="ssn_card_path" class="form-control"
+                       <?= $existingCard ? '' : 'required' ?>
                        accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
                 <p style="font-size:.75rem;color:var(--muted);margin-top:4px">JPG, PNG, WEBP أو PDF — بحد أقصى 5 ميجابايت.</p>
 
@@ -194,18 +210,15 @@ $existingCertificateIsPdf = $existingCertificate && str_ends_with(strtolower($ex
                         <?php endif; ?>
                         <a href="<?= APP_URL . '/' . htmlspecialchars($existingCard) ?>" target="_blank" rel="noopener">عرض الملف الحالي</a>
                     </div>
-                    <label class="remove-card-check">
-                        <input type="checkbox" name="remove_ssn_card" value="1">
-                        إزالة صورة البطاقة الحالية
-                    </label>
                 <?php endif; ?>
             </div>
 
             <p class="section-divider">الشهادة</p>
 
             <div class="form-group">
-                <label class="form-label" for="certificate_image_path">رفع صورة الشهادة</label>
+                <label class="form-label" for="certificate_image_path">رفع صورة الشهادة <span style="color:var(--danger)">*</span></label>
                 <input type="file" id="certificate_image_path" name="certificate_image_path" class="form-control"
+                       <?= $existingCertificate ? '' : 'required' ?>
                        accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
                 <p style="font-size:.75rem;color:var(--muted);margin-top:4px">JPG, PNG, WEBP أو PDF — بحد أقصى 5 ميجابايت.</p>
 
@@ -218,10 +231,6 @@ $existingCertificateIsPdf = $existingCertificate && str_ends_with(strtolower($ex
                         <?php endif; ?>
                         <a href="<?= APP_URL . '/' . htmlspecialchars($existingCertificate) ?>" target="_blank" rel="noopener">عرض الملف الحالي</a>
                     </div>
-                    <label class="remove-card-check">
-                        <input type="checkbox" name="remove_certificate_image" value="1">
-                        إزالة صورة الشهادة الحالية
-                    </label>
                 <?php endif; ?>
             </div>
         <?php endif; ?>

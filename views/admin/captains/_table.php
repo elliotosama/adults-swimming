@@ -3,8 +3,6 @@
 $role = $_SESSION['user']['role'] ?? '';
 $isAdmin = $role === 'admin';
 $canEdit = in_array($role, ['admin', 'area_manager'], true);
-$isBranchManager = $role === 'branch_manager';
-$managerBranchIds = array_map('intval', $managerBranchIds ?? []);
 ?>
 <?php if (empty($captains)): ?>
     <div class="empty-state">
@@ -18,6 +16,7 @@ $managerBranchIds = array_map('intval', $managerBranchIds ?? []);
                 <tr>
                     <th>#</th>
                     <th>اسم الكابتن</th>
+                    <th>الاسم المختصر</th>
                     <th>رقم الهاتف الأساسي</th>
                     <th>رقم الهاتف الإضافي</th>
                     <th>العمر</th>
@@ -36,6 +35,7 @@ $managerBranchIds = array_map('intval', $managerBranchIds ?? []);
                     <tr>
                         <td style="color:var(--muted);font-size:.82rem"><?= $c['id'] ?></td>
                         <td><strong><?= htmlspecialchars($c['captain_name']) ?></strong></td>
+                        <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['nickname'] ?? '—') ?></td>
                         <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['phone_number'] ?? '—') ?></td>
                         <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars($c['secondary_phone_number'] ?? '—') ?></td>
                         <td style="font-size:.85rem;color:var(--muted)"><?= htmlspecialchars((string)($c['age'] ?? '—')) ?></td>
@@ -85,17 +85,6 @@ $managerBranchIds = array_map('intval', $managerBranchIds ?? []);
                                     <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $c['id'] ?>" class="btn btn-sm btn-warning">
                                         <?= $role === 'area_manager' ? 'الفروع' : 'تعديل' ?>
                                     </a>
-                                <?php endif; ?>
-                                <?php if ($isBranchManager): ?>
-                                    <?php
-                                        $captainBranchIds = array_filter(array_map('intval', explode(',', (string)($c['branch_ids_csv'] ?? ''))));
-                                        $isInMyBranch = !empty(array_intersect($managerBranchIds, $captainBranchIds));
-                                    ?>
-                                    <button type="button"
-                                            class="btn btn-sm <?= $isInMyBranch ? 'btn-danger js-remove-from-branch' : 'btn-primary js-add-to-branch' ?>"
-                                            data-id="<?= htmlspecialchars($c['id']) ?>">
-                                        <?= $isInMyBranch ? 'إزالة من فرعي' : 'إضافة لفرعي' ?>
-                                    </button>
                                 <?php endif; ?>
                                 <?php if ($isAdmin): ?>
                                     <form method="POST" action="<?= APP_URL ?>/admin/captains/delete?id=<?= $c['id'] ?>"

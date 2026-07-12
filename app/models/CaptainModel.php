@@ -25,7 +25,8 @@ class CaptainModel {
         if (!empty($filters['search'])) {
             [$primaryPhoneSql, $primaryPhoneParams] = PhoneHelper::buildSearchCondition($filters['search'], 'c.phone_number');
             [$secondaryPhoneSql, $secondaryPhoneParams] = PhoneHelper::buildSearchCondition($filters['search'], 'c.secondary_phone_number');
-            $where[]  = "(c.captain_name LIKE ? OR {$primaryPhoneSql} OR {$secondaryPhoneSql})";
+            $where[]  = "(c.captain_name LIKE ? OR c.nickname LIKE ? OR {$primaryPhoneSql} OR {$secondaryPhoneSql})";
+            $params[] = '%' . $filters['search'] . '%';
             $params[] = '%' . $filters['search'] . '%';
             $params = array_merge($params, $primaryPhoneParams, $secondaryPhoneParams);
         }
@@ -219,18 +220,19 @@ class CaptainModel {
 
             $stmt = $this->db->prepare('
                 INSERT INTO captains
-                    (id, captain_name, phone_number, secondary_phone_number, age, email, academic_qualification, ssn_card_path, certificate_image_path, visible, created_at, created_by)
+                    (id, captain_name, nickname, phone_number, secondary_phone_number, age, email, academic_qualification, ssn_card_path, certificate_image_path, visible, created_at, created_by)
                 VALUES
-                    (:id, :captain_name, :phone_number, :secondary_phone_number, :age, :email, :academic_qualification, :ssn_card_path, :certificate_image_path, :visible, CURDATE(), :created_by)
+                    (:id, :captain_name, :nickname, :phone_number, :secondary_phone_number, :age, :email, :academic_qualification, :ssn_card_path, :certificate_image_path, :visible, CURDATE(), :created_by)
             ');
             $stmt->execute([
                 ':id'                     => $newId,
                 ':captain_name'           => $data['captain_name'],
+                ':nickname'               => $data['nickname'],
                 ':phone_number'           => $data['phone_number'] ?: null,
                 ':secondary_phone_number' => $data['secondary_phone_number'] ?: null,
                 ':age'                    => $data['age'] ?? null,
-                ':email'                  => $data['email'] ?: null,
-                ':academic_qualification' => $data['academic_qualification'] ?: null,
+                ':email'                  => $data['email'],
+                ':academic_qualification' => $data['academic_qualification'],
                 ':ssn_card_path'          => $data['ssn_card_path'] ?? null,
                 ':certificate_image_path' => $data['certificate_image_path'] ?? null,
                 ':visible'                => $data['visible'],
@@ -251,6 +253,7 @@ class CaptainModel {
         $stmt = $this->db->prepare('
             UPDATE captains SET
                 captain_name  = :captain_name,
+                nickname      = :nickname,
                 phone_number  = :phone_number,
                 secondary_phone_number = :secondary_phone_number,
                 age           = :age,
@@ -263,11 +266,12 @@ class CaptainModel {
         ');
         $stmt->execute([
             ':captain_name'           => $data['captain_name'],
+            ':nickname'               => $data['nickname'],
             ':phone_number'           => $data['phone_number'] ?: null,
             ':secondary_phone_number' => $data['secondary_phone_number'] ?: null,
             ':age'                    => $data['age'] ?? null,
-            ':email'                  => $data['email'] ?: null,
-            ':academic_qualification' => $data['academic_qualification'] ?: null,
+            ':email'                  => $data['email'],
+            ':academic_qualification' => $data['academic_qualification'],
             ':ssn_card_path'          => $data['ssn_card_path'] ?? null,
             ':certificate_image_path' => $data['certificate_image_path'] ?? null,
             ':visible'                => $data['visible'],
