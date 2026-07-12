@@ -122,7 +122,7 @@ require ROOT . '/views/includes/layout_top.php';
         </h1>
         <p class="breadcrumb">لوحة التحكم · الكباتن</p>
     </div>
-    <?php if (in_array($_SESSION['user']['role'], ['admin', 'branch_manager'], true)): ?>
+    <?php if (in_array($_SESSION['user']['role'], ['admin', 'area_manager', 'branch_manager'], true)): ?>
     <a href="<?= APP_URL ?>/admin/captains/create" class="btn btn-primary">
         + إضافة كابتن جديد
     </a>
