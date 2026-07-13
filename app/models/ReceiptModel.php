@@ -438,6 +438,12 @@ public function create(array $data): int {
             [$createdFrom, $createdTo] = [$createdTo, $createdFrom];
         }
 
+        $selectedCreatorId = !empty($filters['creator_id'])
+            ? (int) $filters['creator_id']
+            : null;
+        $creatorActivityIsIncluded = $selectedCreatorId !== null
+            && empty($filters['creator_created_only']);
+
         if ($createdFrom || $createdTo) {
             $receiptDateParts = [];
             $transactionDateParts = [];
@@ -464,21 +470,48 @@ public function create(array $data): int {
             $receiptDateWhere = implode(' AND ', $receiptDateParts);
             $transactionDateWhere = implode(' AND ', $transactionDateParts);
             $auditDateWhere = implode(' AND ', $auditDateParts);
-            $conditions[] = "(
-                ({$receiptDateWhere})
-                OR EXISTS (
-                    SELECT 1
-                    FROM transactions t_activity
-                    WHERE t_activity.receipt_id = r.id
-                      AND {$transactionDateWhere}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM receipt_audit_log al_activity
-                    WHERE al_activity.receipt_id = r.id
-                      AND {$auditDateWhere}
-                )
-            )";
+            if ($creatorActivityIsIncluded) {
+                // When filtering by employee and date, both criteria must refer
+                // to the same action.  For example, an update by Employee A
+                // today must not make a receipt appear for Employee B, who only
+                // created or touched it on a different day.
+                $conditions[] = "(
+                    (r.creator_id = :creator_id_date AND {$receiptDateWhere})
+                    OR EXISTS (
+                        SELECT 1
+                        FROM transactions t_activity
+                        WHERE t_activity.receipt_id = r.id
+                          AND t_activity.created_by = :creator_id_tx_date
+                          AND {$transactionDateWhere}
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM receipt_audit_log al_activity
+                        WHERE al_activity.receipt_id = r.id
+                          AND al_activity.changed_by = :creator_id_al_date
+                          AND {$auditDateWhere}
+                    )
+                )";
+                $params[':creator_id_date']    = $selectedCreatorId;
+                $params[':creator_id_tx_date'] = $selectedCreatorId;
+                $params[':creator_id_al_date'] = $selectedCreatorId;
+            } else {
+                $conditions[] = "(
+                    ({$receiptDateWhere})
+                    OR EXISTS (
+                        SELECT 1
+                        FROM transactions t_activity
+                        WHERE t_activity.receipt_id = r.id
+                          AND {$transactionDateWhere}
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM receipt_audit_log al_activity
+                        WHERE al_activity.receipt_id = r.id
+                          AND {$auditDateWhere}
+                    )
+                )";
+            }
         }
 
         if (!empty($filters['statuses']) && is_array($filters['statuses'])) {
@@ -528,7 +561,7 @@ if (!empty($filters['force_creator_id'])) {
     $conditions[]          = "r.creator_id = :creator_id";
     $params[':creator_id'] = (int) $filters['force_creator_id'];
 
-} elseif (!empty($filters['creator_id'])) {
+} elseif (!empty($filters['creator_id']) && !$creatorActivityIsIncluded) {
     $creatorId = (int) $filters['creator_id'];
 
     if (!empty($filters['creator_created_only'])) {

@@ -767,12 +767,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
             <?php if ($canFilter('created')): ?>
             <div class="filter-pair">
                 <div class="filter-group">
-                    <label>تاريخ الانشاء — من</label>
+                    <label>تاريخ النشاط — من</label>
                     <input type="date" name="created_from"
                            value="<?= htmlspecialchars($filters['created_from'] ?? '') ?>">
                 </div>
                 <div class="filter-group">
-                    <label>تاريخ الانشاء — إلى</label>
+                    <label>تاريخ النشاط — إلى</label>
                     <input type="date" name="created_to"
                            value="<?= htmlspecialchars($filters['created_to'] ?? '') ?>">
                 </div>

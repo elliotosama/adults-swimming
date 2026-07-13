@@ -131,14 +131,20 @@ captains table {
 - [x] success message after editing receipt
 - [x] in edit add option to add another payment evidence and only admin can remove the payment evidence
 - [x] when i edit receipt it removes filters in index page
-- [ ] check 01125260919 receipt because it created two times
+- [x] check 01125260919 receipt because it created two times
 - [ ] check 01102816922 receipt because it created two times
 - [ ] remove height from receipts index page
+- [ ] filters in receipts
 
 
 
 
+when i filter 11 or 10 => 
 
+when i filter creation date from only and employee all receipts creations or update
+when i filter new and renew filters
+branches
+employees
 
 run this on the server => {
   mkdir -p public/uploads/captains_ids
