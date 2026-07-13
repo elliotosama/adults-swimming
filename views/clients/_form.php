@@ -7,7 +7,7 @@
             <div class="input-wrap">
                 <input type="text" name="client_name"
                        value="<?= htmlspecialchars($client['client_name'] ?? '') ?>"
-                       placeholder="الاسم الكامل" required>
+                       placeholder="الاسم الكامل (3 كلمات على الأقل)" required>
                 <span class="icon">👤</span>
             </div>
         </div>
@@ -29,28 +29,28 @@
             <div class="input-wrap">
                 <input type="text" name="email"
                        value="<?= htmlspecialchars($client['email'] ?? '') ?>"
-                       placeholder="example@email.com">
+                       placeholder="example@gmail.com">
                 <span class="icon">📧</span>
             </div>
         </div>
 
         <div class="field">
-            <label>العمر</label>
+            <label>العمر <span class="required">*</span></label>
             <div class="input-wrap">
-                <input type="text" name="age"
+                <input type="number" name="age"
                        value="<?= htmlspecialchars($client['age'] ?? '') ?>"
-                       placeholder="مثال: 25">
+                       placeholder="مثال: 25" min="5" max="99" required>
                 <span class="icon">🎂</span>
             </div>
         </div>
     </div>
 
     <div class="field">
-        <label>الجنس</label>
+        <label>الجنس <span class="required">*</span></label>
         <div class="radio-group">
             <label class="radio-label">
                 <input type="radio" name="gender" value="male"
-                       <?= ($client['gender'] ?? '') === 'male' ? 'checked' : '' ?>>
+                       <?= ($client['gender'] ?? '') === 'male' ? 'checked' : '' ?> required>
                 ذكر
             </label>
             <label class="radio-label">

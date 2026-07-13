@@ -792,10 +792,6 @@ if ($receipt) {
             <span id="day_error_hint" style="font-weight:600;margin-right:4px;"></span>
           </div>
 
-          <div class="inline-error full" id="past_date_error">
-            ❌ لا يمكن اختيار تاريخ في الماضي.
-          </div>
-
         </div>
       </div>
     </div>
@@ -953,7 +949,6 @@ PLANS_BY_COUNTRY_ID[<?= $cid ?>].push({
 
 const MIN_PAYMENT      = <?= (float)$minPaymentAmount ?>;
 const MAX_PAYMENT      = <?= (float)($ns['remaining'] ?? 0) ?>;
-const TODAY            = <?= json_encode($todayDate) ?>;
 const SAVED_PLAN_ID    = <?= json_encode((string)($savedPlanId    ?? '')) ?>;
 const SAVED_CAPTAIN_ID = <?= json_encode((string)($savedCaptainId ?? '')) ?>;
 
@@ -971,7 +966,6 @@ const lastDateIn       = document.getElementById('last_date');
 const doubleChk        = document.getElementById('double');
 const dayErrorEl       = document.getElementById('day_error');
 const dayErrorHint     = document.getElementById('day_error_hint');
-const pastDateErrorEl  = document.getElementById('past_date_error');
 const payMethodSel     = document.getElementById('payment_method');
 const evidenceField    = document.getElementById('evidence-field');
 const evidenceIn       = document.getElementById('transaction_evidence');
@@ -1214,8 +1208,7 @@ function updatePaymentMax() {
     }
 
     const hasError = belowMin || aboveMax
-        || dayErrorEl?.classList.contains('visible')
-        || pastDateErrorEl?.classList.contains('visible');
+        || dayErrorEl?.classList.contains('visible');
 
     if (submitBtn) submitBtn.disabled = hasError;
 }
@@ -1261,16 +1254,9 @@ function updateSessionDates() {
     if (renewalIn) renewalIn.value = '';
     if (lastDateIn) lastDateIn.value = '';
     dayErrorEl?.classList.remove('visible');
-    pastDateErrorEl?.classList.remove('visible');
     if (dayErrorHint) dayErrorHint.textContent = '';
 
     if (!startDate || !branchSel.value) return;
-
-    if (startDate < TODAY) {
-        pastDateErrorEl?.classList.add('visible');
-        if (submitBtn) submitBtn.disabled = true;
-        return;
-    }
 
     const meta = branchMeta();
     if (!meta?.days?.length) return;

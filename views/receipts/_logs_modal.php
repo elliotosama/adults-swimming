@@ -133,6 +133,7 @@ $typeMap = [
     'payment'  => ['rlm-badge-success', 'دفعة'],
     'refund'   => ['rlm-badge-danger',  'استرداد'],
     'discount' => ['rlm-badge-warning', 'خصم'],
+    'evidence' => ['rlm-badge-warning', 'إثبات'],
 ];
 $isAdmin = $isAdmin ?? false;
 $canViewReceiptUpdates = $canViewReceiptUpdates ?? $isAdmin;

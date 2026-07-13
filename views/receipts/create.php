@@ -32,6 +32,10 @@ $renewalTypeLabels = [
     'previous_renewal' => ['label' => 'تجديد سابق',  'icon' => '⏪', 'color' => '#f59e0b'],
 ];
 $autoRenewalType = $autoRenewalType ?? ($receipt['renewal_type'] ?? '');
+$renewalFormToken = '';
+if (!empty($isRenewal) && (!empty($client['id']) || !empty($receipt['client_id']))) {
+    $renewalFormToken = bin2hex(random_bytes(16));
+}
 
 // ── Branch manager: resolve their fixed branch ──────────────────────────────
 $currentUser     = auth_user();
@@ -748,6 +752,9 @@ $managerBranchId = (int)($bmStmt->fetchColumn() ?: 0);
     <?php if (!empty($receipt['client_id'])): ?>
       <input type="hidden" name="client_id" value="<?= (int)$receipt['client_id'] ?>">
     <?php endif; ?>
+    <?php if (!empty($isRenewal)): ?>
+      <input type="hidden" name="renewal_token" value="<?= htmlspecialchars($renewalFormToken) ?>">
+    <?php endif; ?>
 
     <!-- § 0.5 — نوع التجديد (Renewal only) -->
     <?php if (!empty($isRenewal) && !empty($client)): ?>
@@ -979,12 +986,11 @@ $managerBranchId = (int)($bmStmt->fetchColumn() ?: 0);
           <div class="form-field">
             <label class="form-label">تاريخ أول جلسة <span class="req">*</span></label>
             <input type="date" name="first_session" id="start_date" class="form-control"
-                   min="<?= $todayDate ?>"
                    value="<?= htmlspecialchars($receipt['first_session'] ?? '') ?>" required>
             <?php if (!empty($isRenewal)): ?>
-              <span class="field-hint">يجب أن يكون تاريخاً مستقبلياً ومختلفاً عن الإيصال السابق</span>
+              <span class="field-hint">يجب أن يكون مختلفاً عن الإيصال السابق</span>
             <?php else: ?>
-              <span class="field-hint">لا يمكن اختيار تاريخ في الماضي</span>
+              <span class="field-hint">اختر تاريخ أول جلسة لحساب باقي الجلسات</span>
             <?php endif; ?>
           </div>
 
@@ -1020,10 +1026,6 @@ $managerBranchId = (int)($bmStmt->fetchColumn() ?: 0);
           <div class="inline-error full" id="day_error">
             ❌ هذا الفرع لا يعمل في اليوم المختار — أيام العمل:
             <span id="day_error_hint" style="font-weight:600; margin-right:4px;"></span>
-          </div>
-
-          <div class="inline-error full" id="past_date_error">
-            ❌ لا يمكن اختيار تاريخ في الماضي. يرجى اختيار اليوم أو تاريخ مستقبلي.
           </div>
 
           <div class="inline-error full" id="same_date_error" style="display:none;">
@@ -1273,7 +1275,6 @@ const lastDateIn          = document.getElementById('last_date');
 const doubleChk           = document.getElementById('double');
 const dayErrorEl          = document.getElementById('day_error');
 const dayErrorHint        = document.getElementById('day_error_hint');
-const pastDateErrorEl     = document.getElementById('past_date_error');
 const sameDateErrorEl     = document.getElementById('same_date_error');
 const sameDateErrorMsg    = document.getElementById('same_date_error_msg');
 const todayDateErrorEl    = document.getElementById('today_date_error');
@@ -1620,7 +1621,6 @@ function validatePayment(paid) {
     } else {
         payWarnEl.classList.remove('visible');
         if (!dayErrorEl.classList.contains('visible') &&
-            !pastDateErrorEl.classList.contains('visible') &&
             sameDateErrorEl.style.display === 'none' &&
             todayDateErrorEl.style.display === 'none') {
             submitBtn.disabled = false;
@@ -1664,14 +1664,8 @@ function updateSessionDates() {
     const startDate = startDateIn.value;
     renewalIn.value = ''; lastDateIn.value = '';
     dayErrorEl.classList.remove('visible');
-    pastDateErrorEl.classList.remove('visible');
     dayErrorHint.textContent = '';
     if (!startDate || !branchSel.value) return;
-    if (startDate < TODAY) {
-        pastDateErrorEl.classList.add('visible');
-        submitBtn.disabled = true;
-        return;
-    }
     if (!validateRenewalDateGuards()) return;
     const meta = branchMeta();
     if (!meta || !meta.days.length) return;
@@ -1959,6 +1953,11 @@ function closeConfirm() {
 }
 
 function proceedSubmit() {
+    const confirmBtn = document.getElementById('confirmSubmitBtn');
+    if (form.dataset.submitting === '1') return;
+    form.dataset.submitting = '1';
+    if (confirmBtn) confirmBtn.disabled = true;
+
     _confirmBypass = true;
     closeConfirm();
     setTimeout(() => {
@@ -2006,8 +2005,6 @@ submitBtn.addEventListener('click', function(e) {
         return;
     }
 
-    if (startDateIn.value && startDateIn.value < TODAY) { startDateIn.focus(); return; }
-
     const paid = parseFloat(paidInput.value) || 0;
     if (paid > 0 && paid < MIN_PAYMENT) { paidInput.focus(); return; }
 
@@ -2022,6 +2019,7 @@ form.addEventListener('submit', function(e) {
     if (_confirmBypass) {
         _confirmBypass = false;
         assembleFullPhone();
+        if (submitBtn) submitBtn.disabled = true;
         return true; // allow real POST
     }
     e.preventDefault(); // block accidental native submit

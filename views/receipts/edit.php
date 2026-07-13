@@ -771,10 +771,6 @@ select.form-control:disabled {
                         <span>تاريخ أول جلسة يجب أن يكون من أيام عمل هذا المستوى: <strong id="day_error_hint"></strong></span>
                     </div>
 
-                    <div class="inline-error full" id="past_date_error">
-                        <span>⚠️</span><span>لا يمكن اختيار تاريخ سابق.</span>
-                    </div>
-
                     <div class="form-field computed-field">
                         <label class="form-label">تاريخ جلسة التجديد</label>
                         <input type="text" name="renewal_session" id="renewal_date" class="form-control"
@@ -847,7 +843,7 @@ select.form-control:disabled {
                             <?= !$isAdmin ? '<span class="lock">🔒</span>' : '' ?>
                         </label>
                         <input type="number" name="<?= $isAdmin ? 'total_paid' : '' ?>" id="totalPaidDisplay" class="form-control"
-                               value="<?= $totalPaid ?>" step="0.01"
+                               value="<?= $totalPaid ?>" step="0.01" min="0" max="<?= htmlspecialchars((string)$planPrice) ?>"
                                <?= $isAdmin ? '' : 'readonly' ?>>
                         <input type="hidden" name="original_total_paid" value="<?= $totalPaid ?>">
                         <span class="field-hint">
@@ -885,7 +881,7 @@ select.form-control:disabled {
                         <label class="form-label">إثبات الدفع</label>
                         <input type="file" name="transaction_evidence" id="transaction_evidence"
                                class="form-control" accept="image/*,application/pdf" <?= $canUploadEvidence ? '' : 'disabled' ?>>
-                        <span class="field-hint"><?= $canUploadEvidence ? 'رفع ملف جديد سيستبدل إثبات آخر دفعة مسجلة' : 'صورة أو ملف PDF' ?></span>
+                        <span class="field-hint"><?= $canUploadEvidence ? 'رفع ملف جديد سيضيف إثبات دفع جديد بدون استبدال الملفات السابقة' : 'صورة أو ملف PDF' ?></span>
                         <?php if (!empty($receipt['transaction_evidence'])): ?>
                             <span class="field-hint">
                                 الملف الحالي:
@@ -946,8 +942,6 @@ select.form-control:disabled {
     const SAVED_CAPTAIN_ID   = <?= json_encode((string)($receipt['captain_id'] ?? '')) ?>;
     const IS_ADMIN           = <?= json_encode($isAdmin) ?>;
     const CAN_UPLOAD_EVIDENCE = <?= json_encode($canUploadEvidence) ?>;
-    const TODAY              = <?= json_encode(date('Y-m-d')) ?>;
-
     const branchSelect  = document.getElementById('branch');
     const captainSelect = document.getElementById('captain');
     const planSelect    = document.getElementById('planSelect');
@@ -959,7 +953,6 @@ select.form-control:disabled {
     const exerciseTimeIn = document.getElementById('exercise_time');
     const dayErrorEl    = document.getElementById('day_error');
     const dayErrorHint  = document.getElementById('day_error_hint');
-    const pastDateErrorEl = document.getElementById('past_date_error');
     const timeErrorEl   = document.getElementById('time_error');
     const timeErrorMsg  = document.getElementById('time_error_msg');
     const submitBtn     = document.getElementById('submitBtn');
@@ -1063,16 +1056,10 @@ select.form-control:disabled {
         renewalIn.value = '';
         lastDateIn.value = '';
         dayErrorEl?.classList.remove('visible');
-        pastDateErrorEl?.classList.remove('visible');
         startDateIn.classList.remove('field-invalid');
         if (dayErrorHint) dayErrorHint.textContent = '';
 
         if (!startDate) return true;
-        if (startDate < TODAY) {
-            pastDateErrorEl?.classList.add('visible');
-            startDateIn.classList.add('field-invalid');
-            return false;
-        }
 
         const meta = branchMeta();
         const allowedDays = selectedLevelDays(meta);
@@ -1166,6 +1153,10 @@ select.form-control:disabled {
         const price = opt ? (parseFloat(opt.dataset.price) || 0) : (parseFloat(form.dataset.planPrice) || 0);
         const paid  = currentTotalPaid();
         const rem   = Math.max(0, price - paid + totalRefunded);
+
+        if (IS_ADMIN && totalPaidInput && price > 0) {
+            totalPaidInput.max = price.toFixed(2);
+        }
 
         if (planPriceDisp) planPriceDisp.value   = price.toFixed(2);
         if (remainInput)   remainInput.value      = rem.toFixed(2);

@@ -430,6 +430,10 @@ public function create(array $data): int {
         $createdFrom = $this->normalizeDate($filters['created_from'] ?? '');
         $createdTo   = $this->normalizeDate($filters['created_to'] ?? '');
 
+        if ($createdFrom && !$createdTo) {
+            $createdTo = $createdFrom;
+        }
+
         if ($createdFrom && $createdTo && $createdFrom > $createdTo) {
             [$createdFrom, $createdTo] = [$createdTo, $createdFrom];
         }
@@ -604,4 +608,3 @@ if (!empty($filters['force_creator_id'])) {
         ];
     }
 }
-

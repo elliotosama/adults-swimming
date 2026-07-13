@@ -39,9 +39,7 @@ foreach (($transactions ?? []) as $t) {
 }
 $transactionMethods = array_values(array_unique($transactionMethods));
 $receiptMethod = trim((string)($receipt['payment_method'] ?? ''));
-$paymentMethodText = $transactionMethods
-    ? implode('، ', $transactionMethods)
-    : ($paymentMethodLabels[$receiptMethod] ?? ($receiptMethod ?: '—'));
+$paymentMethodItems = $transactionMethods ?: [$paymentMethodLabels[$receiptMethod] ?? ($receiptMethod ?: '—')];
 
 $receiptNotes = array_values(array_filter(array_map(function ($t) {
     return trim((string)($t['notes'] ?? ''));
@@ -70,6 +68,23 @@ $receiptNotes = array_values(array_filter(array_map(function ($t) {
 .rm-pay-item .rm-num.green  { color: var(--v-success); }
 .rm-pay-item .rm-num.red    { color: var(--v-danger); }
 .rm-pay-item .rm-num.yellow { color: var(--v-warning); }
+.rm-method-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: method;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.rm-method-list li { counter-increment: method; }
+.rm-method-list li::before {
+    content: counter(method) "- ";
+    color: var(--v-muted);
+    font-weight: 800;
+}
 .rm-notes-list { display: flex; flex-direction: column; gap: .55rem; padding: .9rem 1rem; background: var(--v-surface2); border: 1px solid var(--v-border); border-radius: 10px; }
 .rm-note { margin: 0; color: #fff; line-height: 1.65; font-size: 1rem; }
 .rm-evidence-list { display: flex; flex-wrap: wrap; gap: .5rem; }
@@ -128,7 +143,14 @@ $receiptNotes = array_values(array_filter(array_map(function ($t) {
         <div class="rm-pay-item"><span class="rm-label">المسترد</span><span class="rm-num red"><?= number_format($totalRefunded,0) ?> (<?= $refundPct ?>%)</span></div>
         <?php endif; ?>
         <div class="rm-pay-item"><span class="rm-label">المتبقي</span><span class="rm-num <?= $remaining > 0 ? 'yellow' : 'green' ?>"><?= number_format($remaining,0) ?></span></div>
-        <div class="rm-pay-item"><span class="rm-label">طريقة الدفع</span><span class="rm-num" style="font-weight:600;font-size:1rem"><?= htmlspecialchars($paymentMethodText) ?></span></div>
+        <div class="rm-pay-item">
+            <span class="rm-label">طريقة الدفع</span>
+            <ol class="rm-method-list">
+                <?php foreach ($paymentMethodItems as $method): ?>
+                    <li><?= htmlspecialchars($method) ?></li>
+                <?php endforeach; ?>
+            </ol>
+        </div>
     </div>
 
     <?php if (!empty($receiptNotes)): ?>

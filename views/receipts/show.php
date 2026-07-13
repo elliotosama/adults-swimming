@@ -36,6 +36,25 @@ $netPaid       = (float) ($ns['netPaid']       ?? ($totalPaid ?? 0));
 $remaining     = (float) ($ns['remaining']     ?? 0);
 $totalRefunded = (float) ($ns['totalRefunded'] ?? 0);
 $hasRefund     = $totalRefunded > 0;
+
+$paymentMethodLabels = [
+    'cash'          => 'نقداً',
+    'instapay'      => 'InstaPay',
+    'vodafone_cash' => 'Vodafone Cash',
+    'bank_transfer' => 'تحويل بنكي',
+];
+$paymentMethodItems = [];
+foreach (($transactions ?? []) as $t) {
+    $method = trim((string)($t['payment_method'] ?? ''));
+    if ($method !== '') {
+        $paymentMethodItems[] = $paymentMethodLabels[$method] ?? $method;
+    }
+}
+$paymentMethodItems = array_values(array_unique($paymentMethodItems));
+if (empty($paymentMethodItems)) {
+    $receiptMethod = trim((string)($receipt['payment_method'] ?? ''));
+    $paymentMethodItems[] = $paymentMethodLabels[$receiptMethod] ?? ($receiptMethod ?: '—');
+}
 ?>
 
 <style>
@@ -140,6 +159,24 @@ body,
 .payment-summary-value.remaining-due   { color: var(--danger); }
 .payment-summary-value.remaining-clear { color: var(--success); }
 .payment-summary-value.refunded  { color: var(--danger); }
+.payment-method-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: payment-method;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    color: var(--text);
+    font-size: .95rem;
+    font-weight: 700;
+}
+.payment-method-list li { counter-increment: payment-method; }
+.payment-method-list li::before {
+    content: counter(payment-method) "- ";
+    color: var(--muted);
+    font-weight: 800;
+}
 
 /* ── Section header ──────────────────────────────────────────────────────── */
 .section-header {
@@ -507,6 +544,14 @@ body,
             <span class="payment-summary-value refunded">↩️ <?= number_format($totalRefunded, 2) ?></span>
         </div>
         <?php endif; ?>
+        <div class="payment-summary-item">
+            <span class="payment-summary-label">طريقة الدفع</span>
+            <ol class="payment-method-list">
+                <?php foreach ($paymentMethodItems as $method): ?>
+                    <li><?= htmlspecialchars($method) ?></li>
+                <?php endforeach; ?>
+            </ol>
+        </div>
     </div>
 </div>
 
@@ -553,6 +598,7 @@ body,
                             'payment'  => ['badge-success', 'دفعة'],
                             'refund'   => ['badge-danger',  'استرداد'],
                             'discount' => ['badge-warning', 'خصم'],
+                            'evidence' => ['badge-warning', 'إثبات'],
                         ];
                         [$tCls, $tLabel] = $typeMap[$t['type']] ?? ['badge-secondary', $t['type']];
                         $rawEvidence = $t['attachment'] ?? $t['transaction_evidence'] ?? $t['evidence'] ?? null;
@@ -625,6 +671,7 @@ body,
                     'payment'  => ['badge-success', 'دفعة'],
                     'refund'   => ['badge-danger',  'استرداد'],
                     'discount' => ['badge-warning', 'خصم'],
+                    'evidence' => ['badge-warning', 'إثبات'],
                 ];
                 [$tCls, $tLabel] = $typeMap[$t['type']] ?? ['badge-secondary', $t['type']];
                 $rawEvidence = $t['attachment'] ?? $t['transaction_evidence'] ?? $t['evidence'] ?? null;

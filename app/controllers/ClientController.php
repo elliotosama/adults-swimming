@@ -25,6 +25,10 @@ class ClientController {
         $_SESSION[$key] = $msg;
     }
 
+    private function isReceiptClientTabSubmit(): bool {
+        return trim((string) ($_POST['redirect_tab'] ?? '')) === 'client';
+    }
+
     private function parseForm(): array {
         return [
             'client_name' => trim($_POST['client_name'] ?? ''),
@@ -39,8 +43,10 @@ class ClientController {
     private function validate(array $data, bool $isEdit = false, int $id = 0): array {
         $errors = [];
 
-        if (strlen($data['client_name']) < 2)
-            $errors[] = 'اسم العميل يجب أن يكون حرفين على الأقل.';
+        $nameWords = preg_split('/\s+/', trim($data['client_name']));
+        $nameWords = array_values(array_filter($nameWords ?: [], fn($word) => $word !== ''));
+        if (count($nameWords) < 3)
+            $errors[] = 'يجب أن يحتوي اسم العميل على 3 كلمات على الأقل.';
 
         if (empty($data['phone']))
             $errors[] = 'رقم الهاتف مطلوب.';
@@ -60,13 +66,19 @@ class ClientController {
 
         if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL))
             $errors[] = 'البريد الإلكتروني غير صالح.';
+        elseif (!empty($data['email']) && !preg_match('/^[^\s@]+@gmail\.com$/i', $data['email']))
+            $errors[] = 'يجب أن يكون البريد الإلكتروني بصيغة Gmail صحيحة.';
         elseif (!empty($data['email']) && $this->clients->emailExists($data['email'], $id))
             $errors[] = 'البريد الإلكتروني مستخدم بالفعل.';
 
-        if (!empty($data['age']) && ($data['age'] < 1 || $data['age'] > 120))
-            $errors[] = 'العمر غير صالح.';
+        if ($data['age'] === null)
+            $errors[] = 'العمر مطلوب.';
+        elseif ($data['age'] < 5 || $data['age'] > 99)
+            $errors[] = 'العمر يجب أن يكون بين 5 و 99.';
 
         $validGenders = ['male', 'female', ''];
+        if ($data['gender'] === '')
+            $errors[] = 'الجنس مطلوب.';
         if (!in_array($data['gender'], $validGenders, true))
             $errors[] = 'الجنس غير صالح.';
 
@@ -130,6 +142,13 @@ class ClientController {
         $errors = $this->validate($data);
 
         if ($errors) {
+            if ($this->isReceiptClientTabSubmit()) {
+                $_SESSION['client_errors'] = $errors;
+                $_SESSION['new_client_data'] = $data;
+                $this->redirect('/receipt/manage?tab=client#client');
+                return;
+            }
+
             $this->flash('flash_error', implode('<br>', $errors));
             $this->renderView('create', [
                 'pageTitle'  => 'عميل جديد',
@@ -143,7 +162,13 @@ class ClientController {
 
         $newId = $this->clients->create($data);
         log_action('created_client', "id: {$newId}, name: {$data['client_name']}", auth_user()['id']);
-        $this->flash('flash_success', 'تم إضافة العميل "' . htmlspecialchars($data['client_name']) . '" بنجاح.');
+        if ($this->isReceiptClientTabSubmit()) {
+            $this->flash('flash_success_client', 'تم إضافة العميل "' . $data['client_name'] . '" بنجاح.');
+            $this->redirect('/receipt/manage?tab=client#client');
+            return;
+        }
+
+        $this->flash('flash_success', 'تم إضافة العميل "' . $data['client_name'] . '" بنجاح.');
         $this->redirect('/clients');
     }
 

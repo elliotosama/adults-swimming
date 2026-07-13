@@ -41,7 +41,7 @@ class ReceiptController {
     }
 
     private function redirectAfterReceiptUpdate(int $receiptId): void {
-        $target = APP_URL . '/receipts?updated_receipt_id=' . $receiptId;
+        $target = APP_URL . '/receipts';
 
         echo '<!doctype html><html><head><meta charset="utf-8"><title>تم تحديث الإيصال</title></head><body>';
         echo '<script>';
@@ -107,7 +107,10 @@ class ReceiptController {
         $stmt = get_db()->prepare("
             SELECT attachment
             FROM transactions
-            WHERE receipt_id = ? AND type = 'payment' AND attachment IS NOT NULL AND attachment <> ''
+            WHERE receipt_id = ?
+              AND type IN ('payment', 'evidence')
+              AND attachment IS NOT NULL
+              AND attachment <> ''
             ORDER BY id DESC
             LIMIT 1
         ");
@@ -115,27 +118,16 @@ class ReceiptController {
         return (string) ($stmt->fetchColumn() ?: '');
     }
 
-    private function latestPaymentTransactionId(int $receiptId): int {
-        $stmt = get_db()->prepare("
-            SELECT id
-            FROM transactions
-            WHERE receipt_id = ? AND type = 'payment'
-            ORDER BY id DESC
-            LIMIT 1
-        ");
-        $stmt->execute([$receiptId]);
-        return (int) ($stmt->fetchColumn() ?: 0);
-    }
-
-    private function replaceLatestPaymentEvidence(int $receiptId, string $path): bool {
-        $transactionId = $this->latestPaymentTransactionId($receiptId);
-        if ($transactionId <= 0) {
-            return false;
-        }
-
-        $update = get_db()->prepare("UPDATE transactions SET attachment = ? WHERE id = ?");
-        $update->execute([$path, $transactionId]);
-        return true;
+    private function addPaymentEvidence(int $receiptId, string $path, string $paymentMethod, int $userId): int {
+        return $this->transactions->create([
+            'receipt_id'     => $receiptId,
+            'payment_method' => $paymentMethod,
+            'amount'         => 0,
+            'created_by'     => $userId,
+            'type'           => 'evidence',
+            'notes'          => 'إثبات دفع إضافي',
+            'attachment'     => $path,
+        ]);
     }
 
     private function normalizeGender(string $gender): string {
@@ -306,7 +298,7 @@ private function parseForm(): array {
             $this->redirect('/receipts');
         }
 
-        $hasInput = count(array_diff(array_keys($_GET), ['page'])) > 0;
+        $hasInput = count(array_diff(array_keys($_GET), ['page', 'updated_receipt_id'])) > 0;
 
         if ($hasInput) {
             $filters = $this->parseFilters();
@@ -327,8 +319,17 @@ private function parseForm(): array {
     public function searchJson(): void {
         auth_require(['admin', 'branch_manager', 'customer_service', 'area_manager']);
 
-        $scope   = $this->roleScope();
-        $filters = array_merge($this->parseFilters(), $scope['forced']);
+        $scope            = $this->roleScope();
+        $requestedFilters = $this->parseFilters();
+        $hasInput         = count(array_diff(array_keys($_GET), ['page', 'updated_receipt_id'])) > 0;
+
+        if ($hasInput) {
+            $_SESSION['receipt_filters'] = $requestedFilters;
+        } elseif (!empty($_SESSION['receipt_filters'])) {
+            $requestedFilters = $_SESSION['receipt_filters'];
+        }
+
+        $filters = array_merge($requestedFilters, $scope['forced']);
         $page    = max(1, (int) ($_GET['page'] ?? 1));
 
         $result = $this->receipts->search($filters, $page, self::PER_PAGE);
@@ -355,16 +356,52 @@ private function validate(array $data): array {
     if ($data['captain_id'] === '' || $data['captain_id'] === null)
         $errors[] = 'يجب اختيار الكابتن.';
 
+    if (empty($data['plan_id']))
+        $errors[] = 'يجب اختيار الاشتراك.';
+
     if (!empty($data['first_session']) && !empty($data['last_session'])
         && $data['last_session'] < $data['first_session']) {
         $errors[] = 'تاريخ آخر جلسة لا يمكن أن يكون قبل تاريخ أول جلسة.';
     }
+
+    if ((float)($data['amount'] ?? 0) < 0)
+        $errors[] = 'المبلغ المدفوع لا يمكن أن يكون أقل من صفر.';
 
     if (empty($data['payment_method']))
         $errors[] = 'يجب اختيار طريقة الدفع.';
 
     return $errors;
 }
+
+    private function planPriceById(?int $planId): float {
+        if (!$planId) {
+            return 0.0;
+        }
+
+        $stmt = get_db()->prepare('SELECT COALESCE(price, 0) FROM prices WHERE id = ? LIMIT 1');
+        $stmt->execute([$planId]);
+        return (float) ($stmt->fetchColumn() ?: 0);
+    }
+
+    private function moneyGreaterThan(float $amount, float $limit): bool {
+        return round($amount - $limit, 2) > 0;
+    }
+
+    private function paymentExceedsPlanMessage(float $amount, float $planPrice): string {
+        return sprintf(
+            'المبلغ المدفوع (%.2f) لا يمكن أن يتجاوز سعر الاشتراك (%.2f).',
+            $amount,
+            $planPrice
+        );
+    }
+
+    private function paymentExceedsRemainingMessage(float $amount, float $remaining): string {
+        return sprintf(
+            'المبلغ المدخل (%.2f) يتجاوز المبلغ المتبقي على الإيصال (%.2f).',
+            $amount,
+            $remaining
+        );
+    }
 
 
     private function parseFilters(): array {
@@ -631,6 +668,37 @@ private function validate(array $data): array {
                 'يوجد طلب آخر قيد المعالجة لنفس العميل حالياً. يرجى الانتظار قليلاً ثم إعادة المحاولة.'
             );
         }
+    }
+
+    private function recentDuplicateRenewalId(array $data, int $creatorId): int {
+        $stmt = get_db()->prepare("
+            SELECT id
+            FROM receipts
+            WHERE client_id = :client_id
+              AND creator_id = :creator_id
+              AND branch_id = :branch_id
+              AND plan_id = :plan_id
+              AND captain_id <=> :captain_id
+              AND first_session = :first_session
+              AND exercise_time <=> :exercise_time
+              AND renewal_type = :renewal_type
+              AND renewal_type <> 'new'
+              AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([
+            ':client_id'     => (int) ($data['client_id'] ?? 0),
+            ':creator_id'    => $creatorId,
+            ':branch_id'     => (int) ($data['branch_id'] ?? 0),
+            ':plan_id'       => (int) ($data['plan_id'] ?? 0),
+            ':captain_id'    => !empty($data['captain_id']) ? (int) $data['captain_id'] : null,
+            ':first_session' => (string) ($data['first_session'] ?? ''),
+            ':exercise_time' => ($data['exercise_time'] ?? '') !== '' ? (string) $data['exercise_time'] : null,
+            ':renewal_type'  => (string) ($data['renewal_type'] ?? ''),
+        ]);
+
+        return (int) ($stmt->fetchColumn() ?: 0);
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1005,7 +1073,7 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
             'branches'       => $branches,
             'creators'       => $creators,
             'isAdmin'        => ($role === 'admin'),
-            'canViewReceiptUpdates' => in_array($role, ['admin', 'branch_manager'], true),
+            'canViewReceiptUpdates' => $role === 'admin',
         ]);
     }
 
@@ -1211,6 +1279,13 @@ public function store(): void {
     $errors         = $this->validate($data);
     $existingClient = null;
 
+    if (empty($errors)) {
+        $planPrice = $this->planPriceById($data['plan_id']);
+        if ($planPrice > 0 && $this->moneyGreaterThan((float)$data['amount'], $planPrice)) {
+            $errors[] = $this->paymentExceedsPlanMessage((float)$data['amount'], $planPrice);
+        }
+    }
+
     // ── Find the client by phone first, then by email ───────────────────
     if (empty($errors)) {
         if (!empty($data['phone'])) {
@@ -1291,7 +1366,7 @@ public function store(): void {
             'amount'         => $data['amount'],
             'created_by'     => auth_user()['id'],
             'type'           => 'payment',
-            'notes'          => 'دفعة أولى عند إنشاء الإيصال / Initial payment',
+            'notes'          => '',
             'attachment'     => $evidencePath,
         ]);
     }
@@ -1508,7 +1583,7 @@ public function show(): void {
         }
 
         $isAdmin = $role === 'admin';
-        $canViewReceiptUpdates = in_array($role, ['admin', 'branch_manager'], true);
+        $canViewReceiptUpdates = $role === 'admin';
         $auditLogs = $canViewReceiptUpdates ? $this->auditLog->findByReceipt($id) : [];
         $captainNames = [];
 
@@ -1740,10 +1815,24 @@ public function update(): void {
         $errors[] = 'يجب اختيار كابتن من نفس فرع الإيصال.';
     }
 
-    if (($isAdmin || $isBranchManager || $isAreaManager)
-        && !empty($_FILES['transaction_evidence']['tmp_name'])
-        && $this->latestPaymentTransactionId($id) <= 0) {
-        $errors[] = 'لا توجد دفعة مسجلة لهذا الإيصال لإضافة إثبات دفع لها.';
+    if (empty($errors)) {
+        $selectedPlanPrice = $this->planPriceById($data['plan_id']);
+        if ($selectedPlanPrice <= 0) {
+            $selectedPlanPrice = (float) ($receipt['plan_price'] ?? 0);
+        }
+
+        $currentNetStatus = $this->getReceiptNetStatus($id, (float) ($receipt['plan_price'] ?? 0));
+        $effectivePaid = $isAdmin && $data['total_paid'] !== null
+            ? (float) $data['total_paid']
+            : (float) $currentNetStatus['netPaid'];
+
+        if ($this->moneyGreaterThan(0, $effectivePaid)) {
+            $errors[] = 'إجمالي المدفوع لا يمكن أن يكون أقل من صفر.';
+        }
+
+        if ($selectedPlanPrice > 0 && $this->moneyGreaterThan($effectivePaid, $selectedPlanPrice)) {
+            $errors[] = $this->paymentExceedsPlanMessage($effectivePaid, $selectedPlanPrice);
+        }
     }
 
     if ($errors) {
@@ -1925,17 +2014,19 @@ public function update(): void {
     }
 
     $uploadedEvidencePath = null;
-    $oldEvidencePath = $this->latestPaymentEvidence($id);
     if (($isAdmin || $isBranchManager || $isAreaManager) && !empty($_FILES['transaction_evidence']['tmp_name'])) {
         $uploadedEvidencePath = $this->handleEvidenceUpload();
-        if ($uploadedEvidencePath && $this->replaceLatestPaymentEvidence($id, $uploadedEvidencePath)) {
+        if ($uploadedEvidencePath) {
+            $evidencePaymentMethod = (string) ($data['payment_method'] ?: ($receipt['payment_method'] ?? 'bank_transfer'));
+            $evidenceTransactionId = $this->addPaymentEvidence($id, $uploadedEvidencePath, $evidencePaymentMethod, (int) $user['id']);
+
             $this->auditLog->log(
                 $id,
                 $user['id'],
                 $user['role'],
                 'transaction_evidence',
-                $oldEvidencePath,
-                $uploadedEvidencePath
+                null,
+                $uploadedEvidencePath . ' (#' . $evidenceTransactionId . ')'
             );
         }
     }
@@ -1953,7 +2044,7 @@ public function update(): void {
 
     log_action('updated_receipt', "id: {$id}", auth_user()['id']);
     $_SESSION['updated_receipt_id'] = $id;
-    $this->flash('flash_success', 'تم تحديث الإيصال بنجاح.');
+    $this->flash('flash_success', 'تم تحديث الإيصال بنجاح');
     $this->redirectAfterReceiptUpdate($id);
 }
     // ════════════════════════════════════════════════════════════════════════
@@ -2094,6 +2185,7 @@ public function storeRenewal(): void {
     $user               = auth_user();
     $data               = $this->parseForm();
     $data['creator_id'] = $user['id'];
+    $renewalToken       = trim((string) ($_POST['renewal_token'] ?? ''));
 
     $clientId = !empty($_POST['client_id']) ? (int)$_POST['client_id'] : 0;
 
@@ -2113,6 +2205,13 @@ public function storeRenewal(): void {
         } catch (\RuntimeException $e) {
             $this->flash('flash_error', $e->getMessage());
             $this->redirect('/receipt/renew');
+            return;
+        }
+
+        if ($renewalToken !== '' && !empty($_SESSION['completed_renewal_tokens'][$renewalToken])) {
+            $existingId = (int) $_SESSION['completed_renewal_tokens'][$renewalToken];
+            $this->flash('flash_success', 'تم إنشاء إيصال التجديد بنجاح.');
+            $this->redirect('/receipt/preview?id=' . $existingId . '&type=renewal');
             return;
         }
     }
@@ -2143,6 +2242,13 @@ public function storeRenewal(): void {
     }
 
     $errors = $this->validate($data);
+
+    if (empty($errors)) {
+        $planPrice = $this->planPriceById($data['plan_id']);
+        if ($planPrice > 0 && $this->moneyGreaterThan((float)$data['amount'], $planPrice)) {
+            $errors[] = $this->paymentExceedsPlanMessage((float)$data['amount'], $planPrice);
+        }
+    }
 
     // Validate user-chosen renewal_type against server-computed value
     $submittedRenewalType = trim($_POST['renewal_type'] ?? '');
@@ -2273,7 +2379,21 @@ public function storeRenewal(): void {
         );
     }
 
+    $duplicateId = $this->recentDuplicateRenewalId($data, (int) $user['id']);
+    if ($duplicateId > 0) {
+        if ($renewalToken !== '') {
+            $_SESSION['completed_renewal_tokens'][$renewalToken] = $duplicateId;
+        }
+        $this->flash('flash_success', 'تم إنشاء إيصال التجديد بنجاح.');
+        $this->redirect('/receipt/preview?id=' . $duplicateId . '&type=renewal');
+        return;
+    }
+
     $newId = $this->receipts->create($data);
+
+    if ($renewalToken !== '') {
+        $_SESSION['completed_renewal_tokens'][$renewalToken] = $newId;
+    }
 
     $receiptRef = $this->buildReceiptRef($newId);
     get_db()->prepare("UPDATE receipts SET receipt_ref = ? WHERE id = ?")
@@ -2288,7 +2408,7 @@ public function storeRenewal(): void {
             'amount'         => $data['amount'],
             'created_by'     => $user['id'],
             'type'           => 'payment',
-            'notes'          => 'دفعة تجديد / Renewal payment',
+            'notes'          => '',
             'attachment'     => $evidencePath,
         ]);
     }
@@ -2492,6 +2612,16 @@ public function storePayment(): void {
     if ($amount <= 0)    $errors[] = 'يجب إدخال مبلغ أكبر من صفر.';
     if (!$paymentMethod) $errors[] = 'يجب اختيار طريقة الدفع.';
 
+    if (!$errors && $receipt) {
+        $planPrice  = (float) ($receipt['plan_price'] ?? 0);
+        $ns         = $this->getReceiptNetStatus($receiptId, $planPrice);
+        $maxPayment = max(0, $planPrice - $ns['netPaid']);
+
+        if ($planPrice > 0 && $this->moneyGreaterThan($amount, $maxPayment)) {
+            $errors[] = $this->paymentExceedsRemainingMessage($amount, $maxPayment);
+        }
+    }
+
     if ($errors) {
         $this->flash('flash_error', implode('<br>', $errors));
         $this->redirect('/receipt/payment?search=' . urlencode($_POST['search'] ?? ''));
@@ -2506,7 +2636,7 @@ public function storePayment(): void {
         'amount'         => $amount,
         'created_by'     => auth_user()['id'],
         'type'           => 'payment',
-        'notes'          => $notes ?: 'دفعة إضافية / Additional payment',
+        'notes'          => $notes ?: '',
         'attachment'     => $evidencePath,
     ]);
 
@@ -2662,8 +2792,8 @@ public function storePayment(): void {
         if (!$errors && $receipt) {
             $planPrice = (float) ($receipt['plan_price'] ?? 0);
             $ns        = $this->getReceiptNetStatus($receiptId, $planPrice);
-            $maxRefund = $ns['grossPaid'] - $ns['totalRefunded'];
-            if ($amount > $maxRefund) {
+            $maxRefund = max(0, $ns['grossPaid'] - $ns['totalRefunded']);
+            if ($this->moneyGreaterThan($amount, $maxRefund)) {
                 $errors[] = sprintf(
                     'مبلغ الاسترداد المطلوب (%.2f) يتجاوز الحد الأقصى المتاح للاسترداد (%.2f).',
                     $amount,
@@ -2686,7 +2816,7 @@ public function storePayment(): void {
             'amount'         => $amount,
             'created_by'     => auth_user()['id'],
             'type'           => 'refund',
-            'notes'          => $notes ?: 'استرداد مبلغ / Refund',
+            'notes'          => $notes ?: '',
             'attachment'     => $evidencePath,
         ]);
 
@@ -2868,12 +2998,8 @@ public function storePaymentByReceiptId(): void {
         $ns         = $this->getReceiptNetStatus($receiptId, $planPrice);
         $maxPayment = max(0, $planPrice - $ns['netPaid']);
 
-        if ($planPrice > 0 && $amount > $maxPayment) {
-            $errors[] = sprintf(
-                'المبلغ المدخل (%.2f) يتجاوز المبلغ المتبقي على الإيصال (%.2f).',
-                $amount,
-                $maxPayment
-            );
+        if ($planPrice > 0 && $this->moneyGreaterThan($amount, $maxPayment)) {
+            $errors[] = $this->paymentExceedsRemainingMessage($amount, $maxPayment);
         }
     }
 
@@ -2892,7 +3018,7 @@ public function storePaymentByReceiptId(): void {
         'amount'         => $amount,
         'created_by'     => $user['id'],
         'type'           => 'payment',
-        'notes'          => $notes ?: 'دفعة مضافة بواسطة خدمة العملاء / Payment added by customer service',
+        'notes'          => $notes ?: '',
         'attachment'     => $evidencePath,
     ]);
 
@@ -2946,9 +3072,12 @@ public function manage(): void {
 
     // ── Which tab should open on load? ──────────────────────────────────
     $tabParam  = trim($_GET['tab'] ?? '');
-    $activeTab = in_array($tabParam, ['new', 'renew', 'payment', 'refund'], true)
+    $activeTab = in_array($tabParam, ['new', 'renew', 'payment', 'refund', 'client'], true)
                  ? $tabParam
                  : 'new';
+    $newClientData = $_SESSION['new_client_data'] ?? [];
+    $clientErrors  = $_SESSION['client_errors'] ?? [];
+    unset($_SESSION['new_client_data'], $_SESSION['client_errors']);
 
     // ════════════════════════════════════════════════════════════════
     // RENEW TAB — client search
@@ -3250,6 +3379,8 @@ public function manage(): void {
 
         // active tab
         'activeTab'        => $activeTab,
+        'newClientData'    => $newClientData,
+        'clientErrors'     => $clientErrors,
     ]));
 }
 

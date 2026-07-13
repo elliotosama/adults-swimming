@@ -270,7 +270,7 @@ public static function generate(
 
     $dir      = $L['dir'];
     $htmlLang = $L['htmlLang'];
-    $memberNo = htmlspecialchars($receipt['member_number'] ?? $receipt['id'] ?? '—');
+    $memberNo = htmlspecialchars($receipt['member_number'] ?? $receipt['client_id'] ?? '—');
 
     // Extra rows shown only on refund receipts
     $refundRowHtml = '';

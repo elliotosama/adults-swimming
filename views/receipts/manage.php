@@ -86,6 +86,10 @@
     $serverType      = $autoRenewalType ?: 'current_renewal';
     $submittedType   = trim($_POST['renewal_type'] ?? '');
     $preSelectedType = !empty($submittedType) ? $submittedType : '';
+    $renewalFormToken = '';
+    if (!empty($renewClient)) {
+        $renewalFormToken = bin2hex(random_bytes(16));
+    }
     ?>
     <style>
     :root {
@@ -889,6 +893,7 @@
         <form method="POST" action="<?= APP_URL ?>/receipt/renew"
               enctype="multipart/form-data" id="renewReceiptForm">
           <input type="hidden" name="client_id" value="<?= (int)$renewClient['id'] ?>">
+          <input type="hidden" name="renewal_token" value="<?= htmlspecialchars($renewalFormToken) ?>">
 
           <div class="missing-fields-alert" id="ren-missing-fields-alert"></div>
 
@@ -1501,8 +1506,8 @@
                   <label class="form-label">الجنس</label>
                   <select name="gender" class="form-control">
                     <option value="">— اختر —</option>
-                    <option value="male"  <?= ($newClientData['gender'] ?? '') === 'ذكر'  ? 'selected' : '' ?>>ذكر</option>
-                    <option value="female" <?= ($newClientData['gender'] ?? '') === 'أنثى' ? 'selected' : '' ?>>أنثى</option>
+                    <option value="male"  <?= in_array(($newClientData['gender'] ?? ''), ['male', 'ذكر'], true) ? 'selected' : '' ?>>ذكر</option>
+                    <option value="female" <?= in_array(($newClientData['gender'] ?? ''), ['female', 'أنثى'], true) ? 'selected' : '' ?>>أنثى</option>
                   </select>
                 </div>
 
@@ -1964,6 +1969,7 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
     function renPlanChanged() { renCalcRemaining(); renUpdateDates(); }
     function renCalcRemaining() {
         const price = getPlanPrice('ren-plan'), paid = parseFloat(document.getElementById('ren-paid-amount').value) || 0;
+        if (price > 0) document.getElementById('ren-paid-amount').setAttribute('max', price);
         document.getElementById('ren-remaining').value = price > 0 ? Math.max(price - paid, 0) : 0;
         const warn = document.getElementById('ren-pay-warn'), sub = document.getElementById('ren-submit-btn');
         if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); sub.disabled = true; }
@@ -2032,6 +2038,11 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
     // document.getElementById('ren-rt-current')?.addEventListener('change',  renValidateRenewalType);
     // document.getElementById('ren-rt-previous')?.addEventListener('change', renValidateRenewalType);
     document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
+        if (e.currentTarget.dataset.submitting === '1') {
+            e.preventDefault();
+            return;
+        }
+
         const { missing, firstInvalid } = refreshRenRequiredState();
         if (missing.length) {
             e.preventDefault();
@@ -2048,6 +2059,8 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         let local = document.querySelector('.ren-phone-local').value.trim();
         if (prefix && local.startsWith('0')) local = local.slice(1);
         document.querySelector('.ren-full-phone').value = prefix ? (prefix + local) : local;
+        e.currentTarget.dataset.submitting = '1';
+        document.getElementById('ren-submit-btn').disabled = true;
     });
 
     // ════════════════════════════════════════════════════════════════
@@ -2058,7 +2071,9 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         document.querySelector('#tab-panel-payment .receipt-card[data-id="'+id+'"]').classList.add('selected-pay');
         document.getElementById('pay-selected-receipt-id').value = id;
         document.getElementById('pay-current-remaining').textContent = parseFloat(remaining).toLocaleString('ar-EG');
-        document.getElementById('pay-amount').value = remaining > 0 ? remaining : '';
+        const amountInput = document.getElementById('pay-amount');
+        amountInput.max = Math.max(parseFloat(remaining) || 0, 0);
+        amountInput.value = remaining > 0 ? remaining : '';
         const form = document.getElementById('paymentAddForm');
         form.style.display = 'block';
         refreshPayRequiredState();
@@ -2114,6 +2129,11 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
     //  TAB 5 — عميل جديد
     // ════════════════════════════════════════════════════════════════
     document.getElementById('newClientForm')?.addEventListener('submit', e => {
+        if (e.currentTarget.dataset.submitting === '1') {
+            e.preventDefault();
+            return;
+        }
+
         const { missing, firstInvalid } = refreshClientRequiredState();
         if (missing.length) {
             e.preventDefault();
@@ -2144,7 +2164,13 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
             emailErr.classList.remove('visible');
         }
 
-        if (!valid) e.preventDefault();
+        if (!valid) {
+            e.preventDefault();
+            return;
+        }
+
+        e.currentTarget.dataset.submitting = '1';
+        document.getElementById('client-submit-btn').disabled = true;
     });
 
     function resetClientForm() {
@@ -2263,4 +2289,3 @@ renPaymentMethod.addEventListener('change', function () {
     </script>
 
     <?php require ROOT . '/views/includes/layout_bottom.php'; ?>
-

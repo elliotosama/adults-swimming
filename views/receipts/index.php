@@ -80,7 +80,8 @@ function renewalTypeLabel(?string $type): string {
 $canFilter = fn(string $key): bool => in_array($key, $allowedFilters ?? [], true);
 $isAdmin   = $isAdmin ?? false;
 $canViewReceiptUpdates = $canViewReceiptUpdates ?? $isAdmin;
-$logsButtonLabel = $canViewReceiptUpdates ? 'المعاملات والتعديلات' : 'المعاملات الماليه';
+$canViewReceiptActions = $isAdmin;
+$logsButtonLabel = 'المعاملات والتعديلات';
 $updatedReceiptId = (int) ($_GET['updated_receipt_id'] ?? ($_SESSION['updated_receipt_id'] ?? 0));
 unset($_SESSION['updated_receipt_id']);
 ?>
@@ -102,8 +103,7 @@ unset($_SESSION['updated_receipt_id']);
 <div id="receiptUpdatedModal" class="receipt-updated-modal" aria-hidden="true">
     <div class="receipt-updated-dialog" role="dialog" aria-modal="true" aria-labelledby="receiptUpdatedTitle">
         <div class="receipt-updated-icon">✓</div>
-        <h2 id="receiptUpdatedTitle">تم تحديث الإيصال</h2>
-        <p>تم حفظ التعديل وتحديث إجمالي المدفوع في قاعدة البيانات.</p>
+        <h2 id="receiptUpdatedTitle">تم تحديث الإيصال بنجاح</h2>
         <div class="receipt-updated-actions">
             <button type="button" class="btn btn-secondary" onclick="closeReceiptUpdatedModal()">إغلاق</button>
             <button type="button" class="btn btn-primary" onclick="showUpdatedReceipt()">عرض الإيصال</button>
@@ -1004,7 +1004,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
                             <td>
                                 <div class="td-actions">
                                     <button type="button" class="btn btn-sm btn-secondary" onclick="loadReceiptModal(<?= (int)$r['id'] ?>)">عرض الإيصال</button>
+                                    <?php if ($canViewReceiptActions): ?>
                                     <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal(<?= (int)$r['id'] ?>)"><?= $logsButtonLabel ?></button>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -1105,7 +1107,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
     const BASE_URL   = <?= json_encode(APP_URL) ?>;
     const IS_ADMIN   = <?= json_encode($isAdmin) ?>;
-    const CAN_VIEW_RECEIPT_UPDATES = <?= json_encode($canViewReceiptUpdates) ?>;
+    const CAN_VIEW_RECEIPT_ACTIONS = <?= json_encode($canViewReceiptActions) ?>;
     const PER_PAGE   = <?= (int) ($perPage ?? 25) ?>;
 
     let livePage     = 1;
@@ -1181,6 +1183,9 @@ function renewalTypeLabel(type) {
 
 function buildRow(r) {
     const creatorCell  = IS_ADMIN ? `<td>${esc(r.creator_name)}</td>` : '';
+    const logsButton   = CAN_VIEW_RECEIPT_ACTIONS
+        ? `<button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal('${esc(r.id)}')">المعاملات والتعديلات</button>`
+        : '';
     const receiptRef   = r.receipt_ref ? esc(r.receipt_ref) : esc(r.id);
     const refundedCell = r.is_refunded
         ? `<td><span class="badge-refund">↩️ مسترد</span></td>`
@@ -1206,7 +1211,7 @@ function buildRow(r) {
         <td>
             <div class="td-actions">
                 <button type="button" class="btn btn-sm btn-secondary" onclick="loadReceiptModal('${esc(r.id)}')">عرض الإيصال</button>
-                <button type="button" class="btn btn-sm btn-primary" onclick="loadLogsModal('${esc(r.id)}')">${CAN_VIEW_RECEIPT_UPDATES ? 'المعاملات والتعديلات' : 'المعاملات الماليه'}</button>
+                ${logsButton}
             </div>
         </td>
     </tr>`;
@@ -1555,6 +1560,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
     };
 
     window.loadLogsModal = function(id) {
+        if (!CAN_VIEW_RECEIPT_ACTIONS) return;
         loadFragment(`${BASE_URL}/receipt/logs-modal?id=${encodeURIComponent(id)}`, 'receiptLogsOverlay', 'receiptLogsBody');
     };
 

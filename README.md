@@ -1,7 +1,8 @@
 admin => rahma@gmail.com : fJ@S8@UM
-area manager => abdullah.ezzat@gmail.com : PD#pi87h
 customer service => naira.elbanna@gmail.com : 9tYB$4Wv
-branch manager => abdullah.ezaat.2@gmail.com : $mJvM9Fn
+ramez.mohamed@gmail.com : cpkQ@mm9
+
+
 # bugs in pdf
 ---
 - [ ] ajax in transactions page
@@ -114,24 +115,25 @@ captains table {
 
 
 
-- [ ] ui in receipts
-- [ ] make branch_manager can add captain but can not remove it
+- [ ] remove receipt transactions for branch manger and customer service and area manager
+- [ ] check create client
+- [ ] check when the admin update paid amount in update receipts
+- [ ] ui in receipts  
+- [x] make branch_manager can add captain but can not remove it
 - [ ] check the user 01018043530 has receipts on the old system or not because it created this receipt yasterday and now can not make a payment because receipt not found
-- [ ] replace receipt id in receipt pdf to client id
-- [ ] make branch manager can edit level captain and first session and exercise time only
+- [x] replace receipt id in receipt pdf to client id
+- [x] make branch manager can edit level captain and first session and exercise time only
 - [ ] when i filter with 11/7 and 10/7 i got the same receipts but in 10 i got one more
 - [ ] complete admin functionality on the server
-- [ ] add captain functionality for branch manger
-- [ ] another payment in receipt notes
-- [ ] check update functionality because it remove the old data
-- [ ] success message after editing receipt
-- [ ] remove receipt transactions for branch manger and customer service and area manager
-- [ ] in edit add option to add another payment evidence and only admin can remove the payment evidence
-- [ ] when i edit receipt it removes filters in index page
+- [x] add captain functionality for branch manger
+- [x] another payment in receipt notes
+- [x] check update functionality because it remove the old data
+- [x] success message after editing receipt
+- [x] in edit add option to add another payment evidence and only admin can remove the payment evidence
+- [x] when i edit receipt it removes filters in index page
 - [ ] check 01125260919 receipt because it created two times
 - [ ] check 01102816922 receipt because it created two times
 - [ ] remove height from receipts index page
-
 
 
 
