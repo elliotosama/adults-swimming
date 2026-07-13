@@ -1513,6 +1513,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
 (function () {
     const BASE_URL   = <?= json_encode(APP_URL) ?>;
     const CSRF_TOKEN = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;
+    const CAN_VIEW_RECEIPT_ACTIONS = <?= json_encode($canViewReceiptActions) ?>;
     const UPDATED_RECEIPT_ID = <?= (int) $updatedReceiptId ?>;
 
     function openOverlay(id) {
