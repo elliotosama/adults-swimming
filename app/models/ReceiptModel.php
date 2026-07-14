@@ -364,7 +364,7 @@ public function create(array $data): int {
                 pdf_path        = :pdf_path
             WHERE id = :id
         ");
-        $stmt->execute(array_merge($this->bind($data), [':id' => $id]));
+        $stmt->execute(array_merge($this->bindForUpdate($data), [':id' => $id]));
     }
 
     // ── Update status only ────────────────────────────────────────────────────
@@ -640,5 +640,13 @@ if (!empty($filters['force_creator_id'])) {
             ':level'           => $data['level']           ?: null,
             ':pdf_path'        => $data['pdf_path']        ?: null,
         ];
+    }
+
+    // Same field mapping as create(), minus :created_at — the UPDATE query has
+    // no created_at column in its SET clause, so binding it throws HY093.
+    private function bindForUpdate(array $data): array {
+        $params = $this->bind($data);
+        unset($params[':created_at']);
+        return $params;
     }
 }

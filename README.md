@@ -211,5 +211,17 @@ total paid 531
 
 
 
-
-1285019607 => has completed receipt
+- [x] zied receipt  (1018043530) does not appear
+- [ ] migrate creation date from old website
+- [ ] migrate payment evidences from old database
+- [x] statistics in modal page
+- [ ] check edits from old website
+- [x] mohamed receipt (01285019607) receipt does not exists
+- [ ] payment method and level and email does not selected by default
+- [ ] confirm update message does not appear
+- [ ] check upload another evidence functionality
+- [ ] why both made new at the same day
+- [ ] spaces in index file
+- [ ] add client name in receipt name
+- [ ] logo should appear when you share the pdf
+- [ ] filters

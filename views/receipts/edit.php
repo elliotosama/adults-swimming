@@ -703,8 +703,7 @@ select.form-control:disabled {
                             <?= $canEditLevel ? '<span class="req">*</span>' : '<span class="lock">🔒</span>' ?>
                         </label>
                         <select name="level" class="form-control" <?= $canEditLevel ? 'required' : 'disabled' ?>>
-                            <option value="">— اختر المستوى —</option>
-                            <?php for ($i = 1; $i <= 6; $i++): ?>
+                            <?php for ($i = 0; $i <= 6; $i++): ?>
                                 <option value="<?= $i ?>"
                                     <?= (string)($receipt['level'] ?? '') === (string)$i ? 'selected' : '' ?>>
                                     Level <?= $i ?>
@@ -862,14 +861,15 @@ select.form-control:disabled {
                     </div>
 
                     <!-- طريقة الدفع -->
+                    <?php $currentPm = strtolower(trim((string)($receipt['payment_method'] ?? ''))); ?>
                     <div class="form-field">
                         <label class="form-label">طريقة الدفع <span class="req">*</span></label>
                         <select name="payment_method" id="payment_method" class="form-control" <?= $canEditPayment ? 'required' : 'disabled' ?>>
                             <option value="">— اختر —</option>
-                            <option value="cash"          <?= ($receipt['payment_method'] ?? '') === 'cash'          ? 'selected' : '' ?>>نقداً</option>
-                            <option value="instapay"      <?= ($receipt['payment_method'] ?? '') === 'instapay'      ? 'selected' : '' ?>>InstaPay</option>
-                            <option value="vodafone_cash" <?= ($receipt['payment_method'] ?? '') === 'vodafone_cash' ? 'selected' : '' ?>>Vodafone Cash</option>
-                            <option value="bank_transfer" <?= ($receipt['payment_method'] ?? '') === 'bank_transfer' ? 'selected' : '' ?>>تحويل بنكي</option>
+                            <option value="cash"          <?= $currentPm === 'cash'          ? 'selected' : '' ?>>نقداً</option>
+                            <option value="instapay"      <?= $currentPm === 'instapay'      ? 'selected' : '' ?>>InstaPay</option>
+                            <option value="vodafone_cash" <?= $currentPm === 'vodafone_cash' ? 'selected' : '' ?>>Vodafone Cash</option>
+                            <option value="bank_transfer" <?= $currentPm === 'bank_transfer' ? 'selected' : '' ?>>تحويل بنكي</option>
                         </select>
                         <?php if (!$canEditPayment): ?>
                             <input type="hidden" name="payment_method" value="<?= htmlspecialchars((string)($receipt['payment_method'] ?? '')) ?>">
@@ -916,23 +916,23 @@ select.form-control:disabled {
 (function () {
     const BRANCH_META = {};
     <?php foreach (($branches ?? []) as $b):
-        $daysByLevel = [];
-        foreach ([1 => 'working_days1', 2 => 'working_days2', 3 => 'working_days3'] as $level => $slot) {
-            $days = [];
+        // Day validity is a property of the BRANCH only — level does not
+        // affect which weekdays a session may start on. Merge all three
+        // working_days columns into a single allowed-day list per branch.
+        $allDays = [];
+        foreach (['working_days1', 'working_days2', 'working_days3'] as $slot) {
             if (!empty($b[$slot])) {
                 foreach (array_map('trim', explode(',', $b[$slot])) as $d) {
-                    if ($d !== '') $days[] = $d;
+                    if ($d !== '') $allDays[] = $d;
                 }
             }
-            $daysByLevel[$level] = array_values(array_unique($days));
         }
-        $fallbackDays = array_values(array_unique(array_merge($daysByLevel[1], $daysByLevel[2], $daysByLevel[3])));
+        $allDays  = array_values(array_unique($allDays));
         $timeFrom = isset($b['working_time_from']) ? substr($b['working_time_from'], 0, 5) : '';
         $timeTo   = isset($b['working_time_to'])   ? substr($b['working_time_to'], 0, 5) : '';
     ?>
     BRANCH_META[<?= (int)$b['id'] ?>] = {
-        days_by_level: <?= json_encode($daysByLevel) ?>,
-        days: <?= json_encode($fallbackDays) ?>,
+        days: <?= json_encode($allDays) ?>,
         working_time_from: <?= json_encode($timeFrom) ?>,
         working_time_to: <?= json_encode($timeTo) ?>
     };
@@ -957,6 +957,19 @@ select.form-control:disabled {
     const timeErrorMsg  = document.getElementById('time_error_msg');
     const submitBtn     = document.getElementById('submitBtn');
     const form          = document.getElementById('receiptForm');
+
+    // Normalizes a day-name string for comparison: trims whitespace and
+    // lowercases (Arabic is unaffected by lowercasing, English day names
+    // from toLocaleDateString are normalized). Prevents false "day not
+    // available" errors caused by stray whitespace/casing in DB values.
+    function normalizeDay(str) {
+        return String(str || '').trim().toLowerCase();
+    }
+
+    function dayListIncludes(allowedDays, dayName) {
+        const target = normalizeDay(dayName);
+        return allowedDays.some(d => normalizeDay(d) === target);
+    }
 
     function populateCaptains() {
         if (!branchSelect || !captainSelect || captainSelect.disabled) return;
@@ -998,12 +1011,9 @@ select.form-control:disabled {
         return parseInt(opt?.dataset.sessions, 10) || 0;
     }
 
-    function selectedLevelDays(meta) {
-        if (!meta) return [];
-        const level = levelSelect ? String(levelSelect.value || '') : '';
-        return (level && meta.days_by_level && meta.days_by_level[level] && meta.days_by_level[level].length)
-            ? meta.days_by_level[level]
-            : (meta.days || []);
+    // Allowed session days depend only on the branch, not the level.
+    function selectedBranchDays(meta) {
+        return meta ? (meta.days || []) : [];
     }
 
     function formatLocalDate(date) {
@@ -1014,11 +1024,12 @@ select.form-control:disabled {
     }
 
     function pickActiveDays(startDayName, allowedDays, totalSessions, isDouble) {
-        const idx = allowedDays.indexOf(startDayName);
+        const normalizedAllowed = allowedDays.map(normalizeDay);
+        const idx = normalizedAllowed.indexOf(normalizeDay(startDayName));
         if (idx === -1) return [];
         const pairStart = idx % 2 === 0 ? idx : idx - 1;
         const pair1 = allowedDays.slice(pairStart, pairStart + 2);
-        if (pair1[0] !== startDayName) pair1.reverse();
+        if (normalizeDay(pair1[0]) !== normalizeDay(startDayName)) pair1.reverse();
         if (!isDouble) return totalSessions >= 8 ? pair1 : [startDayName];
         if (totalSessions >= 8) {
             const pair2Start = pairStart === 0 ? 2 : 0;
@@ -1039,7 +1050,7 @@ select.form-control:disabled {
         const cursor = new Date(start);
         let safety = 0;
         while (dates.length < totalVisits && safety < 365) {
-            if (activeDays.includes(cursor.toLocaleDateString('en-US', { weekday: 'long' }))) {
+            if (dayListIncludes(activeDays, cursor.toLocaleDateString('en-US', { weekday: 'long' }))) {
                 dates.push(formatLocalDate(cursor));
             }
             cursor.setDate(cursor.getDate() + 1);
@@ -1062,11 +1073,11 @@ select.form-control:disabled {
         if (!startDate) return true;
 
         const meta = branchMeta();
-        const allowedDays = selectedLevelDays(meta);
+        const allowedDays = selectedBranchDays(meta);
         if (!meta || !allowedDays.length) return true;
 
         const startDayName = new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-        if (!allowedDays.includes(startDayName)) {
+        if (!dayListIncludes(allowedDays, startDayName)) {
             if (dayErrorHint) dayErrorHint.textContent = allowedDays.join('، ');
             dayErrorEl?.classList.add('visible');
             startDateIn.classList.add('field-invalid');
@@ -1175,9 +1186,9 @@ select.form-control:disabled {
             updateSessionDates();
         });
     }
-    if (levelSelect) {
-        levelSelect.addEventListener('change', updateSessionDates);
-    }
+    // Level no longer affects session-day validity, so no listener is
+    // attached to levelSelect here — changing the level does not touch
+    // first_session/renewal_session/last_session at all.
     if (doubleChk) {
         doubleChk.addEventListener('change', updateSessionDates);
     }
