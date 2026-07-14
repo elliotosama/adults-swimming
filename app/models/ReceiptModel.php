@@ -336,7 +336,7 @@ public function create(array $data): int {
         VALUES
             (:client_id, :creator_id, :captain_id, :branch_id,
              :first_session, :last_session, :renewal_session,
-             NOW(), :renewal_type, :receipt_status,
+             :created_at, :renewal_type, :receipt_status,
              :exercise_time, :plan_id, :level, :pdf_path)
     ");
     $stmt->execute($this->bind($data));
@@ -632,6 +632,7 @@ if (!empty($filters['force_creator_id'])) {
             ':first_session'   => $data['first_session']   ?: null,
             ':last_session'    => $data['last_session']    ?: null,
             ':renewal_session' => $data['renewal_session'] ?: null,
+            ':created_at'      => $data['created_at']      ?: date('Y-m-d H:i:s'),
             ':renewal_type'    => $data['renewal_type']    ?: null,
             ':receipt_status'  => $data['receipt_status']  ?? 'not_completed',
             ':exercise_time'   => $data['exercise_time']   ?: null,

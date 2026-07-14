@@ -53,6 +53,24 @@ class ReceiptController {
         exit;
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // effectiveCreatedAt
+    //
+    // Business-day cutoff: a receipt created before 15:00 (3 PM) is recorded
+    // as belonging to the PREVIOUS calendar day. Only the date component
+    // shifts — the time-of-day is preserved as-is.
+    //
+    // e.g. created 2026-07-07 14:00 → stored as 2026-07-06 14:00
+    //      created 2026-07-07 15:00 → stored as 2026-07-07 15:00
+    // ════════════════════════════════════════════════════════════════════════
+    private function effectiveCreatedAt(): string {
+        $now = new DateTime();
+        if ((int) $now->format('H') < 15) {
+            $now->modify('-1 day');
+        }
+        return $now->format('Y-m-d H:i:s');
+    }
+
     // ── Branch scoping for branch_manager (many-to-many via user_branch) ──
     //
     // Returns the full list of branch IDs this user manages when they are a
@@ -1372,9 +1390,13 @@ public function store(): void {
         ]
     );
 
+    // ── Business-day cutoff: receipts created before 15:00 are recorded
+    // under the previous calendar day. See effectiveCreatedAt() for details.
+    $data['created_at'] = $this->effectiveCreatedAt();
+
     $newId = $this->receipts->create($data);
 
-    $receiptRef = $this->buildReceiptRef($newId);
+    $receiptRef = $this->buildReceiptRef($newId, $data['created_at']);
     get_db()->prepare("UPDATE receipts SET receipt_ref = ? WHERE id = ?")
             ->execute([$receiptRef, $newId]);
 
@@ -2400,6 +2422,10 @@ public function storeRenewal(): void {
         );
     }
 
+    // ── Business-day cutoff: receipts created before 15:00 are recorded
+    // under the previous calendar day. See effectiveCreatedAt() for details.
+    $data['created_at'] = $this->effectiveCreatedAt();
+
     $duplicateId = $this->recentDuplicateRenewalId($data, (int) $user['id']);
     if ($duplicateId > 0) {
         if ($renewalToken !== '') {
@@ -2416,7 +2442,7 @@ public function storeRenewal(): void {
         $_SESSION['completed_renewal_tokens'][$renewalToken] = $newId;
     }
 
-    $receiptRef = $this->buildReceiptRef($newId);
+    $receiptRef = $this->buildReceiptRef($newId, $data['created_at']);
     get_db()->prepare("UPDATE receipts SET receipt_ref = ? WHERE id = ?")
             ->execute([$receiptRef, $newId]);
 
@@ -3404,5 +3430,4 @@ public function manage(): void {
         'clientErrors'     => $clientErrors,
     ]));
 }
-
 }
