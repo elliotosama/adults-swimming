@@ -141,7 +141,10 @@ captains table {
 
 when i filter 11 or 10 => 
 
-when i filter creation date from only and employee all receipts creations or update
+
+- [ ] creation date
+- [ ] transactions and update
+
 when i filter new and renew filters
 branches
 employees
@@ -150,3 +153,48 @@ run this on the server => {
   mkdir -p public/uploads/captains_ids
   chmod 755 public/uploads/captains_ids
 }
+
+
+
+
+---------------------------------------------------
+
+26070463 => does not exists in the new database
+
+
+5886
+5887
+دفع ايصال
+تعديل ايصال
+
+
+update_receipt_creation_dates.php --report => 5887
+update_receipt_creation_dates.php --apply --report
+
+
+
+--------
+receipt edits => php compare_receipt_edit_history.php --old-db=swimmingacademy
+
+
+php sync_receipt_edit_history_audit_logs.php --old-db=swimmingacademy --report --apply
+php migration_checks/remove_duplicate_receipt_audit_logs.php --old-db=swimmingacademy --report --apply
+
+9/7
+in old system => 45
+in new system => 52
+
+8/7
+in old system => 66
+in new system => 72
+
+
+
+summary for edit_history migration
+--- Summary ---
+Total history entries seen: 12365
+Inserted: 12323
+Skipped (already existed): 42
+Skipped (bad/missing data): 0
+Rows with unresolved/unmatched editor (role='unknown'): 125
+Skipped (FK/constraint violation on insert): 0
