@@ -18,7 +18,12 @@ $netPaid       = (float) ($ns['netPaid']       ?? 0);
 $remaining     = (float) ($ns['remaining']     ?? 0);
 $grossPaid     = (float) ($ns['grossPaid']     ?? 0);
 $totalRefunded = (float) ($ns['totalRefunded'] ?? 0);
-$refundPct     = $grossPaid > 0 ? round(($totalRefunded / $grossPaid) * 100) : 0;
+
+// ── Refund breakdown ──────────────────────────────────────────────
+// % returned to the client = totalRefunded ÷ grossPaid
+// % kept by the academy    = netPaid       ÷ grossPaid   (netPaid = grossPaid - totalRefunded)
+$refundPct  = $grossPaid > 0 ? round(($totalRefunded / $grossPaid) * 100) : 0;
+$netKeptPct = $grossPaid > 0 ? round(($netPaid       / $grossPaid) * 100) : 0;
 
 $clientPhone = preg_replace('/\s+/', '', ($receipt['country_code'] ?? '') . ($receipt['phone_number'] ?? $receipt['phone'] ?? ''));
 $waMessage   = rawurlencode("شكراً لاشتراكك، يمكنك تحميل الإيصال من خلال هذا الرابط:\n") . APP_URL . '/receipt/pdf?id=' . $receipt['id'];
@@ -140,9 +145,11 @@ $receiptNotes = array_values(array_filter(array_map(function ($t) {
         <div class="rm-pay-item"><span class="rm-label">قيمة الاشتراك</span><span class="rm-num"><?= number_format($planPrice,0) ?></span></div>
         <div class="rm-pay-item"><span class="rm-label">إجمالي المدفوع</span><span class="rm-num green"><?= number_format($grossPaid,0) ?></span></div>
         <?php if ($totalRefunded > 0): ?>
-        <div class="rm-pay-item"><span class="rm-label">المسترد</span><span class="rm-num red"><?= number_format($totalRefunded,0) ?> (<?= $refundPct ?>%)</span></div>
+        <div class="rm-pay-item"><span class="rm-label">المسترد للعميل</span><span class="rm-num red"><?= number_format($totalRefunded,0) ?> (<?= $refundPct ?>%)</span></div>
+        <div class="rm-pay-item"><span class="rm-label">صافي المتبقي للأكاديمية</span><span class="rm-num yellow"><?= number_format($netPaid,0) ?> (<?= $netKeptPct ?>%)</span></div>
+        <?php else: ?>
+        <div class="rm-pay-item"><span class="rm-label">المتبقي لإكمال الاشتراك</span><span class="rm-num <?= $remaining > 0 ? 'yellow' : 'green' ?>"><?= number_format($remaining,0) ?></span></div>
         <?php endif; ?>
-        <div class="rm-pay-item"><span class="rm-label">المتبقي</span><span class="rm-num <?= $remaining > 0 ? 'yellow' : 'green' ?>"><?= number_format($remaining,0) ?></span></div>
         <div class="rm-pay-item">
             <span class="rm-label">طريقة الدفع</span>
             <ol class="rm-method-list">

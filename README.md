@@ -198,3 +198,18 @@ Skipped (already existed): 42
 Skipped (bad/missing data): 0
 Rows with unresolved/unmatched editor (role='unknown'): 125
 Skipped (FK/constraint violation on insert): 0
+
+
+
+
+
+paid => 1000
+another paiment => 770
+refund => 700
+refund - 539
+total paid 531
+
+
+
+
+1285019607 => has completed receipt

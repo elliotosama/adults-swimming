@@ -187,15 +187,29 @@ public static function generate(
     // For refund receipts: show gross paid; for normal: show net paid
     $totalPaidFmt    = number_format($totalPaid, 0);
     $remainingFmt    = number_format($remaining, 0);
-    $refundedFmt     = number_format($refundAmount ?? 0, 0);
+    // "Returned to Client" always reflects the cumulative total refunded on
+    // this receipt (not just the amount of the single refund transaction
+    // that triggered this PDF) — matches the modal and the percentage math.
+    $refundedFmt     = number_format($totalRefunded, 0);
     $totalRefundFmt  = number_format($totalRefunded, 0);
 
-    // Refund percentage: totalRefunded ÷ grossPaid × 100
+    // ── Refund breakdown ──────────────────────────────────────
+    // Percentage returned to the client: totalRefunded ÷ grossPaid × 100
+    // Percentage kept by the academy:    netKept       ÷ grossPaid × 100
+    // (netKept = what the client actually paid, net of everything refunded)
     $refundPct = 0;
-    if ($isRefund && $totalPaid > 0) {
-        $refundPct = round(($totalRefunded / $totalPaid) * 100);
+    $netKeptPct = 0;
+    $netKept    = 0.0;
+    if ($isRefund) {
+        $netKept = max(0, $totalPaid - $totalRefunded);
+        if ($totalPaid > 0) {
+            $refundPct  = round(($totalRefunded / $totalPaid) * 100);
+            $netKeptPct = round(($netKept / $totalPaid) * 100);
+        }
     }
-    $refundPctFmt = $refundPct . '%';
+    $refundPctFmt  = $refundPct . '%';
+    $netKeptFmt    = number_format($netKept, 0);
+    $netKeptPctFmt = $netKeptPct . '%';
 
     // ── Logo ─────────────────────────────────────────────────
     $logoPath = ROOT . '/assets/images/logo.jpeg';
@@ -224,8 +238,10 @@ public static function generate(
         'planType'       => 'Subscription',
         'branch'         => 'Branch',
         'amountPaid'     => 'Amount Paid',
-        'amountRefunded' => 'Amount Refunded',
-        'refundPct'      => 'Refund %',
+        'amountRefunded' => 'Returned to Client',
+        'refundPct'      => 'Returned to Client %',
+        'netKept'        => 'Net Kept by Academy',
+        'netKeptPct'     => 'Academy %',
         'captain'        => 'Captain',
         'paymentMethod'  => $isRefund ? 'Refund Method' : 'Payment Method',
         'receivedBy'     => 'Received By',
@@ -253,8 +269,10 @@ public static function generate(
         'planType'       => 'نوع الاشتراك',
         'branch'         => 'الفرع',
         'amountPaid'     => 'المبلغ المدفوع',
-        'amountRefunded' => 'المبلغ المسترد',
-        'refundPct'      => 'نسبة الاسترداد',
+        'amountRefunded' => 'المسترد للعميل',
+        'refundPct'      => 'نسبة الاسترداد للعميل',
+        'netKept'        => 'صافي الايراد',
+        'netKeptPct'     => 'نسبة الأكاديمية',
         'captain'        => 'الكابتن',
         'paymentMethod'  => $isRefund ? 'طريقة الاسترداد' : 'طريقة الدفع',
         'receivedBy'     => 'المستلم',
@@ -272,7 +290,9 @@ public static function generate(
     $htmlLang = $L['htmlLang'];
     $memberNo = htmlspecialchars($receipt['member_number'] ?? $receipt['client_id'] ?? '—');
 
-    // Extra rows shown only on refund receipts
+    // Extra rows shown only on refund receipts:
+    //   Row 1 — amount returned to the client + % returned to the client
+    //   Row 2 — net amount kept by the academy + % kept by the academy
     $refundRowHtml = '';
     if ($isRefund) {
         $refundRowHtml = <<<HTML
@@ -281,6 +301,12 @@ public static function generate(
       <td class="value-cell">{$refundedFmt}</td>
       <td class="label-cell">{$L['refundPct']}:</td>
       <td class="value-cell">{$refundPctFmt}</td>
+    </tr>
+    <tr class="row-net-kept">
+      <td class="label-cell">{$L['netKept']}:</td>
+      <td class="value-cell">{$netKeptFmt}</td>
+      <td class="label-cell">{$L['netKeptPct']}:</td>
+      <td class="value-cell">{$netKeptPctFmt}</td>
     </tr>
 HTML;
     }
@@ -312,6 +338,7 @@ HTML;
   .row-amount td { background: #fff8e1; }
   .row-remaining td { background: #ffeaea; }
   .row-refunded td { background: #fff0e0; color: #c0392b; font-weight: 900; }
+  .row-net-kept td { background: #eaf7ec; color: #1a6b3a; font-weight: 900; }
   .footer { background: #f8f9fc; border: 1px solid #dde2ee; border-radius: 5px; padding: 8px 12px; margin-top: 8px; }
   .footer-title { font-size: 12px; font-weight: 900; color: #c0392b; margin-bottom: 4px; }
   .footer-subtitle { font-size: 11px; font-weight: 700; color: #1a3a6b; margin-bottom: 3px; }
