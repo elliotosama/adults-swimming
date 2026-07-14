@@ -1098,6 +1098,20 @@ select.form-control:disabled {
         return hours * 60 + minutes;
     }
 
+    // Converts a 24-hour "HH:MM" string to 12-hour "h:mm AM/PM" for display
+    // in user-facing messages (the underlying <input type="time"> values and
+    // all comparisons stay in 24-hour format — only the message text changes).
+    function formatTimeAMPM(time) {
+        if (!time) return '';
+        const [hStr, mStr] = time.split(':');
+        let h = parseInt(hStr, 10);
+        const m = (mStr || '00').padStart(2, '0');
+        const period = h >= 12 ? 'PM' : 'AM';
+        h = h % 12;
+        if (h === 0) h = 12;
+        return `${h}:${m} ${period}`;
+    }
+
     function validateExerciseTime() {
         if (!exerciseTimeIn) return true;
         const time = exerciseTimeIn.value;
@@ -1116,7 +1130,7 @@ select.form-control:disabled {
         const inRange = from <= to ? value >= from && value <= to : value >= from || value <= to;
         if (!inRange) {
             if (timeErrorMsg) {
-                timeErrorMsg.textContent = `وقت التمرين يجب أن يكون بين ${meta.working_time_from} و ${meta.working_time_to}.`;
+                timeErrorMsg.textContent = `وقت التمرين يجب أن يكون بين ${formatTimeAMPM(meta.working_time_from)} و ${formatTimeAMPM(meta.working_time_to)}.`;
             }
             timeErrorEl?.classList.add('visible');
             exerciseTimeIn.classList.add('field-invalid');

@@ -199,22 +199,15 @@ class ReceiptController {
         return $this->buildSessionDates($start, $days, $sessions, !empty($data['double']));
     }
 
+    // Kept the original name so no other call sites need touching, but this
+    // now ignores $level entirely — session-day validity is a property of
+    // the BRANCH only (union of working_days1/2/3), never the level. This
+    // mirrors the equivalent change made to selectedBranchDays() in
+    // views/receipts/edit.php.
     private function workingDaysForLevel(array $branchMeta, int $level): array {
-        $slot = match ($level) {
-            1 => 'working_days1',
-            2 => 'working_days2',
-            3 => 'working_days3',
-            default => '',
-        };
-
-        $days = $slot ? $this->splitWorkingDays((string) ($branchMeta[$slot] ?? '')) : [];
-        if ($days) {
-            return $days;
-        }
-
         $all = [];
-        foreach (['working_days1', 'working_days2', 'working_days3'] as $fallbackSlot) {
-            $all = array_merge($all, $this->splitWorkingDays((string) ($branchMeta[$fallbackSlot] ?? '')));
+        foreach (['working_days1', 'working_days2', 'working_days3'] as $slot) {
+            $all = array_merge($all, $this->splitWorkingDays((string) ($branchMeta[$slot] ?? '')));
         }
         return array_values(array_unique($all));
     }
@@ -1845,10 +1838,6 @@ public function update(): void {
     }
 
     $errors = $this->validate($data);
-
-    if ($data['first_session'] !== '' && $data['last_session'] === '') {
-        $errors[] = 'تعذر حساب تاريخ آخر جلسة. يرجى اختيار تاريخ أول جلسة من أيام عمل المستوى المحدد.';
-    }
 
     if ($isAreaManager && $allowedBranchIds !== null && !in_array((int) $data['branch_id'], $allowedBranchIds, true)) {
         $errors[] = 'يجب اختيار فرع من الفروع التي تديرها.';

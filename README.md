@@ -225,3 +225,4 @@ total paid 531
 - [ ] add client name in receipt name
 - [ ] logo should appear when you share the pdf
 - [ ] filters
+- [ ] check current and previous renewal
