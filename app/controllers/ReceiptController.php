@@ -205,6 +205,24 @@ class ReceiptController {
         return array_values(array_filter(array_map('trim', explode(',', $value)), static fn($day) => $day !== ''));
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // normDay
+    //
+    // ALL weekday-name comparisons in this controller must go through this
+    // helper first. Branch working_days1/2/3 values are free-text DB columns
+    // and have historically contained inconsistent casing / stray whitespace
+    // (e.g. "sunday", " Sunday", "SUNDAY"). PHP's DateTime::format('l') always
+    // returns capitalized English day names ("Sunday"), so an exact-match
+    // in_array()/array_search() against un-normalized DB values can silently
+    // fail — causing pickActiveDays()/buildSessionDates() to return an empty
+    // active-days list, which produces empty renewal_session/last_session and
+    // (on the JS side) a false "هذا الفرع لا يعمل في اليوم المختار" error even
+    // for a genuinely valid working day.
+    // ════════════════════════════════════════════════════════════════════════
+    private function normDay(string $day): string {
+        return strtolower(trim($day));
+    }
+
     private function buildSessionDates(DateTimeImmutable $start, array $allowedDays, int $totalSessions, bool $isDouble): array {
         $startDayName = $start->format('l');
         $activeDays   = $this->pickActiveDays($startDayName, $allowedDays, $totalSessions, $isDouble);
@@ -212,13 +230,15 @@ class ReceiptController {
             return ['renewal_session' => '', 'last_session' => ''];
         }
 
+        $normalizedActiveDays = array_map([$this, 'normDay'], $activeDays);
+
         $sessionsPerVisit = $isDouble ? 2 : 1;
         $totalVisits      = (int) ceil($totalSessions / $sessionsPerVisit);
         $dates            = [];
         $cursor           = $start;
 
         for ($safety = 0; count($dates) < $totalVisits && $safety < 365; $safety++) {
-            if (in_array($cursor->format('l'), $activeDays, true)) {
+            if (in_array($this->normDay($cursor->format('l')), $normalizedActiveDays, true)) {
                 $dates[] = $cursor->format('Y-m-d');
             }
             $cursor = $cursor->modify('+1 day');
@@ -235,19 +255,20 @@ class ReceiptController {
     }
 
     private function pickActiveDays(string $startDayName, array $allowedDays, int $totalSessions, bool $isDouble): array {
-        $idx = array_search($startDayName, $allowedDays, true);
+        $normalizedAllowedDays = array_map([$this, 'normDay'], $allowedDays);
+        $idx = array_search($this->normDay($startDayName), $normalizedAllowedDays, true);
         if ($idx === false) {
             return [];
         }
 
         $pairStart = $idx % 2 === 0 ? $idx : $idx - 1;
         $pair1     = array_slice($allowedDays, $pairStart, 2);
-        if (($pair1[0] ?? '') !== $startDayName) {
+        if ($this->normDay($pair1[0] ?? '') !== $this->normDay($startDayName)) {
             $pair1 = array_reverse($pair1);
         }
 
         if (!$isDouble) {
-            return $totalSessions >= 8 ? $pair1 : [$startDayName];
+            return $totalSessions >= 8 ? $pair1 : [$allowedDays[$idx]];
         }
 
         if ($totalSessions >= 8) {

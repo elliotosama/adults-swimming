@@ -1586,6 +1586,20 @@
     };
 
     // ════════════════════════════════════════════════════════════════
+    //  Weekday-name helper
+    //
+    //  All comparisons against branch working-day strings MUST go through
+    //  normDay() first — the DB values for working_days1/2/3 can carry
+    //  stray casing or whitespace (e.g. "sunday", " Sunday", "SUNDAY")
+    //  which breaks a naive `.includes()` / `indexOf()` exact match and
+    //  incorrectly shows "هذا الفرع لا يعمل في اليوم المختار" even for a
+    //  genuinely valid working day.
+    // ════════════════════════════════════════════════════════════════
+    function normDay(d) {
+        return String(d || '').trim().toLowerCase();
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  Required-fields validation (used by "new" and "renew" tabs)
     // ════════════════════════════════════════════════════════════════
 
@@ -1833,13 +1847,22 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
     function getPlanPrice(selId)    { return parseFloat(getPlanOption(selId)?.dataset.price)    || 0; }
     function getPlanSessions(selId) { return parseInt(getPlanOption(selId)?.dataset.sessions)   || 0; }
 
+    // ════════════════════════════════════════════════════════════════
+    //  pickActiveDays / buildSessionDates — weekday matching is
+    //  normalized (see normDay()) so casing/whitespace in the stored
+    //  branch working-day strings can never produce a false "day not
+    //  worked" result. The days RETURNED still use the original casing
+    //  from `days` (the DB-sourced array), since those values feed back
+    //  into buildSessionDates()'s own normalized comparison below.
+    // ════════════════════════════════════════════════════════════════
     function pickActiveDays(startDay, days, total, isDouble) {
-        const idx = days.indexOf(startDay);
+        const normalizedDays = days.map(normDay);
+        const idx = normalizedDays.indexOf(normDay(startDay));
         if (idx === -1) return [];
         const pairStart = idx % 2 === 0 ? idx : idx - 1;
         const pair1 = days.slice(pairStart, pairStart + 2);
-        if (pair1[0] !== startDay) pair1.reverse();
-        if (!isDouble) return total >= 8 ? pair1 : [startDay];
+        if (normDay(pair1[0]) !== normDay(startDay)) pair1.reverse();
+        if (!isDouble) return total >= 8 ? pair1 : [days[idx]];
         if (total >= 8) { const p2 = pairStart === 0 ? 2 : 0; return [...new Set([...pair1, ...days.slice(p2, p2+2)])]; }
         return pair1;
     }
@@ -1848,10 +1871,11 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         const start = new Date(firstDate + 'T00:00:00');
         const startDay = start.toLocaleDateString('en-US', { weekday: 'long' });
         const active = pickActiveDays(startDay, days, total, isDouble);
+        const normalizedActive = active.map(normDay);
         if (!active.length) return { renewal: '', last: '' };
         const dates = [], cursor = new Date(start); let s = 0;
         while (dates.length < visits && s < 365) {
-            if (active.includes(cursor.toLocaleDateString('en-US', { weekday: 'long' }))) dates.push(formatDate(cursor));
+            if (normalizedActive.includes(normDay(cursor.toLocaleDateString('en-US', { weekday: 'long' })))) dates.push(formatDate(cursor));
             cursor.setDate(cursor.getDate() + 1); s++;
         }
         if (dates.length < 2) return { renewal: '', last: dates[0] ?? '' };
@@ -1906,7 +1930,8 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         const meta = branchMeta(getBranchId('new'));
         if (!meta?.days?.length) return;
         const day = new Date(start+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
-        if (!meta.days.includes(day)) {
+        const normalizedDays = meta.days.map(normDay);
+        if (!normalizedDays.includes(normDay(day))) {
             document.getElementById('new-day-error-hint').textContent = meta.days.join('، ');
             document.getElementById('new-day-error').classList.add('visible');
             document.getElementById('new-submit-btn').disabled = true; return;
@@ -1990,7 +2015,8 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         }
         const meta = branchMeta(getBranchId('ren')); if (!meta?.days?.length) return;
         const day = new Date(start+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
-        if (!meta.days.includes(day)) {
+        const normalizedDays = meta.days.map(normDay);
+        if (!normalizedDays.includes(normDay(day))) {
             document.getElementById('ren-day-error-hint').textContent = meta.days.join('، ');
             document.getElementById('ren-day-error').classList.add('visible');
             document.getElementById('ren-submit-btn').disabled = true; return;
