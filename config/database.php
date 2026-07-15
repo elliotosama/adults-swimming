@@ -3,8 +3,8 @@
 
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'swimming_academy');
-define('DB_USER', 'osama');        // ← change to your DB user
-define('DB_PASS', 'osamaisthebest');            // ← change to your DB password
+define('DB_USER', 'root');        // ← change to your DB user
+define('DB_PASS', '');            // ← change to your DB password
 define('DB_CHARSET', 'utf8mb4');
 define('DB_PORT', 3306);
 

@@ -226,3 +226,20 @@ total paid 531
 - [ ] logo should appear when you share the pdf
 - [ ] filters
 - [ ] check current and previous renewal
+
+
+
+---
+
+- [x] zied receipt => done
+- [x] creation date
+- [x] updates migration
+- [x] statistics => Done
+- [x] client already exits
+- [x] when i filter with 11 get 10 receipts
+- [x] reciept created dupllicates => remove them using query
+- [ ] spaces in index receipt
+- [x] renewal type migration => Done
+- [x] finantial data in modal and receipt -> done
+- [x] captain and level error => Done
+- [ ] include client name in receipt url and make the logo appearn when i send it whatsapp

@@ -441,10 +441,12 @@ table th {
 table td {
     white-space: nowrap;
     color: #fff;
-    font-size: 1.2rem;
-    padding: .6rem .75rem;
+    font-size: .95rem;
+    line-height: 1.3;
+    padding: .35rem .6rem;
     border: 1px solid var(--border);
     text-align: center;
+    vertical-align: middle;
 }
 table tbody tr:nth-child(even) {
     background: rgba(255, 255, 255, 0.02);
@@ -482,9 +484,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .td-actions {
     display: flex;
-    gap: .35rem;
-    flex-wrap: wrap;
+    gap: .3rem;
+    flex-wrap: nowrap;
     align-items: center;
+    justify-content: center;
+}
+.td-actions .btn {
+    padding: .25rem .55rem;
+    font-size: .78rem;
+    white-space: nowrap;
+    line-height: 1.4;
 }
 
 /* ══════════════════════════════════════════════════════════════════
