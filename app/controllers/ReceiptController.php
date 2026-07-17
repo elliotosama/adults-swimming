@@ -1114,8 +1114,16 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
     // ════════════════════════════════════════════════════════════════════════
 
 
-    public function export(): void {
+public function export(): void {
     auth_require(['admin', 'branch_manager', 'customer_service', 'area_manager']);
+
+    require_once ROOT . '/vendor/autoload.php';
+
+    // ── Guard: wipe ANY output that may have been buffered/echoed so far
+    // (stray whitespace, notices, BOM, etc.) so only the xlsx bytes go out.
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
 
     $scope    = $this->roleScope();
     $hasInput = count(array_diff(array_keys($_GET), ['page'])) > 0;
@@ -1132,32 +1140,34 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
         'pending'       => 'معلّق',
     ];
 
-    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
-    header('Content-Disposition: attachment; filename="receipts_' . date('Y-m-d_His') . '.csv"');
-    header('Pragma: no-cache');
-    header('Expires: 0');
+    $renewalTypeLabels = [
+        'new'              => 'جديد',
+        'renew'            => 'تجديد',
+        'renewal'          => 'تجديد',
+        'current_renewal'  => 'تجديد حالي',
+        'previous_renewal' => 'تجديد سابق',
+        'جديد'             => 'جديد',
+        'تجديد'            => 'تجديد',
+    ];
 
-    $out = fopen('php://output', 'w');
-    fwrite($out, "\xEF\xBB\xBF");
+    $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setRightToLeft(true);
+    $sheet->setTitle('الإيصالات');
 
-    fputcsv($out, [
+    $headers = [
         '#', 'رقم الإيصال', 'اسم العميل', 'هاتف العميل', 'الفرع', 'الكابتن', 'الخطة',
         'أول جلسة', 'آخر جلسة', 'جلسة التجديد', 'نوع التجديد', 'الحالة',
         'وقت التمرين', 'المستوى', 'المنشئ', 'تاريخ الإنشاء',
         'إجمالي المدفوع', 'إجمالي المسترد', 'المتبقي',
         'عدد التعديلات', 'عدد المعاملات', 'مسترد؟'
-    ]);
+    ];
+    $sheet->fromArray($headers, null, 'A1');
+    $sheet->getStyle('A1:U1')->getFont()->setBold(true);
+    $sheet->freezePane('A2');
 
+    $rowNum = 2;
     foreach ($rows as $r) {
-        $renewalTypeLabels = [
-            'new'              => 'جديد',
-            'renew'            => 'تجديد',
-            'renewal'          => 'تجديد',
-            'current_renewal'  => 'تجديد حالي',
-            'previous_renewal' => 'تجديد سابق',
-            'جديد'             => 'جديد',
-            'تجديد'            => 'تجديد',
-        ];
         $renewalTypeKey = mb_strtolower(trim((string) ($r['renewal_type'] ?? '')));
 
         $planPrice     = (float)($r['plan_price']      ?? 0);
@@ -1166,11 +1176,11 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
         $netPaid       = $grossPaid - $totalRefunded;
         $remaining     = max(0, $planPrice - $netPaid);
 
-        fputcsv($out, [
+        $sheet->fromArray([
             $r['id'],
             $r['receipt_ref']     ?? $this->buildReceiptRef((int)$r['id'], $r['created_at'] ?? ''),
             $r['client_name']     ?? '',
-    '="' . $r['phone'] . '"',
+            $r['phone']           ?? '',
             $r['branch_name']     ?? '',
             $r['captain_name']    ?? '',
             $r['plan_name']       ?? '',
@@ -1183,21 +1193,38 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
             $r['level']           ?? '',
             $r['creator_name']    ?? '',
             $r['created_at']      ?? '',
-            number_format($netPaid,       2),
-            number_format($totalRefunded, 2),
-            number_format($remaining,     2),
+            round($netPaid, 2),
+            round($totalRefunded, 2),
+            round($remaining, 2),
             $r['audit_count']       ?? 0,
             $r['transaction_count'] ?? 0,
             !empty($r['is_refunded']) ? 'نعم' : 'لا',
-        ]);
+        ], null, "A{$rowNum}");
+
+        $rowNum++;
     }
 
-    fclose($out);
+    $sheet->getStyle('D2:D' . ($rowNum - 1))
+          ->getNumberFormat()
+          ->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT);
+
+    foreach (range('A', 'U') as $col) {
+        $sheet->getColumnDimension($col)->setAutoSize(true);
+    }
+
+    $filename = 'receipts_' . date('Y-m-d_His') . '.xlsx';
+
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: max-age=0');
+    header('Content-Transfer-Encoding: binary');
+
+    $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+    $writer->save('php://output');
+
     log_action('exported_receipts', 'filters: ' . json_encode($filters), auth_user()['id']);
     exit;
 }
-
-
     // ════════════════════════════════════════════════════════════════════════
     // CREATE
     // ════════════════════════════════════════════════════════════════════════
