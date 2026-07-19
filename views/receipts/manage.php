@@ -1959,7 +1959,7 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         const warn = document.getElementById('new-pay-warn'), sub = document.getElementById('new-submit-btn');
         const maxErr = document.getElementById('new-amount-max-error');
         let blocked = false;
-        if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); blocked = true; }
+        if (paid < MIN_PAYMENT) { warn.classList.add('visible'); blocked = true; }
         else { warn.classList.remove('visible'); }
         if (price > 0 && paid > price) {
             document.getElementById('new-amount-max-msg').textContent =
@@ -2023,7 +2023,7 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         document.querySelector('.new-name-error').classList.remove('visible');
         const paidInput = document.getElementById('new-paid-amount');
         const paid = parseAmountInput(paidInput);
-        if (paid > 0 && paid < MIN_PAYMENT) { e.preventDefault(); return; }
+        if (paid < MIN_PAYMENT) { e.preventDefault(); return; }
         const planPrice = getPlanPrice('new-plan');
         if (planPrice > 0 && paid > planPrice) { e.preventDefault(); return; }
         const prefix = document.querySelector('.new-country-code').value;
@@ -2055,7 +2055,7 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         const warn = document.getElementById('ren-pay-warn'), sub = document.getElementById('ren-submit-btn');
         const maxErr = document.getElementById('ren-amount-max-error');
         let blocked = false;
-        if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); blocked = true; }
+        if (paid < MIN_PAYMENT) { warn.classList.add('visible'); blocked = true; }
         else { warn.classList.remove('visible'); }
         if (price > 0 && paid > price) {
             document.getElementById('ren-amount-max-msg').textContent =
@@ -2148,7 +2148,7 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         if (!renValidateRenewalType()) { e.preventDefault(); return; }
         const paidInput = document.getElementById('ren-paid-amount');
         const paid = parseAmountInput(paidInput);
-        if (paid > 0 && paid < MIN_PAYMENT) { e.preventDefault(); return; }
+        if (paid < MIN_PAYMENT) { e.preventDefault(); return; }
         const planPrice = getPlanPrice('ren-plan');
         if (planPrice > 0 && paid > planPrice) { e.preventDefault(); return; }
         const prefix = document.querySelector('.ren-country-code').value;
