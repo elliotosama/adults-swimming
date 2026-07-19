@@ -806,6 +806,7 @@
                   <div class="pay-warn" id="new-pay-warn">
                     ⚠️ الحد الأدنى للدفع هو <strong><?= number_format($minPaymentAmount, 0) ?></strong> جنيه.
                   </div>
+                  <div class="inline-error" id="new-amount-max-error">❌ <span id="new-amount-max-msg">المبلغ يتجاوز سعر الاشتراك.</span></div>
                 </div>
                 <div class="form-field computed-field">
                   <label class="form-label">المتبقي</label>
@@ -1083,6 +1084,7 @@
                   <input type="text" name="amount" id="ren-paid-amount" class="form-control"
                          placeholder="0" min="<?= $minPaymentAmount ?>" required onchange="renCalcRemaining()">
                   <div class="pay-warn" id="ren-pay-warn">⚠️ الحد الأدنى للدفع هو <strong><?= number_format($minPaymentAmount, 0) ?></strong> جنيه.</div>
+                  <div class="inline-error" id="ren-amount-max-error">❌ <span id="ren-amount-max-msg">المبلغ يتجاوز سعر الاشتراك.</span></div>
                 </div>
                 <div class="form-field computed-field">
                   <label class="form-label">المتبقي</label>
@@ -1218,6 +1220,7 @@
                   <label class="form-label">المبلغ <span style="color:var(--danger);">*</span></label>
                   <input type="text" name="amount" id="pay-amount" class="form-control" placeholder="0" min="1" step="0.01" required>
                   <span class="field-hint">المتبقي الحالي: <strong id="pay-current-remaining">—</strong></span>
+                  <div class="inline-error" id="pay-amount-max-error">❌ <span id="pay-amount-max-msg">المبلغ يتجاوز المتبقي على الإيصال.</span></div>
                 </div>
                 <div class="form-field">
                   <label class="form-label">طريقة الدفع <span style="color:var(--danger);">*</span></label>
@@ -1386,6 +1389,7 @@
                   <input type="text" name="amount" id="refund-amount"
                          class="form-control" placeholder="0" min="1" step="0.01" required>
                   <span class="field-hint">الحد الأقصى للاسترداد: <strong id="refund-max-display">—</strong></span>
+                  <div class="inline-error" id="refund-amount-max-error">❌ <span id="refund-amount-max-msg">المبلغ يتجاوز الحد الأقصى للاسترداد.</span></div>
                 </div>
                 <div class="form-field">
                   <label class="form-label">طريقة الاسترداد <span style="color:var(--danger);">*</span></label>
@@ -1584,6 +1588,41 @@
         '+966': { regex: /^(05\d{8}|5\d{8})$/, hint: 'مثال: 0512345678 (9-10 أرقام)' },
         '+20':  { regex: /^(01[0-9]\d{8}|1[0-9]\d{8})$/, hint: 'مثال: 01012345678 (10-11 رقماً)' },
     };
+
+    // ════════════════════════════════════════════════════════════════
+    //  Digit normalization — Arabic-Indic (٠-٩) / Persian (۰-۹) → ASCII
+    //
+    //  Egyptian keyboards routinely default to Arabic-Indic numerals.
+    //  parseFloat('٥٠٠') is NaN in every browser, which is what was
+    //  silently turning real payments into a stored amount of 0 (the
+    //  `|| 0` fallback in every calc function below). ALL amount fields
+    //  are normalized live on input/change so the rest of this file's
+    //  math and the final POST always see plain ASCII digits.
+    // ════════════════════════════════════════════════════════════════
+    const ARABIC_INDIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+    const PERSIAN_DIGITS      = '۰۱۲۳۴۵۶۷۸۹';
+    function toAsciiDigits(str) {
+        return String(str ?? '').replace(/[٠-٩۰-۹]/g, ch => {
+            let idx = ARABIC_INDIC_DIGITS.indexOf(ch);
+            if (idx === -1) idx = PERSIAN_DIGITS.indexOf(ch);
+            return idx !== -1 ? String(idx) : ch;
+        }).replace(/,/g, '').replace(/\u00A0/g, '').trim();
+    }
+    function normalizeAmountField(el) {
+        if (!el) return;
+        const normalized = toAsciiDigits(el.value);
+        if (normalized !== el.value) el.value = normalized;
+    }
+    function parseAmountInput(el) {
+        normalizeAmountField(el);
+        return parseFloat(el ? el.value : '') || 0;
+    }
+    const AMOUNT_FIELD_IDS = ['new-paid-amount', 'ren-paid-amount', 'pay-amount', 'refund-amount'];
+    AMOUNT_FIELD_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => normalizeAmountField(el));
+    });
 
     // ════════════════════════════════════════════════════════════════
     //  Weekday-name helper
@@ -1913,12 +1952,24 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
     function newPlanChanged()    { newCalcRemaining(); newUpdateDates(); }
     function newCalcRemaining() {
         const price = getPlanPrice('new-plan');
-        const paid  = parseFloat(document.getElementById('new-paid-amount').value) || 0;
-        if (price > 0) document.getElementById('new-paid-amount').setAttribute('max', price);
+        const paidInput = document.getElementById('new-paid-amount');
+        const paid  = parseAmountInput(paidInput);
+        if (price > 0) paidInput.setAttribute('max', price);
         document.getElementById('new-remaining').value = price > 0 ? Math.max(price - paid, 0) : 0;
         const warn = document.getElementById('new-pay-warn'), sub = document.getElementById('new-submit-btn');
-        if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); sub.disabled = true; }
-        else { warn.classList.remove('visible'); sub.disabled = false; }
+        const maxErr = document.getElementById('new-amount-max-error');
+        let blocked = false;
+        if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); blocked = true; }
+        else { warn.classList.remove('visible'); }
+        if (price > 0 && paid > price) {
+            document.getElementById('new-amount-max-msg').textContent =
+                `المبلغ المدخل (${paid.toLocaleString('ar-EG')}) يتجاوز سعر الاشتراك (${price.toLocaleString('ar-EG')}).`;
+            maxErr.classList.add('visible');
+            blocked = true;
+        } else {
+            maxErr.classList.remove('visible');
+        }
+        sub.disabled = blocked;
         refreshNewRequiredState();
     }
     function newUpdateDates() {
@@ -1970,8 +2021,11 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         const nameWords = document.querySelector('.new-client-name')?.value.trim().split(/\s+/).filter(w=>w.length>0) || [];
         if (nameWords.length < 3) { document.querySelector('.new-name-error').classList.add('visible'); e.preventDefault(); return; }
         document.querySelector('.new-name-error').classList.remove('visible');
-        const paid = parseFloat(document.getElementById('new-paid-amount').value) || 0;
+        const paidInput = document.getElementById('new-paid-amount');
+        const paid = parseAmountInput(paidInput);
         if (paid > 0 && paid < MIN_PAYMENT) { e.preventDefault(); return; }
+        const planPrice = getPlanPrice('new-plan');
+        if (planPrice > 0 && paid > planPrice) { e.preventDefault(); return; }
         const prefix = document.querySelector('.new-country-code').value;
         let local = document.querySelector('.new-phone-local').value.trim();
         if (prefix && local.startsWith('0')) local = local.slice(1);
@@ -1993,12 +2047,25 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
     }
     function renPlanChanged() { renCalcRemaining(); renUpdateDates(); }
     function renCalcRemaining() {
-        const price = getPlanPrice('ren-plan'), paid = parseFloat(document.getElementById('ren-paid-amount').value) || 0;
-        if (price > 0) document.getElementById('ren-paid-amount').setAttribute('max', price);
+        const price = getPlanPrice('ren-plan');
+        const paidInput = document.getElementById('ren-paid-amount');
+        const paid = parseAmountInput(paidInput);
+        if (price > 0) paidInput.setAttribute('max', price);
         document.getElementById('ren-remaining').value = price > 0 ? Math.max(price - paid, 0) : 0;
         const warn = document.getElementById('ren-pay-warn'), sub = document.getElementById('ren-submit-btn');
-        if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); sub.disabled = true; }
-        else { warn.classList.remove('visible'); sub.disabled = false; }
+        const maxErr = document.getElementById('ren-amount-max-error');
+        let blocked = false;
+        if (paid > 0 && paid < MIN_PAYMENT) { warn.classList.add('visible'); blocked = true; }
+        else { warn.classList.remove('visible'); }
+        if (price > 0 && paid > price) {
+            document.getElementById('ren-amount-max-msg').textContent =
+                `المبلغ المدخل (${paid.toLocaleString('ar-EG')}) يتجاوز سعر الاشتراك (${price.toLocaleString('ar-EG')}).`;
+            maxErr.classList.add('visible');
+            blocked = true;
+        } else {
+            maxErr.classList.remove('visible');
+        }
+        sub.disabled = blocked;
         refreshRenRequiredState();
     }
     function renUpdateDates() {
@@ -2079,8 +2146,11 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         const nameWords = document.querySelector('.ren-client-name')?.value.trim().split(/\s+/).filter(w=>w.length>0) || [];
         if (nameWords.length < 3) { document.querySelector('.ren-name-error').classList.add('visible'); e.preventDefault(); return; }
         if (!renValidateRenewalType()) { e.preventDefault(); return; }
-        const paid = parseFloat(document.getElementById('ren-paid-amount').value) || 0;
+        const paidInput = document.getElementById('ren-paid-amount');
+        const paid = parseAmountInput(paidInput);
         if (paid > 0 && paid < MIN_PAYMENT) { e.preventDefault(); return; }
+        const planPrice = getPlanPrice('ren-plan');
+        if (planPrice > 0 && paid > planPrice) { e.preventDefault(); return; }
         const prefix = document.querySelector('.ren-country-code').value;
         let local = document.querySelector('.ren-phone-local').value.trim();
         if (prefix && local.startsWith('0')) local = local.slice(1);
@@ -2092,19 +2162,39 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
     // ════════════════════════════════════════════════════════════════
     //  TAB 3 — إضافة دفعة
     // ════════════════════════════════════════════════════════════════
+    let PAY_MAX_REMAINING = 0;
     function paySelectReceipt(id, remaining, planPrice) {
         document.querySelectorAll('#tab-panel-payment .receipt-card').forEach(c => c.classList.remove('selected-pay'));
         document.querySelector('#tab-panel-payment .receipt-card[data-id="'+id+'"]').classList.add('selected-pay');
         document.getElementById('pay-selected-receipt-id').value = id;
         document.getElementById('pay-current-remaining').textContent = parseFloat(remaining).toLocaleString('ar-EG');
+        PAY_MAX_REMAINING = Math.max(parseFloat(remaining) || 0, 0);
         const amountInput = document.getElementById('pay-amount');
-        amountInput.max = Math.max(parseFloat(remaining) || 0, 0);
+        amountInput.max = PAY_MAX_REMAINING;
         amountInput.value = remaining > 0 ? remaining : '';
+        document.getElementById('pay-amount-max-error').classList.remove('visible');
         const form = document.getElementById('paymentAddForm');
         form.style.display = 'block';
         refreshPayRequiredState();
         form.scrollIntoView({ behavior: 'smooth' });
     }
+    function payValidateAmount() {
+        const input = document.getElementById('pay-amount');
+        const amount = parseAmountInput(input);
+        const errEl  = document.getElementById('pay-amount-max-error');
+        const submitBtn = document.getElementById('pay-submit-btn');
+        if (PAY_MAX_REMAINING > 0 && amount > PAY_MAX_REMAINING) {
+            document.getElementById('pay-amount-max-msg').textContent =
+                `المبلغ المدخل (${amount.toLocaleString('ar-EG')}) يتجاوز المتبقي على الإيصال (${PAY_MAX_REMAINING.toLocaleString('ar-EG')}).`;
+            errEl.classList.add('visible');
+            if (submitBtn) submitBtn.disabled = true;
+            return false;
+        }
+        errEl.classList.remove('visible');
+        if (submitBtn) submitBtn.disabled = false;
+        return true;
+    }
+    document.getElementById('pay-amount')?.addEventListener('input', payValidateAmount);
     function payToggleEvidence(method) {
         const f = document.getElementById('pay-evidence-field'), i = document.getElementById('pay-evidence');
         if (method && method !== 'cash') { f.classList.add('visible'); i.required = true; }
@@ -2116,20 +2206,28 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         if (missing.length) {
             e.preventDefault();
             firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        if (!payValidateAmount()) {
+            e.preventDefault();
+            document.getElementById('pay-amount')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     });
 
     // ════════════════════════════════════════════════════════════════
     //  TAB 4 — استرداد
     // ════════════════════════════════════════════════════════════════
+    let REFUND_MAX_AMOUNT = 0;
     function refundSelectReceipt(id, netPaid, maxRefund) {
         document.querySelectorAll('#tab-panel-refund .receipt-card').forEach(c => c.classList.remove('selected-refund'));
         document.querySelector('#tab-panel-refund .receipt-card[data-id="'+id+'"]').classList.add('selected-refund');
         document.getElementById('refund-selected-receipt-id').value = id;
         document.getElementById('refund-max-display').textContent   = parseFloat(maxRefund).toLocaleString('ar-EG');
+        REFUND_MAX_AMOUNT = parseFloat(maxRefund) || 0;
         const amountInput = document.getElementById('refund-amount');
-        amountInput.max   = maxRefund;
+        amountInput.max   = REFUND_MAX_AMOUNT;
         amountInput.value = '';
+        document.getElementById('refund-amount-max-error').classList.remove('visible');
         document.getElementById('refund-method-select').value = '';
         refundToggleEvidence('');
         const wrap = document.getElementById('refundFormWrap');
@@ -2137,6 +2235,23 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         refreshRefundRequiredState();
         wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+    function refundValidateAmount() {
+        const input = document.getElementById('refund-amount');
+        const amount = parseAmountInput(input);
+        const errEl  = document.getElementById('refund-amount-max-error');
+        const submitBtn = document.getElementById('refund-submit-btn');
+        if (REFUND_MAX_AMOUNT > 0 && amount > REFUND_MAX_AMOUNT) {
+            document.getElementById('refund-amount-max-msg').textContent =
+                `المبلغ المدخل (${amount.toLocaleString('ar-EG')}) يتجاوز الحد الأقصى للاسترداد (${REFUND_MAX_AMOUNT.toLocaleString('ar-EG')}).`;
+            errEl.classList.add('visible');
+            if (submitBtn) submitBtn.disabled = true;
+            return false;
+        }
+        errEl.classList.remove('visible');
+        if (submitBtn) submitBtn.disabled = false;
+        return true;
+    }
+    document.getElementById('refund-amount')?.addEventListener('input', refundValidateAmount);
     function refundToggleEvidence(method) {
         const f = document.getElementById('refund-evidence-field'), i = document.getElementById('refund-evidence');
         if (method && method !== 'cash') { f.classList.add('visible'); i.required = true; }
@@ -2148,6 +2263,11 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         if (missing.length) {
             e.preventDefault();
             firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        if (!refundValidateAmount()) {
+            e.preventDefault();
+            document.getElementById('refund-amount')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     });
 
@@ -2213,7 +2333,7 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         getNewRequiredFields,
         'new-missing-fields-alert',
         'new-submit-btn',
-        () => isVisibleError('new-day-error') || isVisibleError('new-time-error') || isVisibleError('new-pay-warn')
+        () => isVisibleError('new-day-error') || isVisibleError('new-time-error') || isVisibleError('new-pay-warn') || isVisibleError('new-amount-max-error')
     );
     refreshRenRequiredState = bindRequiredValidation(
         'renewReceiptForm',
@@ -2221,19 +2341,22 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         'ren-missing-fields-alert',
         'ren-submit-btn',
         () => isVisibleError('ren-day-error') || isVisibleError('ren-time-error') || isVisibleError('ren-pay-warn') ||
-              isVisibleError('ren-same-date-error') || isVisibleError('ren-type-mismatch-error') || isVisibleError('ren-type-required-error')
+              isVisibleError('ren-same-date-error') || isVisibleError('ren-type-mismatch-error') || isVisibleError('ren-type-required-error') ||
+              isVisibleError('ren-amount-max-error')
     );
     refreshPayRequiredState = bindRequiredValidation(
         'paymentAddForm',
         getPaymentRequiredFields,
         'pay-missing-fields-alert',
-        'pay-submit-btn'
+        'pay-submit-btn',
+        () => isVisibleError('pay-amount-max-error')
     );
     refreshRefundRequiredState = bindRequiredValidation(
         'refundForm',
         getRefundRequiredFields,
         'refund-missing-fields-alert',
-        'refund-submit-btn'
+        'refund-submit-btn',
+        () => isVisibleError('refund-amount-max-error')
     );
     refreshClientRequiredState = bindRequiredValidation(
         'newClientForm',

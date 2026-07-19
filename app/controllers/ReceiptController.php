@@ -54,6 +54,51 @@ class ReceiptController {
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // Amount input normalization
+    //
+    // Every "amount" field in the UI is a type="text" input (not type=number)
+    // so that Arabic-formatted values don't get mangled by the browser. That
+    // means anything can land in $_POST['amount'] — including Arabic-Indic
+    // digits (٠١٢٣٤٥٦٧٨٩) or Persian digits (۰۱۲۳۴۵۶۷۸۹), which many
+    // Egyptian mobile keyboards produce by default. PHP's (float) cast does
+    // NOT understand those digits and silently evaluates to 0, which is the
+    // root cause of payments being recorded with amount = 0. ALWAYS route
+    // raw amount input through parseAmount() instead of casting directly.
+    // ════════════════════════════════════════════════════════════════════════
+
+    private function normalizeAmountInput(?string $value): string {
+        static $digitMap = [
+            // Arabic-Indic
+            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+            '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+            // Persian / Extended Arabic-Indic
+            '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+            '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        ];
+
+        $value = strtr((string) $value, $digitMap);
+        // Strip thousands separators / stray whitespace (incl. NBSP) that a
+        // pasted or auto-formatted value might carry.
+        $value = str_replace([',', ' ', "\xC2\xA0"], '', $value);
+        return trim($value);
+    }
+
+    private function parseAmount($raw): float {
+        return (float) $this->normalizeAmountInput((string) ($raw ?? ''));
+    }
+
+    private function minPaymentAmount(): float {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+        $row = get_db()->query("
+            SELECT setting_value FROM settings WHERE setting_key = 'min_payment_amount' LIMIT 1
+        ")->fetch(PDO::FETCH_ASSOC);
+        return $cached = ($row ? (float) $row['setting_value'] : 400.0);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // effectiveCreatedAt
     //
     // Business-day cutoff: a receipt created before 15:00 (3 PM) is recorded
@@ -310,15 +355,17 @@ private function parseForm(): array {
         'plan_id'         => (int) ($_POST['plan_id']        ?? 0) ?: null,
         'level'           => (int) ($_POST['level']          ?? 0) ?: null,
         'pdf_path'        => trim($_POST['pdf_path']         ?? ''),
-        'amount'          => (float) ($_POST['amount']       ?? 0),
+        // ── amount MUST go through parseAmount(), not a raw (float) cast —
+        // see normalizeAmountInput() for why (Arabic-Indic digit handling).
+        'amount'          => $this->parseAmount($_POST['amount'] ?? 0),
         'remaining'       => (float) ($_POST['remaining']    ?? 0),
         'payment_method'  => trim($_POST['payment_method']   ?? ''),
         'notes'           => trim($_POST['notes']            ?? ''),
         'renewal_type'    => trim($_POST['renewal_type']     ?? 'new'),
 
         // ── Admin-only edit-form override (not a receipts column — see update()) ──
-        'total_paid'          => isset($_POST['total_paid'])          ? (float) $_POST['total_paid']          : null,
-        'original_total_paid' => isset($_POST['original_total_paid']) ? (float) $_POST['original_total_paid'] : null,
+        'total_paid'          => isset($_POST['total_paid'])          ? $this->parseAmount($_POST['total_paid'])          : null,
+        'original_total_paid' => isset($_POST['original_total_paid']) ? $this->parseAmount($_POST['original_total_paid']) : null,
     ];
 }
 
@@ -398,6 +445,20 @@ private function validate(array $data): array {
 
     if ((float)($data['amount'] ?? 0) < 0)
         $errors[] = 'المبلغ المدفوع لا يمكن أن يكون أقل من صفر.';
+
+    // ── Minimum payment enforcement (server-side) ──────────────────────
+    // The JS "new-pay-warn" / "ren-pay-warn" banners give live feedback,
+    // but they're advisory only — this is the actual gate. A submitted
+    // amount of 0 is allowed through here (some flows legitimately create
+    // a receipt with no payment yet); only a *nonzero* amount below the
+    // configured minimum is rejected.
+    $paidAmount = (float) ($data['amount'] ?? 0);
+    if ($paidAmount > 0 && $paidAmount < $this->minPaymentAmount()) {
+        $errors[] = sprintf(
+            'الحد الأدنى للدفع هو %s جنيه.',
+            number_format($this->minPaymentAmount(), 0)
+        );
+    }
 
     if (empty($data['payment_method']))
         $errors[] = 'يجب اختيار طريقة الدفع.';
@@ -2661,7 +2722,9 @@ public function storePayment(): void {
     auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
     $receiptId     = (int) ($_POST['receipt_id']     ?? 0);
-    $amount        = (float) ($_POST['amount']        ?? 0);
+    // ── amount MUST go through parseAmount() — see normalizeAmountInput()
+    // for why a raw (float) cast on Arabic-Indic digits silently yields 0.
+    $amount        = $this->parseAmount($_POST['amount'] ?? 0);
     $paymentMethod = trim($_POST['payment_method']    ?? '');
     $notes         = trim($_POST['notes']             ?? '');
 
@@ -2673,6 +2736,12 @@ public function storePayment(): void {
         $errors[] = 'لا يمكن إضافة دفعة على إيصال تم استرداد مبلغ منه.';
     }
     if ($amount <= 0)    $errors[] = 'يجب إدخال مبلغ أكبر من صفر.';
+    if ($amount > 0 && $amount < $this->minPaymentAmount()) {
+        $errors[] = sprintf(
+            'الحد الأدنى للدفعة هو %s جنيه.',
+            number_format($this->minPaymentAmount(), 0)
+        );
+    }
     if (!$paymentMethod) $errors[] = 'يجب اختيار طريقة الدفع.';
 
     if (!$errors && $receipt) {
@@ -2840,7 +2909,9 @@ public function storePayment(): void {
         auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
         $receiptId     = (int) ($_POST['receipt_id']     ?? 0);
-        $amount        = (float) ($_POST['amount']        ?? 0);
+        // ── amount MUST go through parseAmount() — see normalizeAmountInput()
+        // for why a raw (float) cast on Arabic-Indic digits silently yields 0.
+        $amount        = $this->parseAmount($_POST['amount'] ?? 0);
         $paymentMethod = trim($_POST['payment_method']    ?? '');
         $notes         = trim($_POST['notes']             ?? '');
 
@@ -3040,7 +3111,9 @@ public function storePaymentByReceiptId(): void {
     auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
     $receiptId     = (int)   ($_POST['receipt_id']    ?? 0);
-    $amount        = (float) ($_POST['amount']         ?? 0);
+    // ── amount MUST go through parseAmount() — see normalizeAmountInput()
+    // for why a raw (float) cast on Arabic-Indic digits silently yields 0.
+    $amount        = $this->parseAmount($_POST['amount'] ?? 0);
     $paymentMethod = trim(   $_POST['payment_method']  ?? '');
     $notes         = trim(   $_POST['notes']           ?? '');
     $user          = auth_user();
@@ -3053,6 +3126,12 @@ public function storePaymentByReceiptId(): void {
         $errors[] = 'لا يمكن إضافة دفعة على إيصال تم استرداد مبلغ منه.';
     }
     if ($amount <= 0)    $errors[] = 'يجب إدخال مبلغ أكبر من صفر.';
+    if ($amount > 0 && $amount < $this->minPaymentAmount()) {
+        $errors[] = sprintf(
+            'الحد الأدنى للدفعة هو %s جنيه.',
+            number_format($this->minPaymentAmount(), 0)
+        );
+    }
     if (!$paymentMethod) $errors[] = 'يجب اختيار طريقة الدفع.';
 
     // Cap at remaining balance
