@@ -156,7 +156,7 @@ class ReceiptController {
 
     private function captainsForBranch(int $branchId): array {
         $stmt = get_db()->prepare("
-            SELECT ca.id, ca.captain_name
+            SELECT ca.id, ca.captain_name, ca.nickname
             FROM captain_branch cb
             JOIN captains ca ON ca.id = cb.captain_id
             WHERE cb.branch_id = ? AND ca.visible = 1
@@ -605,7 +605,7 @@ private function validate(array $data): array {
         }
 
         $captainStmt = $db->prepare("
-            SELECT cb.branch_id, c.id, c.captain_name
+            SELECT cb.branch_id, c.id, c.captain_name, c.nickname
             FROM captain_branch cb
             JOIN captains c ON c.id = cb.captain_id
             WHERE {$captainWhere}
@@ -619,6 +619,7 @@ private function validate(array $data): array {
             $captainsByBranch[$row['branch_id']][] = [
                 'id'   => $row['id'],
                 'name' => $row['captain_name'],
+                'nickname' => $row['nickname'] ?? '',
             ];
         }
 
@@ -1198,7 +1199,6 @@ public function export(): void {
     $statusLabels = [
         'completed'     => 'مكتمل',
         'not_completed' => 'غير مكتمل',
-        'pending'       => 'معلّق',
     ];
 
     $renewalTypeLabels = [

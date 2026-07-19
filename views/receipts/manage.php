@@ -1874,9 +1874,10 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
     const previousValue = sel ? sel.value : '';
     const captains = CAPTAINS_BY_BRANCH[branchId] || [];
     sel.innerHTML = captains.length ? '<option value="">— اختر الكابتن —</option>' : '<option value="">— لا يوجد كباتن —</option>';
+    console.log(captains)
     captains.forEach(c => {
         const o = document.createElement('option');
-        o.value = c.id; o.textContent = c.name;
+        o.value = c.id; o.textContent = `${c.nickname} - ${c.name}`;
         if (String(c.id) === previousValue || String(c.id) === savedCaptainId) o.selected = true;
         sel.appendChild(o);
     });
