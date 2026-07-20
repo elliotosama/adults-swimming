@@ -234,23 +234,27 @@ total paid 531
 
 - [x] when i filter with 11 get 10 receipts
 - [x] reciept created dupllicates => remove them using query
+
+
+
 - [ ] include client name in receipt url and make the logo appearn when i send it whatsapp
-
-
-
-- [ ] check confirmation message when create or renew
 - [ ] check access in edit
 - [ ] check edit functionality
+
+- [ ] check action buttons in branches employees and captains pages
+
+- [ ] confirmation message should apear when in create or renew a receipt
+- [x] don't appear disabled employees and branches in index page in receipts
+- [x] make the box of branches bigger
+
+
+- [x] in excel appear client id and plan price
+- [x] captain nickname appear when create or renew and in index page
 - [x] pay less than 400
 - [x] receipts made with zero
 - [x] can accept zero
 - [x] phone number and whatsapp error
 - [ ] renewal type in receipts => when makding database migration
-- [ ] in excel appear client id and plan price
 - [search works] does not make search with client names
-- [ ] don't appear disabled employees and branches in index page in receipts
-- [ ] make the box of branches bigger
-- [ ] check action buttons in branches employees and captains pages
 - [ ] filters
-- [ ] search with captains in receipts
-- [ ] captain nickname appear when create or renew 
+- [out of scope] search with captains in receipts

@@ -372,7 +372,7 @@ table th {
     display: flex;
     flex-wrap: wrap;
     gap: .3rem;
-    max-height: 72px;
+    max-height: 120px;
     overflow-y: auto;
     padding: .25rem 0;
     scrollbar-width: thin;

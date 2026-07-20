@@ -130,6 +130,7 @@ public function searchAll(array $filters = []): array {
         $sql = "
             SELECT r.id,
                    c.client_name,
+                   c.id as client_id,
                    c.phone         AS phone,
                    b.branch_name,
                    CASE

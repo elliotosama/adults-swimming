@@ -1149,10 +1149,10 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
             $stmt->execute($scope['managed_branch_ids']);
             $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
-            $branches = $db->query("SELECT id, branch_name FROM branches ORDER BY branch_name")->fetchAll(PDO::FETCH_ASSOC);
+            $branches = $db->query("SELECT id, branch_name FROM branches where visible = 1 ORDER BY branch_name")->fetchAll(PDO::FETCH_ASSOC);
         }
 
-        $creators = $db->query("SELECT id, username FROM users ORDER BY username")->fetchAll(PDO::FETCH_ASSOC);
+        $creators = $db->query("SELECT id, username FROM users where visible = 1 ORDER BY username")->fetchAll(PDO::FETCH_ASSOC);
 
         $this->renderView('index', [
             'pageTitle'      => 'الإيصالات',
@@ -1216,13 +1216,32 @@ public function export(): void {
     $sheet->setRightToLeft(true);
     $sheet->setTitle('الإيصالات');
 
-    $headers = [
-        '#', 'رقم الإيصال', 'اسم العميل', 'هاتف العميل', 'الفرع', 'الكابتن', 'الخطة',
-        'أول جلسة', 'آخر جلسة', 'جلسة التجديد', 'نوع التجديد', 'الحالة',
-        'وقت التمرين', 'المستوى', 'المنشئ', 'تاريخ الإنشاء',
-        'إجمالي المدفوع', 'إجمالي المسترد', 'المتبقي',
-        'عدد التعديلات', 'عدد المعاملات', 'مسترد؟'
-    ];
+$headers = [
+    '#',
+    'رقم الإيصال',
+    'اسم العميل',
+    'رقم العميل',
+    'هاتف العميل',
+    'الفرع',
+    'الكابتن',
+    'الخطة',
+    'سعر الخطة',
+    'أول جلسة',
+    'آخر جلسة',
+    'جلسة التجديد',
+    'نوع التجديد',
+    'الحالة',
+    'وقت التمرين',
+    'المستوى',
+    'المنشئ',
+    'تاريخ الإنشاء',
+    'إجمالي المدفوع',
+    'إجمالي المسترد',
+    'المتبقي',
+    'عدد التعديلات',
+    'عدد المعاملات',
+    'مسترد؟'
+];
     $sheet->fromArray($headers, null, 'A1');
     $sheet->getStyle('A1:U1')->getFont()->setBold(true);
     $sheet->freezePane('A2');
@@ -1241,10 +1260,12 @@ public function export(): void {
             $r['id'],
             $r['receipt_ref']     ?? $this->buildReceiptRef((int)$r['id'], $r['created_at'] ?? ''),
             $r['client_name']     ?? '',
+            $r['client_id'] ?? '',
             $r['phone']           ?? '',
             $r['branch_name']     ?? '',
             $r['captain_name']    ?? '',
             $r['plan_name']       ?? '',
+            $r['plan_price'] ?? '',
             $r['first_session']   ?? '',
             $r['last_session']    ?? '',
             $r['renewal_session'] ?? '',
