@@ -261,7 +261,6 @@ body {
 (function () {
     const AJAX_URL = '<?= APP_URL ?>/admin/branches/search';
     const APP_URL  = '<?= APP_URL ?>';
-    const isAdmin  = <?= json_encode($_SESSION['user']['role'] === 'admin') ?>;
 
     const form             = document.getElementById('filterForm');
     const wrap             = document.getElementById('branchTableWrap');
@@ -321,20 +320,6 @@ body {
         ).join('');
     }
 
-    // ── Build action buttons for each row ────────────────────────────────
-    function actionButtons(b) {
-        const deleteBtn = isAdmin
-            ? `<button type="button" class="btn btn-sm btn-danger js-delete-branch" data-id="${b.id}" data-name="${esc(b.branch_name)}">حذف</button>`
-            : '';
-
-        return `
-            <div class="td-actions">
-                <a href="${APP_URL}/admin/branch/show?id=${b.id}" class="btn btn-sm btn-secondary">عرض</a>
-                <a href="${APP_URL}/admin/branch/edit?id=${b.id}" class="btn btn-sm btn-warning">تعديل</a>
-                ${deleteBtn}
-            </div>`;
-    }
-
     // ── Render branches array into #branchTableWrap ───────────────────────
     function renderTable(branches) {
         updateCountBadge(branches.length);
@@ -361,7 +346,11 @@ body {
                         : '<span class="badge badge-danger">معطّل</span>'}
                 </td>
                 <td style="color:var(--muted);font-size:.85rem">${esc(b.created_at ?? '—')}</td>
-                <td>${actionButtons(b)}</td>
+                <td>
+                    <div class="td-actions">
+                        <a href="${APP_URL}/admin/branch/show?id=${b.id}" class="btn btn-sm btn-secondary">عرض</a>
+                    </div>
+                </td>
             </tr>`).join('');
 
         wrap.innerHTML = `
@@ -473,7 +462,8 @@ body {
         if (link) {
             const href = link.getAttribute('href') || '';
             if (href.includes('/admin/branch/create') ||
-                href.includes('/admin/branch/show')) {
+                href.includes('/admin/branch/show') ||
+                href.includes('/admin/branch/edit')) {
                 e.preventDefault();
                 openBranchModal(link.href);
                 return;
@@ -520,9 +510,15 @@ body {
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                closeBranchModal();
                 fetchBranches();
                 showToast(data.message || 'تم الحفظ بنجاح.', 'success');
+
+                const isEdit = formEl.action.includes('/admin/branch/edit');
+                if (isEdit && data.id) {
+                    openBranchModal(`${APP_URL}/admin/branch/show?id=${data.id}`);
+                } else {
+                    closeBranchModal();
+                }
             } else {
                 showFormErrors(formEl, data.errors || [data.message].filter(Boolean));
                 if (submitBtn) submitBtn.disabled = false;

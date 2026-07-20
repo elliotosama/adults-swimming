@@ -15,6 +15,33 @@ class TransactionController {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    // ════════════════════════════════════════════════════════════════════════
+    // effectiveCreatedAt
+    //
+    // Business-day cutoff: a transaction created between 12:00 AM and
+    // 2:59:59 AM is recorded as belonging to the PREVIOUS calendar day.
+    // Only the date component shifts — the time-of-day is preserved as-is.
+    //
+    // e.g. created 2026-07-07 01:45 → stored as 2026-07-06 01:45
+    //      created 2026-07-07 02:59 → stored as 2026-07-06 02:59
+    //      created 2026-07-07 03:00 → stored as 2026-07-07 03:00
+    //
+    // This mirrors ReceiptController::effectiveCreatedAt() exactly, so a
+    // receipt and any transaction tied to it always land on the same
+    // "business day" regardless of which controller created the transaction.
+    //
+    // Also used to stamp updated_at on edits, and as the changed_at passed
+    // to ReceiptAuditLogModel so an audit row always agrees with the
+    // updated_at of the row it's describing.
+    // ════════════════════════════════════════════════════════════════════════
+    private function effectiveCreatedAt(): string {
+        $now = new DateTime();
+        if ((int) $now->format('H') < 3) {
+            $now->modify('-1 day');
+        }
+        return $now->format('Y-m-d H:i:s');
+    }
+
     private function handleUpload(): string|null {
         if (empty($_FILES['attachment']['name'])) return null;
 
@@ -305,6 +332,13 @@ class TransactionController {
             return;
         }
 
+        // ── Business-day cutoff: a transaction created between 12:00–2:59 AM
+        // is recorded under the previous calendar day. See effectiveCreatedAt()
+        // for details — kept identical to ReceiptController's version so a
+        // transaction created here lands on the same business day as it would
+        // if it had been created through the receipt flow instead.
+        $data['created_at'] = $this->effectiveCreatedAt();
+
         $newId = $this->transactions->create($data);
 
         if (!empty($data['receipt_id'])) {
@@ -314,7 +348,8 @@ class TransactionController {
                 auth_user()['role'],
                 'transaction_added',
                 null,
-                "id:{$newId}, amount:{$data['amount']}, type:{$data['type']}"
+                "id:{$newId}, amount:{$data['amount']}, type:{$data['type']}",
+                $data['created_at']
             );
         }
 
@@ -419,7 +454,29 @@ class TransactionController {
             return;
         }
 
+        // NOTE: created_at is intentionally left untouched — editing an
+        // existing transaction must not retroactively change which business
+        // day it was originally recorded under. updated_at, however, should
+        // reflect *this* edit's business day, using the same 12:00–2:59 AM
+        // cutoff rule — see effectiveCreatedAt(). The same timestamp is also
+        // passed to the audit log so both rows agree exactly.
+        $updatedAt = $this->effectiveCreatedAt();
+        $data['updated_at'] = $updatedAt;
+
         $this->transactions->update($id, $data);
+
+        if (!empty($data['receipt_id'])) {
+            $this->auditLog->log(
+                $data['receipt_id'],
+                auth_user()['id'],
+                auth_user()['role'],
+                'transaction_updated',
+                "id:{$id}, amount:{$transaction['amount']}, type:{$transaction['type']}",
+                "id:{$id}, amount:{$data['amount']}, type:{$data['type']}",
+                $updatedAt
+            );
+        }
+
         log_action('updated_transaction', "id: {$id}", auth_user()['id']);
         $this->flash('flash_success', 'تم تحديث المعاملة بنجاح.');
         $this->redirect('/transactions');
@@ -452,8 +509,8 @@ class TransactionController {
             }
         }
 
-        $db->prepare("UPDATE transactions SET attachment = NULL WHERE id = ?")
-           ->execute([$id]);
+        $db->prepare("UPDATE transactions SET attachment = NULL, updated_at = ? WHERE id = ?")
+           ->execute([$this->effectiveCreatedAt(), $id]);
 
         $receiptStmt = $db->prepare("SELECT receipt_id FROM transactions WHERE id = ?");
         $receiptStmt->execute([$id]);

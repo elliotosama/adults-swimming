@@ -324,6 +324,23 @@ public function searchAll(array $filters = []): array {
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // effectiveNow
+    //
+    // Fallback business-day-aware timestamp, used only when the caller
+    // (controller) didn't already supply 'created_at' / 'updated_at' in
+    // $data. Mirrors ReceiptController::effectiveCreatedAt() exactly: a
+    // moment between 12:00–2:59:59 AM is attributed to the previous
+    // calendar day.
+    // ════════════════════════════════════════════════════════════════════════
+    private function effectiveNow(): string {
+        $now = new DateTime();
+        if ((int) $now->format('H') < 3) {
+            $now->modify('-1 day');
+        }
+        return $now->format('Y-m-d H:i:s');
+    }
+
     // ── Create ────────────────────────────────────────────────────────────────
 
 
@@ -332,12 +349,12 @@ public function create(array $data): int {
         INSERT INTO receipts
             (client_id, creator_id, captain_id, branch_id,
              first_session, last_session, renewal_session,
-             created_at, renewal_type, receipt_status,
+             created_at, updated_at, renewal_type, receipt_status,
              exercise_time, plan_id, level, pdf_path)
         VALUES
             (:client_id, :creator_id, :captain_id, :branch_id,
              :first_session, :last_session, :renewal_session,
-             :created_at, :renewal_type, :receipt_status,
+             :created_at, :updated_at, :renewal_type, :receipt_status,
              :exercise_time, :plan_id, :level, :pdf_path)
     ");
     $stmt->execute($this->bind($data));
@@ -348,6 +365,10 @@ public function create(array $data): int {
     // ── Update ────────────────────────────────────────────────────────────────
 
     public function update(int $id, array $data): void {
+        // NOTE: created_at is intentionally NOT in the SET clause — editing
+        // an existing receipt must never retroactively change which
+        // business day it was originally created under. updated_at IS
+        // updated, using the same business-day cutoff rule (see bind()).
         $stmt = $this->db->prepare("
             UPDATE receipts SET
                 client_id       = :client_id,
@@ -362,7 +383,8 @@ public function create(array $data): int {
                 exercise_time   = :exercise_time,
                 plan_id         = :plan_id,
                 level           = :level,
-                pdf_path        = :pdf_path
+                pdf_path        = :pdf_path,
+                updated_at      = :updated_at
             WHERE id = :id
         ");
         $stmt->execute(array_merge($this->bindForUpdate($data), [':id' => $id]));
@@ -513,6 +535,36 @@ public function create(array $data): int {
                     )
                 )";
             }
+        } elseif ($creatorActivityIsIncluded) {
+            // ── BUGFIX ──────────────────────────────────────────────────────
+            // No date range was supplied, but a creator IS selected with
+            // "creator_created_only" unchecked (the default "created OR
+            // touched" mode). Previously this case fell through both the
+            // block above (skipped, since $createdFrom/$createdTo are empty)
+            // AND the later `elseif (!empty($filters['creator_id']) &&
+            // !$creatorActivityIsIncluded)` block below (skipped, since
+            // $creatorActivityIsIncluded is true here) — meaning NO creator
+            // condition was ever added to the query, and searching by
+            // creator alone silently returned every receipt regardless of
+            // who created/touched it. This branch restores creator-only
+            // filtering (created by OR touched via a transaction OR touched
+            // via an audit log entry) for the no-date-range case.
+            $conditions[] = "(
+                r.creator_id = :creator_id_only
+                OR EXISTS (
+                    SELECT 1 FROM transactions t_activity_only
+                    WHERE t_activity_only.receipt_id = r.id
+                      AND t_activity_only.created_by = :creator_id_tx_only
+                )
+                OR EXISTS (
+                    SELECT 1 FROM receipt_audit_log al_activity_only
+                    WHERE al_activity_only.receipt_id = r.id
+                      AND al_activity_only.changed_by = :creator_id_al_only
+                )
+            )";
+            $params[':creator_id_only']    = $selectedCreatorId;
+            $params[':creator_id_tx_only'] = $selectedCreatorId;
+            $params[':creator_id_al_only'] = $selectedCreatorId;
         }
 
         if (!empty($filters['statuses']) && is_array($filters['statuses'])) {
@@ -625,6 +677,15 @@ if (!empty($filters['force_creator_id'])) {
     }
 
     private function bind(array $data): array {
+        // created_at: prefer whatever the controller computed via its own
+        // effectiveCreatedAt(); fall back to this model's own business-day
+        // logic if the caller didn't provide one.
+        $createdAt = $data['created_at'] ?: $this->effectiveNow();
+
+        // updated_at: prefer an explicit value from the caller; otherwise
+        // fall back to created_at on insert, or to effectiveNow() on update.
+        $updatedAt = $data['updated_at'] ?: $createdAt;
+
         return [
             ':client_id'       => $data['client_id']       ?: null,
             ':creator_id'      => $data['creator_id']      ?: null,
@@ -633,7 +694,8 @@ if (!empty($filters['force_creator_id'])) {
             ':first_session'   => $data['first_session']   ?: null,
             ':last_session'    => $data['last_session']    ?: null,
             ':renewal_session' => $data['renewal_session'] ?: null,
-            ':created_at'      => $data['created_at']      ?: date('Y-m-d H:i:s'),
+            ':created_at'      => $createdAt,
+            ':updated_at'      => $updatedAt,
             ':renewal_type'    => $data['renewal_type']    ?: null,
             ':receipt_status'  => $data['receipt_status']  ?? 'not_completed',
             ':exercise_time'   => $data['exercise_time']   ?: null,
@@ -645,6 +707,7 @@ if (!empty($filters['force_creator_id'])) {
 
     // Same field mapping as create(), minus :created_at — the UPDATE query has
     // no created_at column in its SET clause, so binding it throws HY093.
+    // :updated_at IS kept.
     private function bindForUpdate(array $data): array {
         $params = $this->bind($data);
         unset($params[':created_at']);

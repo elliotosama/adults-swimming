@@ -9,19 +9,6 @@ $roleLabels = [
 ];
 ?>
 
-<!-- Custom Confirm Modal (delete) -->
-<div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
-    <div style="background:var(--color-background-primary,#fff);border-radius:16px;border:0.5px solid var(--color-border-tertiary);padding:2rem 2rem 1.5rem;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.18);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);">
-        <div style="width:52px;height:52px;border-radius:50%;background:#fff0f0;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:24px;">⚠️</div>
-        <h2 style="text-align:center;font-size:1.15rem;font-weight:600;margin:0 0 .5rem;color:black">حذف المستخدم</h2>
-        <p style="text-align:center;color:black;font-size:.9rem;margin:0 0 1.75rem;line-height:1.6">هل أنت متأكد من حذف هذا المستخدم؟<br>يمكنك إعادة تفعيله لاحقاً.</p>
-        <div style="display:flex;gap:.75rem;">
-            <button onclick="closeModal()" style="flex:1;padding:.7rem;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;font-size:.9rem;color:black;transition:background .15s">إلغاء</button>
-            <button id="confirmBtn" style="flex:1;padding:.7rem;border-radius:8px;border:none;background:#e24b4a;color:#fff;cursor:pointer;font-size:.9rem;font-weight:600;transition:background .15s">حذف</button>
-        </div>
-    </div>
-</div>
-
 <!-- View / Edit Modal — content is fetched via AJAX and injected here -->
 <div id="viewModal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:2rem 1rem;">
     <div id="viewModalPanel" style="background:linear-gradient(145deg,#151f2c,#0d1621);border:1px solid var(--border);border-radius:18px;max-width:820px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.35);animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);position:relative;">
@@ -36,7 +23,6 @@ $roleLabels = [
     from { opacity:0; transform:scale(.92) translateY(8px); }
     to   { opacity:1; transform:scale(1) translateY(0); }
 }
-#confirmModal.open,
 #viewModal.open       { display:flex; }
 #userTableWrap         { transition: opacity .15s ease; }
 
@@ -79,32 +65,6 @@ $roleLabels = [
 </style>
 
 <script>
-// ── Delete confirm modal (unchanged) ──────────────────────────────────────
-let _pendingForm = null;
-
-function showDeleteModal(form) {
-    _pendingForm = form;
-    const modal = document.getElementById('confirmModal');
-    modal.classList.add('open');
-    modal.style.display = 'flex';
-}
-
-function closeModal() {
-    const modal = document.getElementById('confirmModal');
-    modal.classList.remove('open');
-    modal.style.display = 'none';
-    _pendingForm = null;
-}
-
-document.getElementById('confirmBtn').addEventListener('click', function () {
-    if (_pendingForm) _pendingForm.submit();
-    closeModal();
-});
-
-document.getElementById('confirmModal').addEventListener('click', function (e) {
-    if (e.target === this) closeModal();
-});
-
 // ── View / Edit modal ──────────────────────────────────────────────────────
 // Injects HTML fetched via AJAX into #viewModalContent, and re-executes any
 // <script> tags in it — innerHTML alone does NOT run scripts.
@@ -154,7 +114,6 @@ document.getElementById('viewModal').addEventListener('click', function (e) {
 document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
         closeViewModal();
-        closeModal();
     }
 });
 
@@ -411,25 +370,6 @@ document.addEventListener('submit', function (e) {
         return esc((name ?? '?').charAt(0).toUpperCase());
     }
 
-    // ── Action buttons per row ───────────────────────────────────────────
-    function actionButtons(u) {
-        const csrf = esc(document.getElementById('globalCsrfToken').value);
-
-        const deleteBtn = u.id != currentUid ? `
-            <form method="POST"
-                  action="${APP_URL}/admin/user/delete?id=${u.id}"
-                  style="display:inline"
-                  onsubmit="event.preventDefault(); showDeleteModal(this);">
-                <input type="hidden" name="csrf_token" value="${csrf}">
-                <button type="submit" class="btn btn-sm btn-danger">حذف</button>
-            </form>` : '';
-
-        return `
-            <div class="td-actions">
-                <a href="javascript:void(0)" onclick="openViewModal('${APP_URL}/admin/user/show?id=${u.id}')" class="btn btn-sm btn-secondary">عرض</a>
-            </div>`;
-    }
-
     // ── Render users array into #userTableWrap ───────────────────────────
     function renderTable(users) {
         updateCountBadge(users.length)
@@ -466,7 +406,11 @@ document.addEventListener('submit', function (e) {
                         : '<span class="badge badge-danger">معطّل</span>'}
                 </td>
                 <td style="color:var(--muted);font-size:.82rem">${esc(u.last_login || '—')}</td>
-                <td>${actionButtons(u)}</td>
+                <td>
+                    <div class="td-actions">
+                        <a href="javascript:void(0)" onclick="openViewModal('${APP_URL}/admin/user/show?id=${u.id}')" class="btn btn-sm btn-secondary">عرض</a>
+                    </div>
+                </td>
             </tr>`;
         }).join('');
 

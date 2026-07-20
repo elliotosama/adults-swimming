@@ -101,16 +101,33 @@ class ReceiptController {
     // ════════════════════════════════════════════════════════════════════════
     // effectiveCreatedAt
     //
-    // Business-day cutoff: a receipt created before 15:00 (3 PM) is recorded
-    // as belonging to the PREVIOUS calendar day. Only the date component
-    // shifts — the time-of-day is preserved as-is.
+    // Business-day cutoff: a receipt (or transaction — see below) created
+    // between 12:00 AM and 2:59:59 AM is recorded as belonging to the
+    // PREVIOUS calendar day. Anything at 3:00 AM or later is recorded as-is.
+    // Only the date component shifts — the time-of-day is preserved as-is.
     //
-    // e.g. created 2026-07-07 14:00 → stored as 2026-07-06 14:00
-    //      created 2026-07-07 15:00 → stored as 2026-07-07 15:00
+    // e.g. created 2026-07-07 01:45 → stored as 2026-07-06 01:45
+    //      created 2026-07-07 02:59 → stored as 2026-07-06 02:59
+    //      created 2026-07-07 03:00 → stored as 2026-07-07 03:00
+    //      created 2026-07-07 14:00 → stored as 2026-07-07 14:00
+    //
+    // IMPORTANT: this same helper/value must be used for BOTH the receipt's
+    // created_at AND the created_at of any transaction inserted alongside
+    // it (initial payment, later payments, refunds, evidence, admin
+    // adjustments) — otherwise a receipt and its own transactions can land
+    // on different "business days" if the action happens between 12–3 AM.
+    // See TransactionController::effectiveCreatedAt() for the identical
+    // helper used when a transaction is created independently of this
+    // controller (e.g. TransactionController::store()).
+    //
+    // This same helper is also reused for updated_at on receipts/transactions
+    // and for changed_at on audit log rows whenever an update happens, so a
+    // single edit action always lands on one consistent "business day"
+    // across every table it touches.
     // ════════════════════════════════════════════════════════════════════════
     private function effectiveCreatedAt(): string {
         $now = new DateTime();
-        if ((int) $now->format('H') < 15) {
+        if ((int) $now->format('H') < 3) {
             $now->modify('-1 day');
         }
         return $now->format('Y-m-d H:i:s');
@@ -190,6 +207,7 @@ class ReceiptController {
             'type'           => 'evidence',
             'notes'          => 'إثبات دفع إضافي',
             'attachment'     => $path,
+            'created_at'     => $this->effectiveCreatedAt(),
         ]);
     }
 
@@ -1492,8 +1510,11 @@ public function store(): void {
         ]
     );
 
-    // ── Business-day cutoff: receipts created before 15:00 are recorded
-    // under the previous calendar day. See effectiveCreatedAt() for details.
+    // ── Business-day cutoff: receipts (and their transactions) created
+    // between 12:00–2:59 AM are recorded under the previous calendar day.
+    // See effectiveCreatedAt() for details. Compute ONCE and reuse for
+    // both the receipt row and the initial payment transaction so they
+    // never disagree on which business day they belong to.
     $data['created_at'] = $this->effectiveCreatedAt();
 
     $newId = $this->receipts->create($data);
@@ -1513,6 +1534,7 @@ public function store(): void {
             'type'           => 'payment',
             'notes'          => '',
             'attachment'     => $evidencePath,
+            'created_at'     => $data['created_at'],
         ]);
     }
 
@@ -2006,6 +2028,13 @@ public function update(): void {
 
     $db = get_db();
 
+    // ── Business-day cutoff applies to updates too: a single edit action
+    // (this whole update() call) is attributed to one business day, and
+    // that same value is used for the receipt's updated_at AND every audit
+    // log row this action produces below — see effectiveCreatedAt().
+    $updatedAt = $this->effectiveCreatedAt();
+    $data['updated_at'] = $updatedAt;
+
     // ── Fetch current client values BEFORE the update (needed for audit) ──
     $oldClient = [];
     if (!empty($receipt['client_id'])) {
@@ -2082,7 +2111,8 @@ public function update(): void {
         $user['id'],
         $user['role'],
         $oldReceiptAuditable,
-        $newReceiptAuditable
+        $newReceiptAuditable,
+        $updatedAt
     );
 
     // ── Audit: client-level fields (old values fetched from DB above) ──────
@@ -2108,7 +2138,8 @@ public function update(): void {
             $user['id'],
             $user['role'],
             $oldClientAuditable,
-            $newClientAuditable
+            $newClientAuditable,
+            $updatedAt
         );
     }
 
@@ -2135,6 +2166,7 @@ public function update(): void {
                 'notes'          => 'تسوية إدارية / Admin balance adjustment ('
                     . ($diff > 0 ? '+' : '') . number_format($diff, 2) . ')',
                 'attachment'     => null,
+                'created_at'     => $updatedAt,
             ]);
 
             $this->auditLog->log(
@@ -2143,7 +2175,8 @@ public function update(): void {
                 $user['role'],
                 'total_paid',
                 $originalTotalPaid,
-                $newTotalPaid
+                $newTotalPaid,
+                $updatedAt
             );
 
             log_action(
@@ -2167,7 +2200,8 @@ public function update(): void {
                 $user['role'],
                 'transaction_evidence',
                 null,
-                $uploadedEvidencePath . ' (#' . $evidenceTransactionId . ')'
+                $uploadedEvidencePath . ' (#' . $evidenceTransactionId . ')',
+                $updatedAt
             );
         }
     }
@@ -2520,8 +2554,11 @@ public function storeRenewal(): void {
         );
     }
 
-    // ── Business-day cutoff: receipts created before 15:00 are recorded
-    // under the previous calendar day. See effectiveCreatedAt() for details.
+    // ── Business-day cutoff: receipts (and their transactions) created
+    // between 12:00–2:59 AM are recorded under the previous calendar day.
+    // See effectiveCreatedAt() for details. Compute ONCE and reuse for
+    // both the receipt row and the initial payment transaction so they
+    // never disagree on which business day they belong to.
     $data['created_at'] = $this->effectiveCreatedAt();
 
     $duplicateId = $this->recentDuplicateRenewalId($data, (int) $user['id']);
@@ -2555,6 +2592,7 @@ public function storeRenewal(): void {
             'type'           => 'payment',
             'notes'          => '',
             'attachment'     => $evidencePath,
+            'created_at'     => $data['created_at'],
         ]);
     }
 
@@ -2781,6 +2819,10 @@ public function storePayment(): void {
         return;
     }
 
+    // Business-day timestamp shared by this transaction insert and, below,
+    // the branch-reassignment audit log entry (if any) — see effectiveCreatedAt().
+    $actionAt = $this->effectiveCreatedAt();
+
     $evidencePath = $this->handleEvidenceUpload();
 
     $this->transactions->create([
@@ -2791,6 +2833,7 @@ public function storePayment(): void {
         'type'           => 'payment',
         'notes'          => $notes ?: '',
         'attachment'     => $evidencePath,
+        'created_at'     => $actionAt,
     ]);
 
     $planPrice  = (float) ($receipt['plan_price'] ?? 0);
@@ -2803,15 +2846,16 @@ public function storePayment(): void {
     if ($user['role'] === 'branch_manager') {
         $managerBranchId = $this->receipts->getBranchIdByManager($user['id']);
         if ($managerBranchId) {
-            $db->prepare("UPDATE receipts SET branch_id = ? WHERE id = ?")
-               ->execute([$managerBranchId, $receiptId]);
+            $db->prepare("UPDATE receipts SET branch_id = ?, updated_at = ? WHERE id = ?")
+               ->execute([$managerBranchId, $actionAt, $receiptId]);
 
             $this->auditLog->logChanges(
                 $receiptId,
                 $user['id'],
                 $user['role'],
                 ['branch_id' => $receipt['branch_id']],
-                ['branch_id' => $managerBranchId]
+                ['branch_id' => $managerBranchId],
+                $actionAt
             );
         }
     }
@@ -2973,6 +3017,7 @@ public function storePayment(): void {
             'type'           => 'refund',
             'notes'          => $notes ?: '',
             'attachment'     => $evidencePath,
+            'created_at'     => $this->effectiveCreatedAt(),
         ]);
 
         $planPrice  = (float) ($receipt['plan_price'] ?? 0);
@@ -3172,6 +3217,10 @@ public function storePaymentByReceiptId(): void {
         return;
     }
 
+    // Business-day timestamp shared by the transaction insert and the
+    // creator-reassignment audit log entry below — see effectiveCreatedAt().
+    $actionAt = $this->effectiveCreatedAt();
+
     $evidencePath = $this->handleEvidenceUpload();
 
     // Record the transaction — created_by = current user (customer_service)
@@ -3183,21 +3232,23 @@ public function storePaymentByReceiptId(): void {
         'type'           => 'payment',
         'notes'          => $notes ?: '',
         'attachment'     => $evidencePath,
+        'created_at'     => $actionAt,
     ]);
 
     // Reassign receipt creator to the acting user and log the change
     $oldCreatorId = (int)($receipt['creator_id'] ?? 0);
 
     if ($oldCreatorId !== $user['id']) {
-        get_db()->prepare("UPDATE receipts SET creator_id = ? WHERE id = ?")
-                ->execute([$user['id'], $receiptId]);
+        get_db()->prepare("UPDATE receipts SET creator_id = ?, updated_at = ? WHERE id = ?")
+                ->execute([$user['id'], $actionAt, $receiptId]);
 
         $this->auditLog->logChanges(
             $receiptId,
             $user['id'],
             $user['role'],
             ['creator_id' => $oldCreatorId],
-            ['creator_id' => $user['id']]
+            ['creator_id' => $user['id']],
+            $actionAt
         );
     }
 

@@ -181,14 +181,35 @@ class TransactionModel {
         return (float) $row['total_paid'] - (float) $row['total_refunded'];
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // effectiveNow
+    //
+    // Fallback business-day-aware timestamp, used only when the caller
+    // (controller) didn't already supply 'created_at' / 'updated_at' in
+    // $data. Mirrors ReceiptController::effectiveCreatedAt() /
+    // TransactionController::effectiveCreatedAt() exactly: a moment between
+    // 12:00–2:59:59 AM is attributed to the previous calendar day.
+    // ════════════════════════════════════════════════════════════════════════
+    private function effectiveNow(): string {
+        $now = new DateTime();
+        if ((int) $now->format('H') < 3) {
+            $now->modify('-1 day');
+        }
+        return $now->format('Y-m-d H:i:s');
+    }
+
     // ── Create ────────────────────────────────────────────────────────────────
 
     public function create(array $data): int {
+        // ── IMPORTANT: created_at/updated_at are BOUND params, not literal
+        // SQL functions. Previously this used a hardcoded CURDATE(), which
+        // silently ignored the caller's business-day-adjusted 'created_at'
+        // (and dropped the time-of-day entirely). Always bind it instead.
         $stmt = $this->db->prepare("
             INSERT INTO transactions
-                (payment_method, amount, receipt_id, created_by, created_at, attachment, notes, type)
+                (payment_method, amount, receipt_id, created_by, created_at, updated_at, attachment, notes, type)
             VALUES
-                (:payment_method, :amount, :receipt_id, :created_by, CURDATE(), :attachment, :notes, :type)
+                (:payment_method, :amount, :receipt_id, :created_by, :created_at, :updated_at, :attachment, :notes, :type)
         ");
         $stmt->execute($this->bind($data));
         return (int) $this->db->lastInsertId();
@@ -197,6 +218,10 @@ class TransactionModel {
     // ── Update ────────────────────────────────────────────────────────────────
 
     public function update(int $id, array $data): void {
+        // NOTE: created_at is intentionally NOT in the SET clause — editing
+        // an existing transaction must never retroactively change which
+        // business day it was originally recorded under. updated_at IS
+        // updated, using the same business-day cutoff rule (see bind()).
         $stmt = $this->db->prepare("
             UPDATE transactions SET
                 payment_method = :payment_method,
@@ -204,10 +229,11 @@ class TransactionModel {
                 receipt_id     = :receipt_id,
                 notes          = :notes,
                 type           = :type,
-                attachment     = :attachment
+                attachment     = :attachment,
+                updated_at     = :updated_at
             WHERE id = :id
         ");
-        $stmt->execute(array_merge($this->bind($data), [':id' => $id]));
+        $stmt->execute(array_merge($this->bindForUpdate($data), [':id' => $id]));
     }
 
     // ── Delete ────────────────────────────────────────────────────────────────
@@ -220,6 +246,16 @@ class TransactionModel {
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private function bind(array $data): array {
+        // created_at: prefer whatever the controller computed via its own
+        // effectiveCreatedAt(); fall back to this model's own business-day
+        // logic if the caller didn't provide one.
+        $createdAt = $data['created_at'] ?: $this->effectiveNow();
+
+        // updated_at: prefer an explicit value; otherwise fall back to
+        // created_at on insert (so a freshly created row's updated_at
+        // matches its created_at), or to effectiveNow() on update.
+        $updatedAt = $data['updated_at'] ?: $createdAt;
+
         return [
             ':payment_method' => $data['payment_method'] ?? null,
             ':amount'         => $data['amount']         ?? null,
@@ -228,6 +264,17 @@ class TransactionModel {
             ':attachment'     => $data['attachment']     ?? null,
             ':notes'          => $data['notes']          ?? null,
             ':type'           => $data['type']           ?? 'payment',
+            ':created_at'     => $createdAt,
+            ':updated_at'     => $updatedAt,
         ];
+    }
+
+    // Same field mapping as create(), minus :created_at — the UPDATE query
+    // has no created_at column in its SET clause, so binding it throws
+    // HY093. updated_at IS kept.
+    private function bindForUpdate(array $data): array {
+        $params = $this->bind($data);
+        unset($params[':created_at']);
+        return $params;
     }
 }

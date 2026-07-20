@@ -240,14 +240,13 @@ total paid 531
 - [ ] include client name in receipt url and make the logo appearn when i send it whatsapp
 - [ ] check access in edit
 - [ ] check edit functionality
-
 - [ ] check action buttons in branches employees and captains pages
-
+  
 - [ ] confirmation message should apear when in create or renew a receipt
+
+
 - [x] don't appear disabled employees and branches in index page in receipts
 - [x] make the box of branches bigger
-
-
 - [x] in excel appear client id and plan price
 - [x] captain nickname appear when create or renew and in index page
 - [x] pay less than 400
@@ -258,3 +257,24 @@ total paid 531
 - [search works] does not make search with client names
 - [ ] filters
 - [out of scope] search with captains in receipts
+
+
+
+- [ ] client phone number does not appear correctly
+- [ ] receipts renewal type
+- [ ] check receipt edit and the edit appear in the pdf
+- [ ] i don't understand 7
+- [ ] last session is empty
+- [ ] does not appear confirmation message
+- [ ] display days in receipts index page
+- [ ] excel appear client number and plan price
+- [ ] it search with accounts in reciepts
+- [ ] disabled branches and accounts 
+- [ ] branch box in index page
+- [ ] action buttons
+- [ ] check filters
+- [ ] can not search with captain
+- [ ] branch manager can have multible access
+- [ ] nickname in captains does not be required
+- [ ] remove the bar in edit
+- [ ] image appear on top of the page
