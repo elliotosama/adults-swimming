@@ -1856,22 +1856,33 @@ public function edit(): void {
 
     $captains = $this->captainsForBranch((int) ($receipt['branch_id'] ?? 0));
 
+    // ── Admin-only: active users list, for the "المنشئ" (creator) reassignment
+    // dropdown. Inactive users are intentionally excluded — a receipt should
+    // never be reassigned to an account that's been disabled.
+    $creators = [];
+    if ($role === 'admin') {
+        $creators = $db->query("
+            SELECT id, username FROM users WHERE is_active = 1 ORDER BY username
+        ")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     $this->renderView('edit', array_merge($this->formDropdowns($allowedBranchIds), [
         'pageTitle'  => 'تعديل الإيصال',
         'breadcrumb' => 'لوحة التحكم · الإيصالات · تعديل',
         'receipt'    => $receipt,
         'captains'   => $captains,
+        'creators'   => $creators,
         'errors'     => [],
         'isEdit'     => true,
         'isAdmin'    => ($role === 'admin'),
     ]));
 }
-
     // ════════════════════════════════════════════════════════════════════════
     // UPDATE
     // ════════════════════════════════════════════════════════════════════════
 
     
+   
     public function update(): void {
     auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
@@ -1893,6 +1904,8 @@ public function edit(): void {
     $isRestrictedScheduleEditor = $isCustomerService || $isBranchManager || $isAreaManager;
     $allowedBranchIds = null;
 
+    $db = get_db();
+
     if ($isBranchManager) {
         $allowedBranchIds = $this->managerBranchIds();
         if (!in_array((int) ($receipt['branch_id'] ?? 0), $allowedBranchIds, true)) {
@@ -1908,9 +1921,34 @@ public function edit(): void {
     }
 
     $data['client_id']      = (int)    $receipt['client_id'];
-    $data['creator_id']     = (int)    $receipt['creator_id'];
     $data['receipt_status'] = (string) $receipt['receipt_status'];
     $data['pdf_path']       = (string) ($receipt['pdf_path'] ?? '');
+
+    // ── Admin-only: reassign the receipt's creator ──────────────────────────
+    // $data['creator_id'] was already parsed from $_POST by parseForm(). For
+    // every non-admin role we discard whatever was submitted (their form
+    // never renders this field to begin with) and keep the existing creator.
+    // For admin, a submitted creator_id different from the current one is
+    // treated as an intentional reassignment — but only if it points to a
+    // real, ACTIVE user; otherwise it's rejected below via $errors and the
+    // original creator is kept so nothing silently breaks.
+    $submittedCreatorId   = (int) ($data['creator_id'] ?? 0);
+    $adminCreatorOverride = null;
+    $creatorOverrideError = null;
+
+    if ($isAdmin && $submittedCreatorId > 0 && $submittedCreatorId !== (int) $receipt['creator_id']) {
+        $activeUserStmt = $db->prepare("SELECT id FROM users WHERE id = ? AND is_active = 1 LIMIT 1");
+        $activeUserStmt->execute([$submittedCreatorId]);
+        if ($activeUserStmt->fetchColumn()) {
+            $adminCreatorOverride = $submittedCreatorId;
+        } else {
+            $creatorOverrideError = 'المستخدم المحدد كمنشئ غير صالح أو غير نشط.';
+        }
+    }
+
+    $data['creator_id'] = ($isAdmin && $adminCreatorOverride !== null)
+        ? $adminCreatorOverride
+        : (int) $receipt['creator_id'];
 
     // Admin may change renewal_type from the form; every other role keeps
     // the existing value (their form never submits it as an editable field).
@@ -2010,6 +2048,9 @@ public function edit(): void {
     if ($createdAtOverrideError) {
         $errors[] = $createdAtOverrideError;
     }
+    if ($creatorOverrideError) {
+        $errors[] = $creatorOverrideError;
+    }
 
     if (empty($errors)) {
         $selectedPlanPrice = $this->planPriceById($data['plan_id']);
@@ -2046,14 +2087,25 @@ public function edit(): void {
                 'gender' => $data['client_gender'],
             ]);
 
-        // Preserve the admin's submitted created_at / renewal_type in the
-        // re-rendered form so a validation error doesn't silently discard
-        // what they just typed/selected.
+        // Preserve the admin's submitted created_at / renewal_type / creator_id
+        // in the re-rendered form so a validation error doesn't silently
+        // discard what they just typed/selected.
         if ($isAdmin) {
             $editReceipt['renewal_type'] = $data['renewal_type'];
             if ($adminCreatedAtOverride !== null) {
                 $editReceipt['created_at'] = $adminCreatedAtOverride;
             }
+            // Re-show whatever creator was actually submitted (even if it
+            // failed validation) so admin can see/correct it, rather than
+            // silently reverting the dropdown to the original creator.
+            $editReceipt['creator_id'] = $submittedCreatorId ?: $receipt['creator_id'];
+        }
+
+        $creators = [];
+        if ($isAdmin) {
+            $creators = $db->query("
+                SELECT id, username FROM users WHERE is_active = 1 ORDER BY username
+            ")->fetchAll(PDO::FETCH_ASSOC);
         }
 
         $this->flash('flash_error', implode('<br>', $errors));
@@ -2062,14 +2114,13 @@ public function edit(): void {
             'breadcrumb' => 'لوحة التحكم · الإيصالات · تعديل',
             'receipt'    => $editReceipt,
             'captains'   => $this->captainsForBranch((int) ($editReceipt['branch_id'] ?? 0)),
+            'creators'   => $creators,
             'errors'     => $errors,
             'isEdit'     => true,
             'isAdmin'    => $isAdmin,
         ]));
         return;
     }
-
-    $db = get_db();
 
     // ── Business-day cutoff applies to updates too: a single edit action
     // (this whole update() call) is attributed to one business day, and
@@ -2140,10 +2191,12 @@ public function edit(): void {
     }
 
     // ── Audit: receipt-level fields (only columns that receipts table stores) ──
+    // 'creator_id' is included here so an admin reassignment is captured by
+    // the same generic old-vs-new diff logging as branch_id/captain_id/etc.
     $receiptAuditFields = [
         'branch_id', 'captain_id', 'plan_id', 'level',
         'first_session', 'last_session', 'renewal_session', 'renewal_type',
-        'exercise_time',
+        'exercise_time', 'creator_id',
     ];
 
     $oldReceiptAuditable = array_intersect_key($receipt, array_flip($receiptAuditFields));
@@ -2233,7 +2286,11 @@ public function edit(): void {
     // ── Admin-only: apply + audit a manual created_at override ─────────────
     // This changes which business day the receipt is attributed to. It does
     // NOT touch updated_at logic or any of the audit rows written above —
-    // it's applied as its own separate, explicit override.
+    // it's applied as its own separate, explicit override. It ALSO pushes
+    // the same date/time onto the receipt's very first transaction row (the
+    // original payment recorded at receipt creation), so the receipt and
+    // its opening transaction never disagree on which business day they
+    // belong to after a manual backdate/forward-date correction.
     if ($isAdmin && $adminCreatedAtOverride !== null) {
         $oldCreatedAt = $receipt['created_at'] ?? null;
         if ($oldCreatedAt !== $adminCreatedAtOverride) {
@@ -2248,6 +2305,30 @@ public function edit(): void {
             );
         }
         $data['created_at_override'] = $adminCreatedAtOverride;
+
+        $firstTxStmt = $db->prepare("
+            SELECT id, created_at FROM transactions
+            WHERE receipt_id = ?
+            ORDER BY id ASC
+            LIMIT 1
+        ");
+        $firstTxStmt->execute([$id]);
+        $firstTx = $firstTxStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($firstTx && $firstTx['created_at'] !== $adminCreatedAtOverride) {
+            $db->prepare("UPDATE transactions SET created_at = ? WHERE id = ?")
+               ->execute([$adminCreatedAtOverride, $firstTx['id']]);
+
+            $this->auditLog->log(
+                $id,
+                $user['id'],
+                $user['role'],
+                'first_transaction_created_at',
+                $firstTx['created_at'],
+                $adminCreatedAtOverride,
+                $updatedAt
+            );
+        }
     }
 
     $uploadedEvidencePath = null;
@@ -2285,7 +2366,7 @@ public function edit(): void {
     $this->flash('flash_success', 'تم تحديث الإيصال بنجاح');
     $this->redirectAfterReceiptUpdate($id);
 }
-    
+
     // ════════════════════════════════════════════════════════════════════════
     // DESTROY
     // ════════════════════════════════════════════════════════════════════════

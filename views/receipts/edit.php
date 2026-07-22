@@ -1,12 +1,18 @@
 <?php
 // views/receipts/edit.php
-require ROOT . '/views/includes/layout_top.php';
+//
+// NOTE: this page is only ever loaded inside the "receiptEditOverlay" iframe
+// from views/receipts/index.php (window.loadEditModal()). It intentionally
+// does NOT include the shared layout_top.php / layout_bottom.php (which is
+// where the site nav lives) — a nav bar inside that iframe was redundant on
+// top of the parent page's own nav. It's now a fully standalone document.
 
 /*
  * Role gate
  * ─────────
  * Admin:            full edit access to everything, plus receipt created_at
- *                    (business-day override) and renewal_type.
+ *                    (business-day override), renewal_type, and creator
+ *                    reassignment.
  * customer_service: can edit only branch_id, captain_id, level,
  *                    first_session, and exercise_time. Everything else is read-only.
  * branch_manager:   can edit only captain_id, level, first_session,
@@ -22,6 +28,7 @@ require ROOT . '/views/includes/layout_top.php';
  *   total_paid (§4 — admin may override; see note below)
  *   created_at (§3 — admin-only business-day override; see note below)
  *   renewal_type (§3 — admin-only; see note below)
+ *   creator_id (§3 — admin-only; see note below)
  *
  * Fields editable by customer_service:
  *   branch_id, captain_id, level, first_session, exercise_time           (§2 + §3)
@@ -43,11 +50,19 @@ require ROOT . '/views/includes/layout_top.php';
  *   attributed to. The controller writes the old/new values to the audit
  *   log under the 'created_at' field and passes the value through to
  *   ReceiptModel::update() as 'created_at_override', which is the only
- *   thing that makes the UPDATE query touch that column at all.
+ *   thing that makes the UPDATE query touch that column at all. It ALSO
+ *   pushes the same value onto the receipt's first (earliest) transaction
+ *   row's created_at, so the receipt and its opening transaction never
+ *   disagree on which business day they belong to.
  *
  *   renewal_type — one of new / current_renewal / previous_renewal.
  *   Flows through the existing receipt-level audit log like any other
  *   receipts-table column.
+ *
+ *   creator_id — reassigns which user is credited as the receipt's
+ *   creator. Only active users (is_active = 1) can be selected. Flows
+ *   through the same generic receipt-level audit log as branch_id/
+ *   captain_id/etc.
  */
 $isAdmin = $isAdmin ?? false;
 $isEdit  = $isEdit  ?? true;
@@ -97,6 +112,17 @@ if (!empty($receipt['created_at'])) {
 
 $currentRenewalType = (string) ($receipt['renewal_type'] ?? 'new');
 ?>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تعديل الإيصال #<?= (int)$receipt['id'] ?></title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
 <style>
 /* ── Shared dark theme (same palette as index.php / manage.php) ── */
 :root {
@@ -744,8 +770,8 @@ select.form-control:disabled {
         <!-- ══════════════════════════════════════════
              § 3 — الجلسات
              customer_service / branch_manager: first_session / exercise_time only.
-             Admin-only extras here: created_at (business-day override) and
-             renewal_type.
+             Admin-only extras here: created_at (business-day override),
+             renewal_type, and creator (المنشئ).
         ══════════════════════════════════════════ -->
         <div class="form-section">
             <div class="section-header">
@@ -807,12 +833,14 @@ select.form-control:disabled {
                     </div>
 
                     <?php if ($isAdmin): ?>
-                    <!-- تاريخ إنشاء الإيصال — admin-only business-day override -->
+                    <!-- تاريخ إنشاء الإيصال — admin-only business-day override.
+                         Also backdates/forward-dates the receipt's first transaction
+                         to the same value on save — see ReceiptController::update(). -->
                     <div class="form-field">
                         <label class="form-label">تاريخ إنشاء الإيصال</label>
                         <input type="datetime-local" name="created_at" class="form-control"
                                value="<?= htmlspecialchars($createdAtValue) ?>">
-                        <span class="field-hint">تعديل هذا التاريخ يغيّر اليوم المحاسبي الذي يُنسب إليه الإيصال</span>
+                        <span class="field-hint">تعديل هذا التاريخ يغيّر اليوم المحاسبي الذي يُنسب إليه الإيصال، وسيُطبَّق نفس التاريخ على أول معاملة دفع في هذا الإيصال</span>
                     </div>
                     <?php endif; ?>
 
@@ -828,6 +856,44 @@ select.form-control:disabled {
                     </div>
                     <?php else: ?>
                         <input type="hidden" name="renewal_type" value="<?= htmlspecialchars($currentRenewalType) ?>">
+                    <?php endif; ?>
+
+                    <?php if ($isAdmin): ?>
+                    <!-- المنشئ — admin-only reassignment. Only active users are
+                         offered as options (fetched in the controller). -->
+                    <div class="form-field">
+                        <label class="form-label">المنشئ <span class="req">*</span></label>
+                        <select name="creator_id" class="form-control" required>
+                            <?php
+                            $currentCreatorId = (string) ($receipt['creator_id'] ?? '');
+                            $creatorList      = $creators ?? [];
+                            $creatorFound     = false;
+                            foreach ($creatorList as $u) {
+                                if ((string) $u['id'] === $currentCreatorId) {
+                                    $creatorFound = true;
+                                    break;
+                                }
+                            }
+                            ?>
+                            <?php if (!$creatorFound && $currentCreatorId !== ''): ?>
+                                <!-- Current creator is inactive / not in the active-users list —
+                                     keep them selectable so the form doesn't silently reassign
+                                     the receipt away from them just by loading the page. -->
+                                <option value="<?= htmlspecialchars($currentCreatorId) ?>" selected>
+                                    <?= htmlspecialchars($receipt['creator_name'] ?? ('#' . $currentCreatorId)) ?> (غير نشط)
+                                </option>
+                            <?php endif; ?>
+                            <?php foreach ($creatorList as $u): ?>
+                                <option value="<?= $u['id'] ?>"
+                                    <?= (string)$u['id'] === $currentCreatorId ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($u['username']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="field-hint">تغيير المنشئ سيُسجَّل في سجل التعديلات</span>
+                    </div>
+                    <?php else: ?>
+                        <input type="hidden" name="creator_id" value="<?= htmlspecialchars((string)($receipt['creator_id'] ?? '')) ?>">
                     <?php endif; ?>
 
                     <div class="form-field full">
@@ -1281,4 +1347,5 @@ select.form-control:disabled {
 })();
 </script>
 
-<?php require ROOT . '/views/includes/layout_bottom.php'; ?>
+</body>
+</html>
