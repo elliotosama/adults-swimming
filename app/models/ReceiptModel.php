@@ -422,266 +422,313 @@ public function create(array $data): int {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private function buildWhere(array $filters): array {
-        $conditions = [];
-        $params     = [];
+private function buildWhere(array $filters): array {
+    $conditions = [];
+    $params     = [];
 
-        if (!empty($filters['search'])) {
-            $searchTerm    = trim((string) $filters['search']);
-            $searchDigits  = ctype_digit($searchTerm) ? (int) $searchTerm : null;
+    if (!empty($filters['search'])) {
+        $searchTerm    = trim((string) $filters['search']);
+        $searchDigits  = ctype_digit($searchTerm) ? (int) $searchTerm : null;
 
-            // Matches, in order: client name, client phone, client's own ID,
-            // the receipt's raw numeric ID, and the formatted receipt_ref
-            // (e.g. "260500042"). A single query so it works uniformly for
-            // both the server-rendered page load and the AJAX live search.
-            $conditions[] = "(
-                c.client_name  LIKE :search_name
-                OR c.phone     LIKE :search_phone
-                OR r.client_id = :search_client_id
-                OR r.id        = :search_receipt_id
-                OR r.receipt_ref LIKE :search_receipt_ref
-            )";
-            $params[':search_name']         = '%' . $searchTerm . '%';
-            $params[':search_phone']        = '%' . $searchTerm . '%';
-            $params[':search_client_id']    = $searchDigits ?? 0;
-            $params[':search_receipt_id']   = $searchDigits ?? 0;
-            $params[':search_receipt_ref']  = '%' . $searchTerm . '%';
+        $conditions[] = "(
+            c.client_name  LIKE :search_name
+            OR c.phone     LIKE :search_phone
+            OR r.client_id = :search_client_id
+            OR r.id        = :search_receipt_id
+            OR r.receipt_ref LIKE :search_receipt_ref
+        )";
+        $params[':search_name']         = '%' . $searchTerm . '%';
+        $params[':search_phone']        = '%' . $searchTerm . '%';
+        $params[':search_client_id']    = $searchDigits ?? 0;
+        $params[':search_receipt_id']   = $searchDigits ?? 0;
+        $params[':search_receipt_ref']  = '%' . $searchTerm . '%';
+    }
+
+    if (!empty($filters['first_session_from'])) {
+        $conditions[]       = "r.first_session >= :fs_from";
+        $params[':fs_from'] = $filters['first_session_from'];
+    }
+    if (!empty($filters['first_session_to'])) {
+        $conditions[]     = "r.first_session <= :fs_to";
+        $params[':fs_to'] = $filters['first_session_to'];
+    }
+
+    if (!empty($filters['last_session_from'])) {
+        $conditions[]       = "r.last_session >= :ls_from";
+        $params[':ls_from'] = $filters['last_session_from'];
+    }
+    if (!empty($filters['last_session_to'])) {
+        $conditions[]     = "r.last_session <= :ls_to";
+        $params[':ls_to'] = $filters['last_session_to'];
+    }
+
+    $createdFrom = $this->normalizeDate($filters['created_from'] ?? '');
+    $createdTo   = $this->normalizeDate($filters['created_to'] ?? '');
+
+    if ($createdFrom && !$createdTo) {
+        $createdTo = $createdFrom;
+    }
+
+    if ($createdFrom && $createdTo && $createdFrom > $createdTo) {
+        [$createdFrom, $createdTo] = [$createdTo, $createdFrom];
+    }
+
+    $selectedCreatorId = !empty($filters['creator_id'])
+        ? (int) $filters['creator_id']
+        : null;
+
+    // "creator_created_only" checked → strict mode: this creator's OWN
+    // created receipts only. No "touched via transaction/audit" logic
+    // applies anywhere, including the date-range branch below.
+    $strictCreatedOnly = $selectedCreatorId !== null
+        && !empty($filters['creator_created_only']);
+
+    $creatorActivityIsIncluded = $selectedCreatorId !== null && !$strictCreatedOnly;
+
+    if ($createdFrom || $createdTo) {
+        $receiptDateParts = [];
+        $transactionDateParts = [];
+        $auditDateParts = [];
+
+        if ($createdFrom) {
+            $receiptDateParts[] = "r.created_at >= :cr_from_receipt";
+            $transactionDateParts[] = "t_activity.created_at >= :cr_from_transaction";
+            $auditDateParts[] = "al_activity.changed_at >= :cr_from_audit";
+            $params[':cr_from_receipt'] = $createdFrom;
+            $params[':cr_from_transaction'] = $createdFrom;
+            $params[':cr_from_audit'] = $createdFrom;
+        }
+        if ($createdTo) {
+            $createdToExclusive = (new DateTimeImmutable($createdTo))->modify('+1 day')->format('Y-m-d');
+            $receiptDateParts[] = "r.created_at < :cr_to_exclusive_receipt";
+            $transactionDateParts[] = "t_activity.created_at < :cr_to_exclusive_transaction";
+            $auditDateParts[] = "al_activity.changed_at < :cr_to_exclusive_audit";
+            $params[':cr_to_exclusive_receipt'] = $createdToExclusive;
+            $params[':cr_to_exclusive_transaction'] = $createdToExclusive;
+            $params[':cr_to_exclusive_audit'] = $createdToExclusive;
         }
 
-        if (!empty($filters['first_session_from'])) {
-            $conditions[]       = "r.first_session >= :fs_from";
-            $params[':fs_from'] = $filters['first_session_from'];
-        }
-        if (!empty($filters['first_session_to'])) {
-            $conditions[]     = "r.first_session <= :fs_to";
-            $params[':fs_to'] = $filters['first_session_to'];
-        }
+        $receiptDateWhere = implode(' AND ', $receiptDateParts);
+        $transactionDateWhere = implode(' AND ', $transactionDateParts);
+        $auditDateWhere = implode(' AND ', $auditDateParts);
 
-        if (!empty($filters['last_session_from'])) {
-            $conditions[]       = "r.last_session >= :ls_from";
-            $params[':ls_from'] = $filters['last_session_from'];
-        }
-        if (!empty($filters['last_session_to'])) {
-            $conditions[]     = "r.last_session <= :ls_to";
-            $params[':ls_to'] = $filters['last_session_to'];
-        }
-
-        $createdFrom = $this->normalizeDate($filters['created_from'] ?? '');
-        $createdTo   = $this->normalizeDate($filters['created_to'] ?? '');
-
-        if ($createdFrom && !$createdTo) {
-            $createdTo = $createdFrom;
-        }
-
-        if ($createdFrom && $createdTo && $createdFrom > $createdTo) {
-            [$createdFrom, $createdTo] = [$createdTo, $createdFrom];
-        }
-
-        $selectedCreatorId = !empty($filters['creator_id'])
-            ? (int) $filters['creator_id']
-            : null;
-        $creatorActivityIsIncluded = $selectedCreatorId !== null
-            && empty($filters['creator_created_only']);
-
-        if ($createdFrom || $createdTo) {
-            $receiptDateParts = [];
-            $transactionDateParts = [];
-            $auditDateParts = [];
-
-            if ($createdFrom) {
-                $receiptDateParts[] = "r.created_at >= :cr_from_receipt";
-                $transactionDateParts[] = "t_activity.created_at >= :cr_from_transaction";
-                $auditDateParts[] = "al_activity.changed_at >= :cr_from_audit";
-                $params[':cr_from_receipt'] = $createdFrom;
-                $params[':cr_from_transaction'] = $createdFrom;
-                $params[':cr_from_audit'] = $createdFrom;
-            }
-            if ($createdTo) {
-                $createdToExclusive = (new DateTimeImmutable($createdTo))->modify('+1 day')->format('Y-m-d');
-                $receiptDateParts[] = "r.created_at < :cr_to_exclusive_receipt";
-                $transactionDateParts[] = "t_activity.created_at < :cr_to_exclusive_transaction";
-                $auditDateParts[] = "al_activity.changed_at < :cr_to_exclusive_audit";
-                $params[':cr_to_exclusive_receipt'] = $createdToExclusive;
-                $params[':cr_to_exclusive_transaction'] = $createdToExclusive;
-                $params[':cr_to_exclusive_audit'] = $createdToExclusive;
-            }
-
-            $receiptDateWhere = implode(' AND ', $receiptDateParts);
-            $transactionDateWhere = implode(' AND ', $transactionDateParts);
-            $auditDateWhere = implode(' AND ', $auditDateParts);
-            if ($creatorActivityIsIncluded) {
-                // When filtering by employee and date, both criteria must refer
-                // to the same action.  For example, an update by Employee A
-                // today must not make a receipt appear for Employee B, who only
-                // created or touched it on a different day.
-                $conditions[] = "(
-                    (r.creator_id = :creator_id_date AND {$receiptDateWhere})
-                    OR EXISTS (
-                        SELECT 1
-                        FROM transactions t_activity
-                        WHERE t_activity.receipt_id = r.id
-                          AND t_activity.created_by = :creator_id_tx_date
-                          AND {$transactionDateWhere}
-                    )
-                    OR EXISTS (
-                        SELECT 1
-                        FROM receipt_audit_log al_activity
-                        WHERE al_activity.receipt_id = r.id
-                          AND al_activity.changed_by = :creator_id_al_date
-                          AND {$auditDateWhere}
-                    )
-                )";
-                $params[':creator_id_date']    = $selectedCreatorId;
-                $params[':creator_id_tx_date'] = $selectedCreatorId;
-                $params[':creator_id_al_date'] = $selectedCreatorId;
-            } else {
-                $conditions[] = "(
-                    ({$receiptDateWhere})
-                    OR EXISTS (
-                        SELECT 1
-                        FROM transactions t_activity
-                        WHERE t_activity.receipt_id = r.id
-                          AND {$transactionDateWhere}
-                    )
-                    OR EXISTS (
-                        SELECT 1
-                        FROM receipt_audit_log al_activity
-                        WHERE al_activity.receipt_id = r.id
-                          AND {$auditDateWhere}
-                    )
-                )";
-            }
+        if ($strictCreatedOnly) {
+            // Strict: only this creator's own receipt.created_at matters —
+            // no OR'ing in transaction/audit activity by anyone.
+            $conditions[] = "({$receiptDateWhere})";
         } elseif ($creatorActivityIsIncluded) {
-            // ── BUGFIX ──────────────────────────────────────────────────────
-            // No date range was supplied, but a creator IS selected with
-            // "creator_created_only" unchecked (the default "created OR
-            // touched" mode). Previously this case fell through both the
-            // block above (skipped, since $createdFrom/$createdTo are empty)
-            // AND the later `elseif (!empty($filters['creator_id']) &&
-            // !$creatorActivityIsIncluded)` block below (skipped, since
-            // $creatorActivityIsIncluded is true here) — meaning NO creator
-            // condition was ever added to the query, and searching by
-            // creator alone silently returned every receipt regardless of
-            // who created/touched it. This branch restores creator-only
-            // filtering (created by OR touched via a transaction OR touched
-            // via an audit log entry) for the no-date-range case.
             $conditions[] = "(
-                r.creator_id = :creator_id_only
+                (r.creator_id = :creator_id_date AND {$receiptDateWhere})
                 OR EXISTS (
-                    SELECT 1 FROM transactions t_activity_only
-                    WHERE t_activity_only.receipt_id = r.id
-                      AND t_activity_only.created_by = :creator_id_tx_only
+                    SELECT 1
+                    FROM transactions t_activity
+                    WHERE t_activity.receipt_id = r.id
+                      AND t_activity.created_by = :creator_id_tx_date
+                      AND {$transactionDateWhere}
                 )
                 OR EXISTS (
-                    SELECT 1 FROM receipt_audit_log al_activity_only
-                    WHERE al_activity_only.receipt_id = r.id
-                      AND al_activity_only.changed_by = :creator_id_al_only
+                    SELECT 1
+                    FROM receipt_audit_log al_activity
+                    WHERE al_activity.receipt_id = r.id
+                      AND al_activity.changed_by = :creator_id_al_date
+                      AND {$auditDateWhere}
                 )
             )";
-            $params[':creator_id_only']    = $selectedCreatorId;
-            $params[':creator_id_tx_only'] = $selectedCreatorId;
-            $params[':creator_id_al_only'] = $selectedCreatorId;
+            $params[':creator_id_date']    = $selectedCreatorId;
+            $params[':creator_id_tx_date'] = $selectedCreatorId;
+            $params[':creator_id_al_date'] = $selectedCreatorId;
+        } else {
+            $conditions[] = "(
+                ({$receiptDateWhere})
+                OR EXISTS (
+                    SELECT 1
+                    FROM transactions t_activity
+                    WHERE t_activity.receipt_id = r.id
+                      AND {$transactionDateWhere}
+                )
+                OR EXISTS (
+                    SELECT 1
+                    FROM receipt_audit_log al_activity
+                    WHERE al_activity.receipt_id = r.id
+                      AND {$auditDateWhere}
+                )
+            )";
         }
+    } elseif ($creatorActivityIsIncluded) {
+        $conditions[] = "(
+            r.creator_id = :creator_id_only
+            OR EXISTS (
+                SELECT 1 FROM transactions t_activity_only
+                WHERE t_activity_only.receipt_id = r.id
+                  AND t_activity_only.created_by = :creator_id_tx_only
+            )
+            OR EXISTS (
+                SELECT 1 FROM receipt_audit_log al_activity_only
+                WHERE al_activity_only.receipt_id = r.id
+                  AND al_activity_only.changed_by = :creator_id_al_only
+            )
+        )";
+        $params[':creator_id_only']    = $selectedCreatorId;
+        $params[':creator_id_tx_only'] = $selectedCreatorId;
+        $params[':creator_id_al_only'] = $selectedCreatorId;
+    }
+    // NOTE: when $strictCreatedOnly is true and there's no date range,
+    // nothing needs adding here — the plain "r.creator_id = :creator_id"
+    // condition below (creator_created_only branch) is sufficient on its own.
 
-        if (!empty($filters['statuses']) && is_array($filters['statuses'])) {
-            $placeholders = [];
-            foreach ($filters['statuses'] as $i => $s) {
-                $key            = ":status_{$i}";
-                $placeholders[] = $key;
-                $params[$key]   = $s;
-            }
-            $conditions[] = "r.receipt_status IN (" . implode(',', $placeholders) . ")";
+    if (!empty($filters['statuses']) && is_array($filters['statuses'])) {
+        $placeholders = [];
+        foreach ($filters['statuses'] as $i => $s) {
+            $key            = ":status_{$i}";
+            $placeholders[] = $key;
+            $params[$key]   = $s;
         }
+        $conditions[] = "r.receipt_status IN (" . implode(',', $placeholders) . ")";
+    }
 
-        // ── NEW: renewal_type filter ──────────────────────────────────────────
-        if (!empty($filters['renewal_types']) && is_array($filters['renewal_types'])) {
-            $placeholders = [];
-            foreach ($filters['renewal_types'] as $i => $rt) {
-                $key            = ":rtype_{$i}";
-                $placeholders[] = $key;
-                $params[$key]   = $rt;
-            }
-            $conditions[] = "r.renewal_type IN (" . implode(',', $placeholders) . ")";
+    if (!empty($filters['renewal_types']) && is_array($filters['renewal_types'])) {
+        $placeholders = [];
+        foreach ($filters['renewal_types'] as $i => $rt) {
+            $key            = ":rtype_{$i}";
+            $placeholders[] = $key;
+            $params[$key]   = $rt;
         }
+        $conditions[] = "r.renewal_type IN (" . implode(',', $placeholders) . ")";
+    }
 
-        // ── NEW: has_refund filter ────────────────────────────────────────────
-        if (!empty($filters['has_refund'])) {
-            $conditions[] = "EXISTS (SELECT 1 FROM transactions tr WHERE tr.receipt_id = r.id AND tr.type = 'refund')";
-        }
+    if (!empty($filters['has_refund'])) {
+        $conditions[] = "EXISTS (SELECT 1 FROM transactions tr WHERE tr.receipt_id = r.id AND tr.type = 'refund')";
+    }
 
-        if (!empty($filters['has_updates'])) {
+    // ════════════════════════════════════════════════════════════════
+    // has_updates / has_no_updates
+    //
+    // When a specific creator is selected, these are scoped to THAT
+    // creator's own activity:
+    //   - "has an audit log record" → an audit row whose changed_by is
+    //     this creator.
+    //   - "made a second transaction" → this creator authored a
+    //     transaction row on the receipt that is NOT the receipt's very
+    //     first (lowest-id) transaction.
+    // This scoping applies whether or not "creator_created_only" is
+    // checked — if it IS checked, it combines (AND) with the
+    // r.creator_id = :creator_id condition below, so the end result is
+    // "receipts this creator made, that also show his own follow-up
+    // activity." With no creator selected, falls back to the original
+    // receipt-wide behavior.
+    // ════════════════════════════════════════════════════════════════
+
+    if (!empty($filters['has_updates'])) {
+        if ($selectedCreatorId !== null) {
+            $conditions[] = "(
+                EXISTS (
+                    SELECT 1 FROM receipt_audit_log al_upd
+                    WHERE al_upd.receipt_id = r.id
+                      AND al_upd.changed_by = :has_updates_creator_al
+                )
+                OR EXISTS (
+                    SELECT 1 FROM transactions t_upd
+                    WHERE t_upd.receipt_id = r.id
+                      AND t_upd.created_by = :has_updates_creator_tx
+                      AND t_upd.id <> (
+                          SELECT MIN(t_first.id) FROM transactions t_first
+                          WHERE t_first.receipt_id = r.id
+                      )
+                )
+            )";
+            $params[':has_updates_creator_al'] = $selectedCreatorId;
+            $params[':has_updates_creator_tx'] = $selectedCreatorId;
+        } else {
             $conditions[] = "
                 (EXISTS (SELECT 1 FROM receipt_audit_log al WHERE al.receipt_id = r.id)
                  OR
                  (SELECT COUNT(*) FROM transactions t WHERE t.receipt_id = r.id) >= 2)
             ";
         }
+    }
 
-        if (!empty($filters['has_no_updates'])) {
+    if (!empty($filters['has_no_updates'])) {
+        if ($selectedCreatorId !== null) {
+            $conditions[] = "(
+                NOT EXISTS (
+                    SELECT 1 FROM receipt_audit_log al_noupd
+                    WHERE al_noupd.receipt_id = r.id
+                      AND al_noupd.changed_by = :has_no_updates_creator_al
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM transactions t_noupd
+                    WHERE t_noupd.receipt_id = r.id
+                      AND t_noupd.created_by = :has_no_updates_creator_tx
+                      AND t_noupd.id <> (
+                          SELECT MIN(t_first2.id) FROM transactions t_first2
+                          WHERE t_first2.receipt_id = r.id
+                      )
+                )
+            )";
+            $params[':has_no_updates_creator_al'] = $selectedCreatorId;
+            $params[':has_no_updates_creator_tx'] = $selectedCreatorId;
+        } else {
             $conditions[] = "
                 (NOT EXISTS (SELECT 1 FROM receipt_audit_log al WHERE al.receipt_id = r.id)
                  AND
                  (SELECT COUNT(*) FROM transactions t WHERE t.receipt_id = r.id) < 2)
             ";
         }
+    }
 
-if (!empty($filters['force_creator_id'])) {
-    // Role-forced (customerService): always strict, never changes
-    $conditions[]          = "r.creator_id = :creator_id";
-    $params[':creator_id'] = (int) $filters['force_creator_id'];
-
-} elseif (!empty($filters['creator_id']) && !$creatorActivityIsIncluded) {
-    $creatorId = (int) $filters['creator_id'];
-
-    if (!empty($filters['creator_created_only'])) {
-        // Checkbox ON → only receipts this employee originally created
+    if (!empty($filters['force_creator_id'])) {
         $conditions[]          = "r.creator_id = :creator_id";
-        $params[':creator_id'] = $creatorId;
-    } else {
-        // Checkbox OFF (default) → receipts created by OR touched by this employee
-        // "touched" = recorded a transaction OR appears in audit log
-        $conditions[]             = "
-            (
-                r.creator_id = :creator_id
-                OR EXISTS (
-                    SELECT 1 FROM transactions t
-                    WHERE t.receipt_id = r.id
-                      AND t.created_by = :creator_id_tx
+        $params[':creator_id'] = (int) $filters['force_creator_id'];
+
+    } elseif (!empty($filters['creator_id']) && !$creatorActivityIsIncluded) {
+        $creatorId = (int) $filters['creator_id'];
+
+        if (!empty($filters['creator_created_only'])) {
+            // Strict: receipts this creator actually created — nothing else.
+            $conditions[]          = "r.creator_id = :creator_id";
+            $params[':creator_id'] = $creatorId;
+        } else {
+            $conditions[]             = "
+                (
+                    r.creator_id = :creator_id
+                    OR EXISTS (
+                        SELECT 1 FROM transactions t
+                        WHERE t.receipt_id = r.id
+                          AND t.created_by = :creator_id_tx
+                    )
+                    OR EXISTS (
+                        SELECT 1 FROM receipt_audit_log al
+                        WHERE al.receipt_id = r.id
+                          AND al.changed_by = :creator_id_al
+                    )
                 )
-                OR EXISTS (
-                    SELECT 1 FROM receipt_audit_log al
-                    WHERE al.receipt_id = r.id
-                      AND al.changed_by = :creator_id_al
-                )
-            )
-        ";
-        $params[':creator_id']    = $creatorId;
-        $params[':creator_id_tx'] = $creatorId;
-        $params[':creator_id_al'] = $creatorId;
+            ";
+            $params[':creator_id']    = $creatorId;
+            $params[':creator_id_tx'] = $creatorId;
+            $params[':creator_id_al'] = $creatorId;
+        }
     }
+
+    $effectiveBranchIds = null;
+    if (!empty($filters['force_branch_ids']) && is_array($filters['force_branch_ids'])) {
+        $effectiveBranchIds = array_map('intval', $filters['force_branch_ids']);
+    } elseif (!empty($filters['branch_ids']) && is_array($filters['branch_ids'])) {
+        $effectiveBranchIds = array_map('intval', $filters['branch_ids']);
+    }
+
+    if ($effectiveBranchIds !== null && count($effectiveBranchIds) > 0) {
+        $placeholders = [];
+        foreach ($effectiveBranchIds as $i => $bid) {
+            $key            = ":branch_{$i}";
+            $placeholders[] = $key;
+            $params[$key]   = $bid;
+        }
+        $conditions[] = "r.branch_id IN (" . implode(',', $placeholders) . ")";
+    }
+
+    $sql = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
+    return [$sql, $params];
 }
-
-        $effectiveBranchIds = null;
-        if (!empty($filters['force_branch_ids']) && is_array($filters['force_branch_ids'])) {
-            $effectiveBranchIds = array_map('intval', $filters['force_branch_ids']);
-        } elseif (!empty($filters['branch_ids']) && is_array($filters['branch_ids'])) {
-            $effectiveBranchIds = array_map('intval', $filters['branch_ids']);
-        }
-
-        if ($effectiveBranchIds !== null && count($effectiveBranchIds) > 0) {
-            $placeholders = [];
-            foreach ($effectiveBranchIds as $i => $bid) {
-                $key            = ":branch_{$i}";
-                $placeholders[] = $key;
-                $params[$key]   = $bid;
-            }
-            $conditions[] = "r.branch_id IN (" . implode(',', $placeholders) . ")";
-        }
-
-        $sql = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
-        return [$sql, $params];
-    }
-
     private function normalizeDate(?string $value): ?string {
         $value = trim((string) $value);
         if ($value === '') {

@@ -67,10 +67,6 @@ function renewalTypeLabel(?string $type): string {
         'new'              => 'جديد',
         'current_renewal'  => 'حالي',
         'previous_renewal' => 'سابق',
-        'renew'            => 'تجديد',
-        'renewal'          => 'تجديد',
-        'جديد'             => 'جديد',
-        'تجديد'            => 'تجديد',
     ];
     $key = strtolower(trim((string) $type));
     if ($key === '') return '—';
@@ -809,31 +805,30 @@ input[type="date"]::-webkit-calendar-picker-indicator {
             </div>
             <?php endif; ?>
 
-            <?php if ($canFilter('renewal_types')): ?>
-            <?php
-            $allRenewalTypes = [
-                'new'              => 'جديد',
-                'renew'            => 'تجديد',
-                'previous_renewal' => 'تجديد سابق',
-                'current_renewal'  => 'تجديد حالي',
-            ];
-            $selRenewalTypes = (array) ($filters['renewal_types'] ?? []);
-            ?>
-            <div class="filter-group" style="grid-column:span 2">
-                <label>نوع الإيصال</label>
-                <div class="tag-check-group" id="renewalTagGroup">
-                    <?php foreach ($allRenewalTypes as $val => $lbl): ?>
-                    <label class="tag-check <?= in_array($val, $selRenewalTypes) ? 'active' : '' ?>">
-                        <input type="checkbox" name="renewal_types[]" value="<?= $val ?>"
-                               <?= in_array($val, $selRenewalTypes) ? 'checked' : '' ?>>
-                        <?= $lbl ?>
-                    </label>
-                    <?php endforeach; ?>
-                    <button type="button" class="tag-clear" data-group="renewalTagGroup"
-                            style="<?= empty($selRenewalTypes) ? 'display:none' : '' ?>">✕ إلغاء</button>
-                </div>
-            </div>
-            <?php endif; ?>
+<?php if ($canFilter('renewal_types')): ?>
+<?php
+$allRenewalTypes = [
+    'new'              => 'جديد',
+    'current_renewal'  => 'حالي',
+    'previous_renewal' => 'سابق',
+];
+$selRenewalTypes = (array) ($filters['renewal_types'] ?? []);
+?>
+<div class="filter-group" style="grid-column:span 2">
+    <label>نوع الإيصال</label>
+    <div class="tag-check-group" id="renewalTagGroup">
+        <?php foreach ($allRenewalTypes as $val => $lbl): ?>
+        <label class="tag-check <?= in_array($val, $selRenewalTypes) ? 'active' : '' ?>">
+            <input type="checkbox" name="renewal_types[]" value="<?= $val ?>"
+                   <?= in_array($val, $selRenewalTypes) ? 'checked' : '' ?>>
+            <?= $lbl ?>
+        </label>
+        <?php endforeach; ?>
+        <button type="button" class="tag-clear" data-group="renewalTagGroup"
+                style="<?= empty($selRenewalTypes) ? 'display:none' : '' ?>">✕ إلغاء</button>
+    </div>
+</div>
+<?php endif; ?>
 
             <?php if ($canFilter('branch')): ?>
             <?php $selBranches = array_map('intval', (array) ($filters['branch_ids'] ?? [])); ?>
