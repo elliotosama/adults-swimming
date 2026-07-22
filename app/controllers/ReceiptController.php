@@ -1170,7 +1170,7 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
             $branches = $db->query("SELECT id, branch_name FROM branches where visible = 1 ORDER BY branch_name")->fetchAll(PDO::FETCH_ASSOC);
         }
 
-        $creators = $db->query("SELECT id, username FROM users where visible = 1 ORDER BY username")->fetchAll(PDO::FETCH_ASSOC);
+        $creators = $db->query("SELECT id, username FROM users where is_active = 1 ORDER BY username")->fetchAll(PDO::FETCH_ASSOC);
 
         $this->renderView('index', [
             'pageTitle'      => 'الإيصالات',
