@@ -362,6 +362,25 @@ table th {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   BRANCH CHIP SCROLL
+══════════════════════════════════════════════════════════════════ */
+.branch-chip-scroll {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: .25rem 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+.branch-chip-scroll .tag-check {
+    font-size: .78rem;
+    padding: .22rem .58rem;
+    white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════════════════════════════
    PAGINATION
 ══════════════════════════════════════════════════════════════════ */
 .pagination {
@@ -636,6 +655,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         font-size: .8rem;
     }
 
+    /* Keep branch chips scrollable on mobile instead of expanding freely */
+    .branch-chip-scroll {
+        max-height: 100px;
+        overflow-y: auto;
+        flex-wrap: wrap;
+    }
+
     .tag-check { font-size: .8rem; padding: .28rem .65rem; }
     .filter-actions { flex-direction: column; gap: .45rem; }
     .filter-actions .btn { width: 100%; text-align: center; }
@@ -809,17 +835,18 @@ $selRenewalTypes = (array) ($filters['renewal_types'] ?? []);
             <div class="filter-group">
                 <label style="display:flex;align-items:center;justify-content:space-between">
                     <span>الفرع</span>
-                    <button type="button" class="tag-clear" id="branchClearBtn"
+                    <button type="button" class="tag-clear" data-group="branchTagGroup"
                             style="<?= empty($selBranches) ? 'display:none' : '' ?>">✕ إلغاء</button>
                 </label>
-                <select name="branch_ids[]" id="branchSelect" multiple>
+                <div class="branch-chip-scroll tag-check-group" id="branchTagGroup">
                     <?php foreach ($branches as $b): ?>
-                    <option value="<?= $b['id'] ?>"
-                            <?= in_array((int)$b['id'], $selBranches) ? 'selected' : '' ?>>
+                    <label class="tag-check <?= in_array((int)$b['id'], $selBranches) ? 'active' : '' ?>">
+                        <input type="checkbox" name="branch_ids[]" value="<?= $b['id'] ?>"
+                               <?= in_array((int)$b['id'], $selBranches) ? 'checked' : '' ?>>
                         <?= htmlspecialchars($b['branch_name']) ?>
-                    </option>
+                    </label>
                     <?php endforeach; ?>
-                </select>
+                </div>
             </div>
             <?php endif; ?>
 
@@ -1333,7 +1360,6 @@ function buildRow(r) {
             el.value = urlParams.get(el.name) ?? '';
         });
         form.querySelectorAll('select').forEach(el => {
-            if (el.multiple) return; // handled separately (branch select)
             el.value = urlParams.get(el.name) ?? '';
             if (el.id === 'creatorSelect') {
                 const wrap = document.getElementById('creatorOnlyWrap');
@@ -1344,17 +1370,6 @@ function buildRow(r) {
                 }
             }
         });
-
-        const branchSelect = document.getElementById('branchSelect');
-        if (branchSelect) {
-            const selected = urlParams.getAll('branch_ids[]').map(String);
-            [...branchSelect.options].forEach(opt => {
-                opt.selected = selected.includes(opt.value);
-            });
-            const branchClearBtn = document.getElementById('branchClearBtn');
-            if (branchClearBtn) branchClearBtn.style.display = selected.length ? '' : 'none';
-        }
-
         form.querySelectorAll('input[type="checkbox"]').forEach(el => {
             if (el.closest('.tag-check-group')) return;
             el.checked = urlParams.has(el.name);
@@ -1432,27 +1447,6 @@ function buildRow(r) {
             timer = setTimeout(() => doSearch(1), 150);
         });
     });
-
-    // Branch multi-select: clear button + change → search + toggle clear visibility
-    const branchSelectEl  = document.getElementById('branchSelect');
-    const branchClearBtn  = document.getElementById('branchClearBtn');
-    if (branchSelectEl) {
-        branchSelectEl.addEventListener('change', () => {
-            if (branchClearBtn) {
-                const any = branchSelectEl.selectedOptions.length > 0;
-                branchClearBtn.style.display = any ? '' : 'none';
-            }
-        });
-    }
-    if (branchClearBtn) {
-        branchClearBtn.addEventListener('click', () => {
-            if (!branchSelectEl) return;
-            [...branchSelectEl.options].forEach(o => { o.selected = false; });
-            branchClearBtn.style.display = 'none';
-            clearTimeout(timer);
-            timer = setTimeout(() => doSearch(1), 150);
-        });
-    }
 
     input.addEventListener('input', () => {
         clearTimeout(timer);
