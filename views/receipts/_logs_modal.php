@@ -300,6 +300,8 @@ $canViewReceiptUpdates = $canViewReceiptUpdates ?? $isAdmin;
     color: var(--rlm-text);
     text-decoration: none;
     overflow: hidden;
+    background: transparent;
+    padding: 0;
 }
 .rlm-evidence img {
     width: 44px;
@@ -374,6 +376,51 @@ $canViewReceiptUpdates = $canViewReceiptUpdates ?? $isAdmin;
     line-height: 1.6;
     font-weight: 600;
 }
+/* Evidence lightbox */
+.rlm-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(10, 10, 16, .82);
+}
+.rlm-lightbox.is-open {
+    display: flex;
+}
+.rlm-lightbox-inner {
+    position: relative;
+    max-width: min(92vw, 900px);
+    max-height: 90vh;
+}
+.rlm-lightbox-inner img {
+    display: block;
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.rlm-lightbox-close {
+    position: absolute;
+    top: -14px;
+    inset-inline-end: -14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--rlm-border);
+    background: var(--rlm-surface2);
+    color: var(--rlm-text);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+.rlm-lightbox-close:hover {
+    border-color: var(--rlm-primary);
+}
 @media (max-width: 820px) {
     .rlm-grid { grid-template-columns: 1fr; }
     .rlm-box { min-height: 320px; max-height: 58vh; }
@@ -413,8 +460,7 @@ $canViewReceiptUpdates = $canViewReceiptUpdates ?? $isAdmin;
                             [$badgeClass, $typeLabel] = $typeMap[$t['type'] ?? ''] ?? ['rlm-badge-warning', ($t['type'] ?? '—')];
                             $rawEvidence = $t['attachment'] ?? $t['transaction_evidence'] ?? $t['evidence'] ?? '';
                             $evidenceUrl = $rawEvidence ? rlmEvidenceUrl($rawEvidence) : '';
-                            $ext = $rawEvidence ? strtolower(pathinfo($rawEvidence, PATHINFO_EXTENSION)) : '';
-                            $isPdf = $ext === 'pdf';
+                            $isPdf = $rawEvidence ? !rlmIsImagePath($rawEvidence) : false;
                             ?>
                             <article class="rlm-card">
                                 <div class="rlm-card-top">
@@ -444,13 +490,13 @@ $canViewReceiptUpdates = $canViewReceiptUpdates ?? $isAdmin;
                                 <?php if ($evidenceUrl): ?>
                                 <div class="rlm-row">
                                     <span class="rlm-label">الإثبات</span>
-                                    <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="rlm-evidence">
-                                        <?php if ($isPdf): ?>
-                                            PDF
-                                        <?php else: ?>
+                                    <?php if ($isPdf): ?>
+                                        <a href="<?= htmlspecialchars($evidenceUrl) ?>" target="_blank" class="rlm-evidence rlm-evidence-file">PDF</a>
+                                    <?php else: ?>
+                                        <button type="button" class="rlm-evidence rlm-evidence-thumb" data-rm-evidence="<?= htmlspecialchars($evidenceUrl) ?>" aria-label="عرض إثبات الدفع">
                                             <img src="<?= htmlspecialchars($evidenceUrl) ?>" alt="إثبات الدفع">
-                                        <?php endif; ?>
-                                    </a>
+                                        </button>
+                                    <?php endif; ?>
                                 </div>
                                 <?php endif; ?>
                             </article>
@@ -500,4 +546,53 @@ $canViewReceiptUpdates = $canViewReceiptUpdates ?? $isAdmin;
         </section>
         <?php endif; ?>
     </div>
+
+    <div class="rlm-lightbox" id="rlmLightbox">
+        <div class="rlm-lightbox-inner">
+            <button type="button" class="rlm-lightbox-close" id="rlmLightboxClose" aria-label="إغلاق">&times;</button>
+            <img id="rlmLightboxImg" src="" alt="إثبات الدفع">
+        </div>
+    </div>
 </div>
+<script>
+(function () {
+    var root = document.currentScript.previousElementSibling.classList.contains('rlm')
+        ? document.currentScript.previousElementSibling
+        : document.querySelector('.rlm');
+    if (!root) return;
+
+    var lightbox = root.querySelector('#rlmLightbox');
+    var lightboxImg = root.querySelector('#rlmLightboxImg');
+    var closeBtn = root.querySelector('#rlmLightboxClose');
+    if (!lightbox || !lightboxImg) return;
+
+    function openLightbox(url) {
+        lightboxImg.src = url;
+        lightbox.classList.add('is-open');
+        document.addEventListener('keydown', onKeydown);
+    }
+
+    function closeLightbox() {
+        lightbox.classList.remove('is-open');
+        lightboxImg.src = '';
+        document.removeEventListener('keydown', onKeydown);
+    }
+
+    function onKeydown(e) {
+        if (e.key === 'Escape') closeLightbox();
+    }
+
+    root.addEventListener('click', function (e) {
+        var trigger = e.target.closest('[data-rm-evidence]');
+        if (trigger) {
+            e.preventDefault();
+            openLightbox(trigger.getAttribute('data-rm-evidence'));
+        }
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', function (e) {
+        if (e.target === lightbox) closeLightbox();
+    });
+})();
+</script>

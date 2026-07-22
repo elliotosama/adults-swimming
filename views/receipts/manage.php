@@ -44,6 +44,15 @@
     $newClientData = $newClientData ?? [];
     $clientErrors  = $clientErrors  ?? [];
 
+    // ── "just created/renewed a receipt" popup ──────────────────────────
+    // Set by ReceiptController::store() / storeRenewal() right before their
+    // redirect back here (instead of redirecting straight to
+    // /receipt/preview like before). We read it once and unset it so a
+    // page refresh doesn't re-show the popup.
+    $createdReceiptId   = (int) ($_SESSION['created_receipt_id']   ?? 0);
+    $createdReceiptType = (string) ($_SESSION['created_receipt_type'] ?? '');
+    unset($_SESSION['created_receipt_id'], $_SESSION['created_receipt_type']);
+
     $db = get_db();
     $minPaymentRow    = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'min_payment_amount' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
     $minPaymentAmount = $minPaymentRow ? (float)$minPaymentRow['setting_value'] : 400;
@@ -467,6 +476,67 @@
     }
     .client-submit-btn:hover { background: #3399FF !important; }
 
+    /* ── Receipt created/renewed popup ─────────────────────────────────
+       Mirrors the #receiptUpdatedModal styling used on the receipts index
+       page after an edit, so create/renew get the same confirmation UX. */
+    .receipt-updated-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        background: rgba(0,0,0,.5);
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+    }
+    .receipt-updated-modal.open { display: flex; }
+    .receipt-updated-dialog {
+        width: min(420px, 100%);
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.6rem;
+        text-align: center;
+        box-shadow: 0 24px 64px rgba(0,0,0,.22);
+        animation: modalIn .2s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes modalIn {
+        from { opacity:0; transform:scale(.92) translateY(8px); }
+        to   { opacity:1; transform:scale(1) translateY(0); }
+    }
+    .receipt-updated-icon {
+        width: 52px;
+        height: 52px;
+        margin: 0 auto 1rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(152,195,121,.16);
+        color: #98C379;
+        border: 1px solid rgba(152,195,121,.45);
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+    .receipt-updated-dialog h2 {
+        font-size: 1.15rem;
+        margin: 0 0 .5rem;
+    }
+    .receipt-updated-dialog p {
+        color: var(--text-muted, #ffffffb3);
+        font-size: .92rem;
+        margin: 0 0 1.35rem;
+        line-height: 1.7;
+    }
+    .receipt-updated-actions {
+        display: flex;
+        gap: .75rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
     /* ════════════════════════════════════════════════════════════════
        RESPONSIVE — tablet ≤768px and mobile ≤480px
     ════════════════════════════════════════════════════════════════ */
@@ -562,6 +632,18 @@
     }
 
     </style>
+
+    <!-- Receipt Created/Renewed Modal -->
+    <div id="receiptCreatedModal" class="receipt-updated-modal" aria-hidden="true">
+        <div class="receipt-updated-dialog" role="dialog" aria-modal="true" aria-labelledby="receiptCreatedTitle">
+            <div class="receipt-updated-icon">✓</div>
+            <h2 id="receiptCreatedTitle">تم إنشاء الإيصال بنجاح</h2>
+            <div class="receipt-updated-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeReceiptCreatedModal()">إغلاق</button>
+                <a href="#" id="receiptCreatedViewLink" class="btn btn-primary">عرض الإيصال</a>
+            </div>
+        </div>
+    </div>
 
     <div class="receipt-page">
 
@@ -1389,7 +1471,7 @@
                   <input type="text" name="amount" id="refund-amount"
                          class="form-control" placeholder="0" min="1" step="0.01" required>
                   <span class="field-hint">الحد الأقصى للاسترداد: <strong id="refund-max-display">—</strong></span>
-                  <div class="inline-error" id="refund-amount-max-error">❌ <span id="refund-amount-max-msg">المبلغ يتجاوز الحد الأقصى للاسترداد.</span></div>
+                  <div class="inline-error" id="refund-amount-max-error">�❌ <span id="refund-amount-max-msg">المبلغ يتجاوز الحد الأقصى للاسترداد.</span></div>
                 </div>
                 <div class="form-field">
                   <label class="form-label">طريقة الاسترداد <span style="color:var(--danger);">*</span></label>
@@ -1588,6 +1670,49 @@
         '+966': { regex: /^(05\d{8}|5\d{8})$/, hint: 'مثال: 0512345678 (9-10 أرقام)' },
         '+20':  { regex: /^(01[0-9]\d{8}|1[0-9]\d{8})$/, hint: 'مثال: 01012345678 (10-11 رقماً)' },
     };
+
+    // ════════════════════════════════════════════════════════════════
+    //  Receipt created/renewed popup
+    //
+    //  Set server-side by ReceiptController::store()/storeRenewal() via
+    //  $_SESSION['created_receipt_id'] + $_SESSION['created_receipt_type']
+    //  right before redirecting back to this page (instead of redirecting
+    //  straight to /receipt/preview like before). Mirrors the pattern the
+    //  receipts index page uses for the post-edit confirmation modal.
+    // ════════════════════════════════════════════════════════════════
+    const CREATED_RECEIPT_ID   = <?= (int) $createdReceiptId ?>;
+    const CREATED_RECEIPT_TYPE = <?= json_encode($createdReceiptType) ?>;
+    const APP_URL_JS           = <?= json_encode(APP_URL) ?>;
+
+    window.closeReceiptCreatedModal = function () {
+        const modal = document.getElementById('receiptCreatedModal');
+        if (!modal) return;
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+    };
+
+    if (CREATED_RECEIPT_ID) {
+        const modal = document.getElementById('receiptCreatedModal');
+        const title = document.getElementById('receiptCreatedTitle');
+        const link  = document.getElementById('receiptCreatedViewLink');
+        if (modal && title && link) {
+            const isRenewal = CREATED_RECEIPT_TYPE === 'renewal';
+            title.textContent = isRenewal ? 'تم إنشاء إيصال التجديد بنجاح' : 'تم إنشاء الإيصال بنجاح';
+            link.href = APP_URL_JS + '/receipt/preview?id=' + CREATED_RECEIPT_ID
+                + (isRenewal ? '&type=renewal' : '');
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden', 'false');
+        }
+    }
+
+    document.getElementById('receiptCreatedModal')?.addEventListener('click', event => {
+        if (event.target === event.currentTarget) closeReceiptCreatedModal();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && document.getElementById('receiptCreatedModal')?.classList.contains('open')) {
+            closeReceiptCreatedModal();
+        }
+    });
 
     // ════════════════════════════════════════════════════════════════
     //  Digit normalization — Arabic-Indic (٠-٩) / Persian (۰-۹) → ASCII
@@ -2112,25 +2237,22 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         else { f.classList.remove('visible'); i.required = false; i.value = ''; }
         refreshRenRequiredState();
     }
-//     function renValidateRenewalType() {
-//     const curr = document.getElementById('ren-rt-current'), prev = document.getElementById('ren-rt-previous');
-//     const mismatch = document.getElementById('ren-type-mismatch-error'), required = document.getElementById('ren-type-required-error');
-//     const cardC = document.getElementById('ren-card-current'), cardP = document.getElementById('ren-card-previous');
-//     mismatch.classList.remove('visible'); required.classList.remove('visible');
-//     [cardC, cardP].forEach(c => c && c.classList.remove('card-invalid'));
-//     const chosen = curr?.checked ? 'current_renewal' : prev?.checked ? 'previous_renewal' : null;
-//     if (!chosen) { required.classList.add('visible'); return false; }
-//     if (chosen === SERVER_RENEWAL_TYPE) return true;
-//     const wrongCard = chosen === 'current_renewal' ? cardC : cardP;
-//     if (wrongCard) wrongCard.classList.add('card-invalid');
-//     const pillClass = SERVER_RENEWAL_TYPE === 'current_renewal' ? 'current' : 'previous';
-//     document.getElementById('ren-type-mismatch-msg').innerHTML =
-//         `اخترت <strong>${RENEWAL_TYPE_LABELS[chosen]}</strong> لكن الصحيح هو:<br>` +
-//         `<span class="correct-answer-pill ${pillClass}">${RENEWAL_TYPE_LABELS[SERVER_RENEWAL_TYPE]}</span>`;
-//     mismatch.classList.add('visible'); refreshRenRequiredState(); return false;
-// }
-    // document.getElementById('ren-rt-current')?.addEventListener('change',  renValidateRenewalType);
-    // document.getElementById('ren-rt-previous')?.addEventListener('change', renValidateRenewalType);
+    // ── renValidateRenewalType() was intentionally removed ──────────────
+    // It compared the picked radio (current_renewal / previous_renewal)
+    // against SERVER_RENEWAL_TYPE, computed server-side from
+    // resolveRenewalType()/checkRenewalEligibility(). Both of those PHP
+    // methods are currently commented out in ReceiptController (the
+    // auto-renewal-type feature is disabled), so SERVER_RENEWAL_TYPE is
+    // always just the 'current_renewal' fallback — meaning the old
+    // mismatch check would have incorrectly blocked every legitimate
+    // "تجديد سابق" (previous_renewal) selection. The function definition
+    // was already commented out, but the submit handler still CALLED it,
+    // throwing "renValidateRenewalType is not defined" on every renewal
+    // submit and aborting the rest of the handler (including the block
+    // below that builds the properly formatted phone number). The radio
+    // group's own `required` attribute on #ren-rt-current already
+    // guarantees a type is selected before submit, so no replacement
+    // check is needed here.
     document.getElementById('renewReceiptForm')?.addEventListener('submit', e => {
         if (e.currentTarget.dataset.submitting === '1') {
             e.preventDefault();
@@ -2146,7 +2268,6 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
 
         const nameWords = document.querySelector('.ren-client-name')?.value.trim().split(/\s+/).filter(w=>w.length>0) || [];
         if (nameWords.length < 3) { document.querySelector('.ren-name-error').classList.add('visible'); e.preventDefault(); return; }
-        if (!renValidateRenewalType()) { e.preventDefault(); return; }
         const paidInput = document.getElementById('ren-paid-amount');
         const paid = parseAmountInput(paidInput);
         if (paid < MIN_PAYMENT) { e.preventDefault(); return; }
@@ -2342,8 +2463,7 @@ function populateCaptains(capSelId, branchId, savedCaptainId) {
         'ren-missing-fields-alert',
         'ren-submit-btn',
         () => isVisibleError('ren-day-error') || isVisibleError('ren-time-error') || isVisibleError('ren-pay-warn') ||
-              isVisibleError('ren-same-date-error') || isVisibleError('ren-type-mismatch-error') || isVisibleError('ren-type-required-error') ||
-              isVisibleError('ren-amount-max-error')
+              isVisibleError('ren-same-date-error') || isVisibleError('ren-amount-max-error')
     );
     refreshPayRequiredState = bindRequiredValidation(
         'paymentAddForm',

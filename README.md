@@ -278,3 +278,6 @@ total paid 531
 - [ ] nickname in captains does not be required
 - [ ] remove the bar in edit
 - [ ] image appear on top of the page
+
+
+because of the transaction date
