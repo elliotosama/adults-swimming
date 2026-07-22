@@ -422,7 +422,8 @@ public function create(array $data): int {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-private function buildWhere(array $filters): array {
+    
+    private function buildWhere(array $filters): array {
     $conditions = [];
     $params     = [];
 
@@ -513,8 +514,6 @@ private function buildWhere(array $filters): array {
         $auditDateWhere = implode(' AND ', $auditDateParts);
 
         if ($strictCreatedOnly) {
-            // Strict: only this creator's own receipt.created_at matters —
-            // no OR'ing in transaction/audit activity by anyone.
             $conditions[] = "({$receiptDateWhere})";
         } elseif ($creatorActivityIsIncluded) {
             $conditions[] = "(
@@ -572,9 +571,6 @@ private function buildWhere(array $filters): array {
         $params[':creator_id_tx_only'] = $selectedCreatorId;
         $params[':creator_id_al_only'] = $selectedCreatorId;
     }
-    // NOTE: when $strictCreatedOnly is true and there's no date range,
-    // nothing needs adding here — the plain "r.creator_id = :creator_id"
-    // condition below (creator_created_only branch) is sufficient on its own.
 
     if (!empty($filters['statuses']) && is_array($filters['statuses'])) {
         $placeholders = [];
@@ -604,40 +600,46 @@ private function buildWhere(array $filters): array {
     // has_updates / has_no_updates
     //
     // When a specific creator is selected, these are scoped to THAT
-    // creator's own activity:
-    //   - "has an audit log record" → an audit row whose changed_by is
-    //     this creator.
-    //   - "made a second transaction" → this creator authored a
-    //     transaction row on the receipt that is NOT the receipt's very
-    //     first (lowest-id) transaction.
-    // This scoping applies whether or not "creator_created_only" is
-    // checked — if it IS checked, it combines (AND) with the
-    // r.creator_id = :creator_id condition below, so the end result is
-    // "receipts this creator made, that also show his own follow-up
-    // activity." With no creator selected, falls back to the original
-    // receipt-wide behavior.
+    // creator's own activity — BUT with one important rule: if the
+    // creator made the touch on a receipt THEY THEMSELVES created
+    // (r.creator_id = the selected creator), that touch does NOT count
+    // as an "update". A creator adding a payment or fixing a detail on
+    // their own receipt is still just "their created receipt", not an
+    // "updated" one. Only activity by this person on a receipt someone
+    // ELSE created counts as an update:
+    //   - an audit log row where changed_by = this creator, on a
+    //     receipt whose creator_id is someone else, OR
+    //   - a transaction (beyond the receipt's first/original one)
+    //     where created_by = this creator, on a receipt whose
+    //     creator_id is someone else.
+    // With no creator selected, falls back to the original receipt-wide
+    // behavior (any audit log entry exists / total transactions >= 2).
     // ════════════════════════════════════════════════════════════════
 
     if (!empty($filters['has_updates'])) {
         if ($selectedCreatorId !== null) {
             $conditions[] = "(
-                EXISTS (
-                    SELECT 1 FROM receipt_audit_log al_upd
-                    WHERE al_upd.receipt_id = r.id
-                      AND al_upd.changed_by = :has_updates_creator_al
-                )
-                OR EXISTS (
-                    SELECT 1 FROM transactions t_upd
-                    WHERE t_upd.receipt_id = r.id
-                      AND t_upd.created_by = :has_updates_creator_tx
-                      AND t_upd.id <> (
-                          SELECT MIN(t_first.id) FROM transactions t_first
-                          WHERE t_first.receipt_id = r.id
-                      )
+                r.creator_id <> :has_updates_creator_owner
+                AND (
+                    EXISTS (
+                        SELECT 1 FROM receipt_audit_log al_upd
+                        WHERE al_upd.receipt_id = r.id
+                          AND al_upd.changed_by = :has_updates_creator_al
+                    )
+                    OR EXISTS (
+                        SELECT 1 FROM transactions t_upd
+                        WHERE t_upd.receipt_id = r.id
+                          AND t_upd.created_by = :has_updates_creator_tx
+                          AND t_upd.id <> (
+                              SELECT MIN(t_first.id) FROM transactions t_first
+                              WHERE t_first.receipt_id = r.id
+                          )
+                    )
                 )
             )";
-            $params[':has_updates_creator_al'] = $selectedCreatorId;
-            $params[':has_updates_creator_tx'] = $selectedCreatorId;
+            $params[':has_updates_creator_owner'] = $selectedCreatorId;
+            $params[':has_updates_creator_al']    = $selectedCreatorId;
+            $params[':has_updates_creator_tx']    = $selectedCreatorId;
         } else {
             $conditions[] = "
                 (EXISTS (SELECT 1 FROM receipt_audit_log al WHERE al.receipt_id = r.id)
@@ -649,24 +651,32 @@ private function buildWhere(array $filters): array {
 
     if (!empty($filters['has_no_updates'])) {
         if ($selectedCreatorId !== null) {
+            // Mirror of has_updates above: a receipt this creator created
+            // themselves is ALWAYS "no updates" (self-touches don't count).
+            // Otherwise, "no updates" means this creator never touched it
+            // via audit log or an extra transaction.
             $conditions[] = "(
-                NOT EXISTS (
-                    SELECT 1 FROM receipt_audit_log al_noupd
-                    WHERE al_noupd.receipt_id = r.id
-                      AND al_noupd.changed_by = :has_no_updates_creator_al
-                )
-                AND NOT EXISTS (
-                    SELECT 1 FROM transactions t_noupd
-                    WHERE t_noupd.receipt_id = r.id
-                      AND t_noupd.created_by = :has_no_updates_creator_tx
-                      AND t_noupd.id <> (
-                          SELECT MIN(t_first2.id) FROM transactions t_first2
-                          WHERE t_first2.receipt_id = r.id
-                      )
+                r.creator_id = :has_no_updates_creator_owner
+                OR (
+                    NOT EXISTS (
+                        SELECT 1 FROM receipt_audit_log al_noupd
+                        WHERE al_noupd.receipt_id = r.id
+                          AND al_noupd.changed_by = :has_no_updates_creator_al
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM transactions t_noupd
+                        WHERE t_noupd.receipt_id = r.id
+                          AND t_noupd.created_by = :has_no_updates_creator_tx
+                          AND t_noupd.id <> (
+                              SELECT MIN(t_first2.id) FROM transactions t_first2
+                              WHERE t_first2.receipt_id = r.id
+                          )
+                    )
                 )
             )";
-            $params[':has_no_updates_creator_al'] = $selectedCreatorId;
-            $params[':has_no_updates_creator_tx'] = $selectedCreatorId;
+            $params[':has_no_updates_creator_owner'] = $selectedCreatorId;
+            $params[':has_no_updates_creator_al']    = $selectedCreatorId;
+            $params[':has_no_updates_creator_tx']    = $selectedCreatorId;
         } else {
             $conditions[] = "
                 (NOT EXISTS (SELECT 1 FROM receipt_audit_log al WHERE al.receipt_id = r.id)
@@ -684,7 +694,6 @@ private function buildWhere(array $filters): array {
         $creatorId = (int) $filters['creator_id'];
 
         if (!empty($filters['creator_created_only'])) {
-            // Strict: receipts this creator actually created — nothing else.
             $conditions[]          = "r.creator_id = :creator_id";
             $params[':creator_id'] = $creatorId;
         } else {
@@ -729,6 +738,7 @@ private function buildWhere(array $filters): array {
     $sql = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
     return [$sql, $params];
 }
+    
     private function normalizeDate(?string $value): ?string {
         $value = trim((string) $value);
         if ($value === '') {
