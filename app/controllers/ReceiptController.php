@@ -1871,7 +1871,8 @@ public function edit(): void {
     // UPDATE
     // ════════════════════════════════════════════════════════════════════════
 
-public function update(): void {
+    
+    public function update(): void {
     auth_require(['admin', 'branch_manager', 'area_manager', 'customer_service']);
 
     $id      = (int) ($_GET['id'] ?? 0);
@@ -1910,7 +1911,31 @@ public function update(): void {
     $data['creator_id']     = (int)    $receipt['creator_id'];
     $data['receipt_status'] = (string) $receipt['receipt_status'];
     $data['pdf_path']       = (string) ($receipt['pdf_path'] ?? '');
-    $data['renewal_type']   = (string) ($receipt['renewal_type'] ?? 'new');
+
+    // Admin may change renewal_type from the form; every other role keeps
+    // the existing value (their form never submits it as an editable field).
+    $data['renewal_type'] = $isAdmin
+        ? (string) ($data['renewal_type'] ?: ($receipt['renewal_type'] ?? 'new'))
+        : (string) ($receipt['renewal_type'] ?? 'new');
+
+    // Admin-only: parse an optional creation-date override submitted as
+    // <input type="datetime-local" name="created_at">. Any other role never
+    // sends this field, so it stays null and the receipts.created_at column
+    // is left completely untouched, same as before this feature existed.
+    $adminCreatedAtOverride = null;
+    $createdAtOverrideError = null;
+    if ($isAdmin) {
+        $submittedCreatedAt = trim((string) ($_POST['created_at'] ?? ''));
+        if ($submittedCreatedAt !== '') {
+            $dt = DateTime::createFromFormat('Y-m-d\TH:i', $submittedCreatedAt)
+                ?: DateTime::createFromFormat('Y-m-d\TH:i:s', $submittedCreatedAt);
+            if ($dt) {
+                $adminCreatedAtOverride = $dt->format('Y-m-d H:i:s');
+            } else {
+                $createdAtOverrideError = 'صيغة تاريخ إنشاء الإيصال غير صحيحة.';
+            }
+        }
+    }
 
     if ($isBranchManager) {
         $data = array_merge($data, [
@@ -1978,6 +2003,14 @@ public function update(): void {
         $errors[] = 'يجب اختيار كابتن من نفس فرع الإيصال.';
     }
 
+    $allowedRenewalTypes = ['new', 'current_renewal', 'previous_renewal'];
+    if ($isAdmin && !in_array($data['renewal_type'], $allowedRenewalTypes, true)) {
+        $errors[] = 'نوع التجديد غير صالح.';
+    }
+    if ($createdAtOverrideError) {
+        $errors[] = $createdAtOverrideError;
+    }
+
     if (empty($errors)) {
         $selectedPlanPrice = $this->planPriceById($data['plan_id']);
         if ($selectedPlanPrice <= 0) {
@@ -2012,6 +2045,16 @@ public function update(): void {
                 'age'    => $data['client_age'],
                 'gender' => $data['client_gender'],
             ]);
+
+        // Preserve the admin's submitted created_at / renewal_type in the
+        // re-rendered form so a validation error doesn't silently discard
+        // what they just typed/selected.
+        if ($isAdmin) {
+            $editReceipt['renewal_type'] = $data['renewal_type'];
+            if ($adminCreatedAtOverride !== null) {
+                $editReceipt['created_at'] = $adminCreatedAtOverride;
+            }
+        }
 
         $this->flash('flash_error', implode('<br>', $errors));
         $this->renderView('edit', array_merge($this->formDropdowns($allowedBranchIds), [
@@ -2187,6 +2230,26 @@ public function update(): void {
         }
     }
 
+    // ── Admin-only: apply + audit a manual created_at override ─────────────
+    // This changes which business day the receipt is attributed to. It does
+    // NOT touch updated_at logic or any of the audit rows written above —
+    // it's applied as its own separate, explicit override.
+    if ($isAdmin && $adminCreatedAtOverride !== null) {
+        $oldCreatedAt = $receipt['created_at'] ?? null;
+        if ($oldCreatedAt !== $adminCreatedAtOverride) {
+            $this->auditLog->log(
+                $id,
+                $user['id'],
+                $user['role'],
+                'created_at',
+                $oldCreatedAt,
+                $adminCreatedAtOverride,
+                $updatedAt
+            );
+        }
+        $data['created_at_override'] = $adminCreatedAtOverride;
+    }
+
     $uploadedEvidencePath = null;
     if (($isAdmin || $isBranchManager || $isAreaManager) && !empty($_FILES['transaction_evidence']['tmp_name'])) {
         $uploadedEvidencePath = $this->handleEvidenceUpload();
@@ -2222,6 +2285,7 @@ public function update(): void {
     $this->flash('flash_success', 'تم تحديث الإيصال بنجاح');
     $this->redirectAfterReceiptUpdate($id);
 }
+    
     // ════════════════════════════════════════════════════════════════════════
     // DESTROY
     // ════════════════════════════════════════════════════════════════════════

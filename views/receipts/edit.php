@@ -5,7 +5,8 @@ require ROOT . '/views/includes/layout_top.php';
 /*
  * Role gate
  * ─────────
- * Admin:            full edit access to everything.
+ * Admin:            full edit access to everything, plus receipt created_at
+ *                    (business-day override) and renewal_type.
  * customer_service: can edit only branch_id, captain_id, level,
  *                    first_session, and exercise_time. Everything else is read-only.
  * branch_manager:   can edit only captain_id, level, first_session,
@@ -19,6 +20,8 @@ require ROOT . '/views/includes/layout_top.php';
  *   double                                                              (§3 partials)
  *   remaining (always readonly / computed)
  *   total_paid (§4 — admin may override; see note below)
+ *   created_at (§3 — admin-only business-day override; see note below)
+ *   renewal_type (§3 — admin-only; see note below)
  *
  * Fields editable by customer_service:
  *   branch_id, captain_id, level, first_session, exercise_time           (§2 + §3)
@@ -35,6 +38,16 @@ require ROOT . '/views/includes/layout_top.php';
  *   original_total_paid (hidden field) and, if they differ, inserts an
  *   adjustment transaction for the difference so the real transactions
  *   sum reconciles to the new value. See ReceiptController::update().
+ *
+ *   created_at — editing this changes which business day the receipt is
+ *   attributed to. The controller writes the old/new values to the audit
+ *   log under the 'created_at' field and passes the value through to
+ *   ReceiptModel::update() as 'created_at_override', which is the only
+ *   thing that makes the UPDATE query touch that column at all.
+ *
+ *   renewal_type — one of new / current_renewal / previous_renewal.
+ *   Flows through the existing receipt-level audit log like any other
+ *   receipts-table column.
  */
 $isAdmin = $isAdmin ?? false;
 $isEdit  = $isEdit  ?? true;
@@ -74,6 +87,15 @@ $planPrice      = (float) ($receipt['plan_price']      ?? 0);
 $totalPaid      = (float) ($receipt['total_paid']      ?? 0);
 $totalRefunded  = (float) ($receipt['total_refunded']  ?? 0);
 $remaining      = max(0, $planPrice - $totalPaid + $totalRefunded);
+
+// Admin-only: value for the <input type="datetime-local"> created_at field.
+$createdAtValue = '';
+if (!empty($receipt['created_at'])) {
+    $ts = strtotime($receipt['created_at']);
+    if ($ts) $createdAtValue = date('Y-m-d\TH:i', $ts);
+}
+
+$currentRenewalType = (string) ($receipt['renewal_type'] ?? 'new');
 ?>
 <style>
 /* ── Shared dark theme (same palette as index.php / manage.php) ── */
@@ -722,6 +744,8 @@ select.form-control:disabled {
         <!-- ══════════════════════════════════════════
              § 3 — الجلسات
              customer_service / branch_manager: first_session / exercise_time only.
+             Admin-only extras here: created_at (business-day override) and
+             renewal_type.
         ══════════════════════════════════════════ -->
         <div class="form-section">
             <div class="section-header">
@@ -781,6 +805,30 @@ select.form-control:disabled {
                         <input type="text" name="last_session" id="last_date" class="form-control"
                                value="<?= htmlspecialchars($receipt['last_session'] ?? '') ?>" readonly>
                     </div>
+
+                    <?php if ($isAdmin): ?>
+                    <!-- تاريخ إنشاء الإيصال — admin-only business-day override -->
+                    <div class="form-field">
+                        <label class="form-label">تاريخ إنشاء الإيصال</label>
+                        <input type="datetime-local" name="created_at" class="form-control"
+                               value="<?= htmlspecialchars($createdAtValue) ?>">
+                        <span class="field-hint">تعديل هذا التاريخ يغيّر اليوم المحاسبي الذي يُنسب إليه الإيصال</span>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if ($isAdmin): ?>
+                    <!-- نوع التجديد — admin-only -->
+                    <div class="form-field">
+                        <label class="form-label">نوع التجديد <span class="req">*</span></label>
+                        <select name="renewal_type" class="form-control" required>
+                            <option value="new"              <?= $currentRenewalType === 'new'              ? 'selected' : '' ?>>جديد</option>
+                            <option value="current_renewal"   <?= $currentRenewalType === 'current_renewal'   ? 'selected' : '' ?>>تجديد حالي</option>
+                            <option value="previous_renewal"  <?= $currentRenewalType === 'previous_renewal'  ? 'selected' : '' ?>>تجديد سابق</option>
+                        </select>
+                    </div>
+                    <?php else: ?>
+                        <input type="hidden" name="renewal_type" value="<?= htmlspecialchars($currentRenewalType) ?>">
+                    <?php endif; ?>
 
                     <div class="form-field full">
                         <?php if ($isAdmin): ?>

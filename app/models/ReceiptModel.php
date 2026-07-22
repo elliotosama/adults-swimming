@@ -365,29 +365,45 @@ public function create(array $data): int {
     // ── Update ────────────────────────────────────────────────────────────────
 
     public function update(int $id, array $data): void {
-        // NOTE: created_at is intentionally NOT in the SET clause — editing
-        // an existing receipt must never retroactively change which
+        // NOTE: created_at is intentionally NOT in the SET clause by default —
+        // editing an existing receipt must never retroactively change which
         // business day it was originally created under. updated_at IS
         // updated, using the same business-day cutoff rule (see bind()).
-        $stmt = $this->db->prepare("
-            UPDATE receipts SET
-                client_id       = :client_id,
-                creator_id      = :creator_id,
-                captain_id      = :captain_id,
-                branch_id       = :branch_id,
-                first_session   = :first_session,
-                last_session    = :last_session,
-                renewal_session = :renewal_session,
-                renewal_type    = :renewal_type,
-                receipt_status  = :receipt_status,
-                exercise_time   = :exercise_time,
-                plan_id         = :plan_id,
-                level           = :level,
-                pdf_path        = :pdf_path,
-                updated_at      = :updated_at
-            WHERE id = :id
-        ");
-        $stmt->execute(array_merge($this->bindForUpdate($data), [':id' => $id]));
+        //
+        // The ONE exception: if the caller (admin-only path in the
+        // controller) explicitly supplies a non-empty 'created_at_override'
+        // key in $data, created_at IS included in the SET clause and set to
+        // that value. Every other caller simply omits that key, so this
+        // behaves exactly as before for them.
+        $setParts = [
+            'client_id       = :client_id',
+            'creator_id      = :creator_id',
+            'captain_id      = :captain_id',
+            'branch_id       = :branch_id',
+            'first_session   = :first_session',
+            'last_session    = :last_session',
+            'renewal_session = :renewal_session',
+            'renewal_type    = :renewal_type',
+            'receipt_status  = :receipt_status',
+            'exercise_time   = :exercise_time',
+            'plan_id         = :plan_id',
+            'level           = :level',
+            'pdf_path        = :pdf_path',
+            'updated_at      = :updated_at',
+        ];
+
+        $params = $this->bindForUpdate($data);
+
+        if (!empty($data['created_at_override'])) {
+            $setParts[]            = 'created_at = :created_at';
+            $params[':created_at'] = $data['created_at_override'];
+        }
+
+        $sql = "UPDATE receipts SET " . implode(', ', $setParts) . " WHERE id = :id";
+        $params[':id'] = $id;
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
     }
 
     // ── Update status only ────────────────────────────────────────────────────
@@ -705,9 +721,10 @@ if (!empty($filters['force_creator_id'])) {
         ];
     }
 
-    // Same field mapping as create(), minus :created_at — the UPDATE query has
-    // no created_at column in its SET clause, so binding it throws HY093.
-    // :updated_at IS kept.
+    // Same field mapping as create(), minus :created_at — the UPDATE query's
+    // default SET clause has no created_at column, so binding it unconditionally
+    // would throw HY093. update() re-adds :created_at itself, only when an
+    // explicit created_at_override was supplied.
     private function bindForUpdate(array $data): array {
         $params = $this->bind($data);
         unset($params[':created_at']);
