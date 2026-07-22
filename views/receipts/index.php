@@ -862,22 +862,7 @@ $selRenewalTypes = (array) ($filters['renewal_types'] ?? []);
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <label id="creatorOnlyWrap"
-                       style="display:<?= !empty($filters['creator_id']) ? 'flex' : 'none' ?>;
-                              align-items:center;gap:.4rem;margin-top:.5rem;cursor:pointer">
-                    <input type="checkbox"
-                           name="creator_created_only"
-                           id="creatorOnlyCb"
-                           value="1"
-                           <?= !empty($filters['creator_created_only']) ? 'checked' : '' ?>
-                           style="width:auto">
-                    <span style="font-size:.84rem;color:var(--muted)">
-                        الإيصالات المنشأة فقط
-                        <small style="display:block;font-size:.74rem;margin-top:.1rem">
-                            بدون تحديد: يشمل التعديلات والمعاملات أيضاً
-                        </small>
-                    </span>
-                </label>
+
             </div>
             <?php endif; ?>
 
@@ -888,12 +873,6 @@ $selRenewalTypes = (array) ($filters['renewal_types'] ?? []);
                     <input type="checkbox" name="has_updates" id="hasUpdatesCb" value="1"
                            <?= !empty($filters['has_updates']) ? 'checked' : '' ?>
                            style="width:auto">
-                    <span style="font-size:.9rem;">
-                        تفعيل
-                        <small style="color:var(--muted);display:block;font-size:.76rem">
-                            لديها سجل تعديل أو معاملتان على الأقل
-                        </small>
-                    </span>
                 </label>
             </div>
             <?php endif; ?>
@@ -905,12 +884,6 @@ $selRenewalTypes = (array) ($filters['renewal_types'] ?? []);
                     <input type="checkbox" name="has_no_updates" id="hasNoUpdatesCb" value="1"
                            <?= !empty($filters['has_no_updates']) ? 'checked' : '' ?>
                            style="width:auto">
-                    <span style="font-size:.9rem;">
-                        تفعيل
-                        <small style="color:var(--muted);display:block;font-size:.76rem">
-                            بدون سجل تعديل وأقل من معاملتين
-                        </small>
-                    </span>
                 </label>
             </div>
             <?php endif; ?>
