@@ -718,12 +718,22 @@ public function create(array $data): int {
         }
     }
 
-    $effectiveBranchIds = null;
-    if (!empty($filters['force_branch_ids']) && is_array($filters['force_branch_ids'])) {
-        $effectiveBranchIds = array_map('intval', $filters['force_branch_ids']);
-    } elseif (!empty($filters['branch_ids']) && is_array($filters['branch_ids'])) {
-        $effectiveBranchIds = array_map('intval', $filters['branch_ids']);
+$effectiveBranchIds = null;
+if (!empty($filters['force_branch_ids']) && is_array($filters['force_branch_ids'])) {
+    $effectiveBranchIds = array_map('intval', $filters['force_branch_ids']);
+
+    // If the user (area_manager) selected specific branches within their
+    // managed set, narrow down to that selection — don't just ignore it.
+    if (!empty($filters['branch_ids']) && is_array($filters['branch_ids'])) {
+        $requested   = array_map('intval', $filters['branch_ids']);
+        $intersected = array_values(array_intersect($effectiveBranchIds, $requested));
+        if ($intersected) {
+            $effectiveBranchIds = $intersected;
+        }
     }
+} elseif (!empty($filters['branch_ids']) && is_array($filters['branch_ids'])) {
+    $effectiveBranchIds = array_map('intval', $filters['branch_ids']);
+}
 
     if ($effectiveBranchIds !== null && count($effectiveBranchIds) > 0) {
         $placeholders = [];
