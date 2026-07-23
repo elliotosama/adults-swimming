@@ -1194,13 +1194,14 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
     // ════════════════════════════════════════════════════════════════════════
 
 
-    public function export(): void
+   
+   public function export(): void
 {
     auth_require(['admin', 'branch_manager', 'customer_service', 'area_manager']);
 
     require_once ROOT . '/vendor/autoload.php';
 
-    // Remove any buffered output before sending the XLSX
+    // Clear any buffered output before sending the XLSX
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
@@ -1243,36 +1244,32 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
     $sheet->setTitle('الإيصالات');
 
     $headers = [
-        '#',
         'رقم الإيصال',
-        'اسم العميل',
         'رقم العميل',
+        'اسم العميل',
         'هاتف العميل',
-        'الفرع',
-        'الكابتن',
-        'الخطة',
+        'نوع التجديد',
         'سعر الخطة',
+        'المبلغ المدفوع',
+        'المبلغ المتبقي',
+        'طريقة الدفع',
+        'تاريخ الإنشاء',
+        'العمر',
+        'الفرع',
+        'المنشئ',
+        'الكابتن',
         'أول جلسة',
         'آخر جلسة',
-        'جلسة التجديد',
-        'نوع التجديد',
-        'الحالة',
         'وقت التمرين',
-        'المستوى',
-        'المنشئ',
-        'تاريخ الإنشاء',
-        'إجمالي المدفوع',
-        'طريقة الدفع',
-        'إجمالي المسترد',
-        'المتبقي',
-        'عدد التعديلات',
-        'عدد المعاملات',
-        'مسترد؟'
+        'جلسة التجديد',
+        'الحالة',
+        'ملاحظات',
     ];
 
     $sheet->fromArray($headers, null, 'A1');
 
     $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+
     $sheet->getStyle("A1:{$lastColumn}1")->getFont()->setBold(true);
     $sheet->freezePane('A2');
 
@@ -1280,49 +1277,49 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
 
     foreach ($rows as $r) {
         $renewalTypeKey = mb_strtolower(trim((string)($r['renewal_type'] ?? '')));
+        $paymentMethodKey = strtolower(trim((string)($r['payment_method'] ?? '')));
 
         $planPrice     = (float)($r['plan_price'] ?? 0);
-        $grossPaid     = (float)($r['gross_paid'] ?? $r['total_paid'] ?? 0);
+        $grossPaid     = (float)($r['gross_paid'] ?? 0);
         $totalRefunded = (float)($r['total_refunded'] ?? 0);
-        $netPaid       = $grossPaid - $totalRefunded;
-        $remaining     = max(0, $planPrice - $netPaid);
 
-        $paymentMethodKey = strtolower(trim((string)($r['payment_method'] ?? '')));
+        $netPaid   = $grossPaid - $totalRefunded;
+        $remaining = max(0, $planPrice - $netPaid);
 
         $sheet->fromArray([
             $r['id'],
-            $r['receipt_ref'] ?? $this->buildReceiptRef((int)$r['id'], $r['created_at'] ?? ''),
-            $r['client_name'] ?? '',
             $r['client_id'] ?? '',
+            $r['client_name'] ?? '',
             $r['phone'] ?? '',
-            $r['branch_name'] ?? '',
-            $r['captain_name'] ?? '',
-            $r['plan_name'] ?? '',
-            $r['plan_price'] ?? '',
-            $r['first_session'] ?? '',
-            $r['last_session'] ?? '',
-            $r['renewal_session'] ?? '',
             $renewalTypeLabels[$renewalTypeKey] ?? ($r['renewal_type'] ?? ''),
-            $statusLabels[$r['receipt_status']] ?? $r['receipt_status'],
-            $r['exercise_time'] ?? '',
-            $r['level'] ?? '',
-            $r['creator_name'] ?? '',
+            round($planPrice, 2),
+            round($netPaid, 2),
+            round($remaining, 2),
+            $paymentMethodLabels[$paymentMethodKey] ?? ($r['payment_method'] ?? ''),
             !empty($r['created_at'])
                 ? date('Y-m-d', strtotime($r['created_at']))
                 : '',
-            round($netPaid, 2),
-            $paymentMethodLabels[$paymentMethodKey] ?? ($r['payment_method'] ?? ''),
-            round($totalRefunded, 2),
-            round($remaining, 2),
-            $r['audit_count'] ?? 0,
-            $r['transaction_count'] ?? 0,
-            !empty($r['is_refunded']) ? 'نعم' : 'لا',
+            $r['age'] ?? '',
+            $r['branch_name'] ?? '',
+            $r['creator_name'] ?? '',
+            $r['captain_name'] ?? '',
+            $r['first_session'] ?? '',
+            $r['last_session'] ?? '',
+            $r['exercise_time'] ?? '',
+            $r['renewal_session'] ?? '',
+            $statusLabels[$r['receipt_status']] ?? $r['receipt_status'],
+            $r['notes'] ?? '',
         ], null, "A{$rowNum}");
 
         $rowNum++;
     }
 
-    // Keep client ID as text
+    // Client ID as text
+    $sheet->getStyle('B2:B' . ($rowNum - 1))
+        ->getNumberFormat()
+        ->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT);
+
+    // Phone as text
     $sheet->getStyle('D2:D' . ($rowNum - 1))
         ->getNumberFormat()
         ->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT);
@@ -1348,8 +1345,8 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
     );
 
     exit;
-}
-    
+} 
+
     // ════════════════════════════════════════════════════════════════════════
     // CREATE
     // ════════════════════════════════════════════════════════════════════════

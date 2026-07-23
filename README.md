@@ -281,3 +281,27 @@ total paid 531
 
 
 because of the transaction date
+
+
+
+
+receipt_id
+client_id
+client_name
+client_phone
+renewal_type
+plan_price
+paid amount
+remaining amount
+payment method
+created at
+age
+branch
+creator_name
+captain name
+first session
+last session
+excersice time
+renewal session
+status
+notes

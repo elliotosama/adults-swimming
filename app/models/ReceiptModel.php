@@ -135,6 +135,8 @@ public function searchAll(array $filters = []): array
                c.client_name,
                c.id AS client_id,
                c.phone AS phone,
+               c.age,
+               r.notes,
                b.branch_name,
                CASE
                    WHEN r.level = 1 THEN b.working_days1
