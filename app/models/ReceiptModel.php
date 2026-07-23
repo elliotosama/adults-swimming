@@ -136,7 +136,15 @@ public function searchAll(array $filters = []): array
                c.id AS client_id,
                c.phone AS phone,
                c.age,
-               r.notes,
+
+               (
+                   SELECT t2.notes
+                   FROM transactions t2
+                   WHERE t2.receipt_id = r.id
+                   ORDER BY t2.id DESC
+                   LIMIT 1
+               ) AS notes,
+
                b.branch_name,
                CASE
                    WHEN r.level = 1 THEN b.working_days1
@@ -144,6 +152,7 @@ public function searchAll(array $filters = []): array
                    WHEN r.level = 3 THEN b.working_days3
                    ELSE COALESCE(b.working_days2, b.working_days1, b.working_days3)
                END AS exercise_days,
+
                ca.captain_name,
                p.description AS plan_name,
                p.price AS plan_price,
@@ -159,21 +168,35 @@ public function searchAll(array $filters = []): array
                cr.username AS creator_name,
                r.created_at,
 
-               (SELECT COUNT(*)
-                FROM receipt_audit_log al
-                WHERE al.receipt_id = r.id) AS audit_count,
+               (
+                   SELECT COUNT(*)
+                   FROM receipt_audit_log al
+                   WHERE al.receipt_id = r.id
+               ) AS audit_count,
 
-               (SELECT COUNT(*)
-                FROM transactions t
-                WHERE t.receipt_id = r.id) AS transaction_count,
+               (
+                   SELECT COUNT(*)
+                   FROM transactions t
+                   WHERE t.receipt_id = r.id
+               ) AS transaction_count,
 
-               (SELECT COALESCE(SUM(CASE WHEN t2.type = 'payment' THEN t2.amount ELSE 0 END), 0)
-                FROM transactions t2
-                WHERE t2.receipt_id = r.id) AS gross_paid,
+               (
+                   SELECT COALESCE(
+                       SUM(CASE WHEN t2.type = 'payment' THEN t2.amount ELSE 0 END),
+                       0
+                   )
+                   FROM transactions t2
+                   WHERE t2.receipt_id = r.id
+               ) AS gross_paid,
 
-               (SELECT COALESCE(SUM(CASE WHEN t2.type = 'refund' THEN t2.amount ELSE 0 END), 0)
-                FROM transactions t2
-                WHERE t2.receipt_id = r.id) AS total_refunded,
+               (
+                   SELECT COALESCE(
+                       SUM(CASE WHEN t2.type = 'refund' THEN t2.amount ELSE 0 END),
+                       0
+                   )
+                   FROM transactions t2
+                   WHERE t2.receipt_id = r.id
+               ) AS total_refunded,
 
                (
                    SELECT t2.payment_method
@@ -201,7 +224,6 @@ public function searchAll(array $filters = []): array
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
-
     // ── Single receipt ────────────────────────────────────────────────────────
 
     public function findById(int $id): array|false {
