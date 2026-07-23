@@ -1194,13 +1194,13 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
     // ════════════════════════════════════════════════════════════════════════
 
 
-public function export(): void {
+    public function export(): void
+{
     auth_require(['admin', 'branch_manager', 'customer_service', 'area_manager']);
 
     require_once ROOT . '/vendor/autoload.php';
 
-    // ── Guard: wipe ANY output that may have been buffered/echoed so far
-    // (stray whitespace, notices, BOM, etc.) so only the xlsx bytes go out.
+    // Remove any buffered output before sending the XLSX
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
@@ -1229,76 +1229,92 @@ public function export(): void {
         'تجديد'            => 'تجديد',
     ];
 
+    $paymentMethodLabels = [
+        'cash'      => 'نقدي',
+        'visa'      => 'فيزا',
+        'instapay'  => 'إنستا باي',
+        'bank'      => 'تحويل بنكي',
+        'wallet'    => 'محفظة إلكترونية',
+    ];
+
     $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->setRightToLeft(true);
     $sheet->setTitle('الإيصالات');
 
-$headers = [
-    '#',
-    'رقم الإيصال',
-    'اسم العميل',
-    'رقم العميل',
-    'هاتف العميل',
-    'الفرع',
-    'الكابتن',
-    'الخطة',
-    'سعر الخطة',
-    'أول جلسة',
-    'آخر جلسة',
-    'جلسة التجديد',
-    'نوع التجديد',
-    'الحالة',
-    'وقت التمرين',
-    'المستوى',
-    'المنشئ',
-    'تاريخ الإنشاء',
-    'إجمالي المدفوع',
-    'إجمالي المسترد',
-    'المتبقي',
-    'عدد التعديلات',
-    'عدد المعاملات',
-    'مسترد؟'
-];
+    $headers = [
+        '#',
+        'رقم الإيصال',
+        'اسم العميل',
+        'رقم العميل',
+        'هاتف العميل',
+        'الفرع',
+        'الكابتن',
+        'الخطة',
+        'سعر الخطة',
+        'أول جلسة',
+        'آخر جلسة',
+        'جلسة التجديد',
+        'نوع التجديد',
+        'الحالة',
+        'وقت التمرين',
+        'المستوى',
+        'المنشئ',
+        'تاريخ الإنشاء',
+        'إجمالي المدفوع',
+        'طريقة الدفع',
+        'إجمالي المسترد',
+        'المتبقي',
+        'عدد التعديلات',
+        'عدد المعاملات',
+        'مسترد؟'
+    ];
+
     $sheet->fromArray($headers, null, 'A1');
-    $sheet->getStyle('A1:U1')->getFont()->setBold(true);
+
+    $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+    $sheet->getStyle("A1:{$lastColumn}1")->getFont()->setBold(true);
     $sheet->freezePane('A2');
 
     $rowNum = 2;
-    foreach ($rows as $r) {
-        $renewalTypeKey = mb_strtolower(trim((string) ($r['renewal_type'] ?? '')));
 
-        $planPrice     = (float)($r['plan_price']      ?? 0);
-        $grossPaid     = (float)($r['gross_paid']       ?? $r['total_paid'] ?? 0);
-        $totalRefunded = (float)($r['total_refunded']   ?? 0);
+    foreach ($rows as $r) {
+        $renewalTypeKey = mb_strtolower(trim((string)($r['renewal_type'] ?? '')));
+
+        $planPrice     = (float)($r['plan_price'] ?? 0);
+        $grossPaid     = (float)($r['gross_paid'] ?? $r['total_paid'] ?? 0);
+        $totalRefunded = (float)($r['total_refunded'] ?? 0);
         $netPaid       = $grossPaid - $totalRefunded;
         $remaining     = max(0, $planPrice - $netPaid);
 
+        $paymentMethodKey = strtolower(trim((string)($r['payment_method'] ?? '')));
+
         $sheet->fromArray([
             $r['id'],
-            $r['receipt_ref']     ?? $this->buildReceiptRef((int)$r['id'], $r['created_at'] ?? ''),
-            $r['client_name']     ?? '',
+            $r['receipt_ref'] ?? $this->buildReceiptRef((int)$r['id'], $r['created_at'] ?? ''),
+            $r['client_name'] ?? '',
             $r['client_id'] ?? '',
-            $r['phone']           ?? '',
-            $r['branch_name']     ?? '',
-            $r['captain_name']    ?? '',
-            $r['plan_name']       ?? '',
+            $r['phone'] ?? '',
+            $r['branch_name'] ?? '',
+            $r['captain_name'] ?? '',
+            $r['plan_name'] ?? '',
             $r['plan_price'] ?? '',
-            $r['first_session']   ?? '',
-            $r['last_session']    ?? '',
+            $r['first_session'] ?? '',
+            $r['last_session'] ?? '',
             $r['renewal_session'] ?? '',
             $renewalTypeLabels[$renewalTypeKey] ?? ($r['renewal_type'] ?? ''),
             $statusLabels[$r['receipt_status']] ?? $r['receipt_status'],
-            $r['exercise_time']   ?? '',
-            $r['level']           ?? '',
-            $r['creator_name']    ?? '',
+            $r['exercise_time'] ?? '',
+            $r['level'] ?? '',
+            $r['creator_name'] ?? '',
             !empty($r['created_at'])
-    ? date('Y-m-d', strtotime($r['created_at']))
-    : '',
+                ? date('Y-m-d', strtotime($r['created_at']))
+                : '',
             round($netPaid, 2),
+            $paymentMethodLabels[$paymentMethodKey] ?? ($r['payment_method'] ?? ''),
             round($totalRefunded, 2),
             round($remaining, 2),
-            $r['audit_count']       ?? 0,
+            $r['audit_count'] ?? 0,
             $r['transaction_count'] ?? 0,
             !empty($r['is_refunded']) ? 'نعم' : 'لا',
         ], null, "A{$rowNum}");
@@ -1306,11 +1322,12 @@ $headers = [
         $rowNum++;
     }
 
+    // Keep client ID as text
     $sheet->getStyle('D2:D' . ($rowNum - 1))
-          ->getNumberFormat()
-          ->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT);
+        ->getNumberFormat()
+        ->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT);
 
-    foreach (range('A', 'U') as $col) {
+    foreach (range('A', $lastColumn) as $col) {
         $sheet->getColumnDimension($col)->setAutoSize(true);
     }
 
@@ -1324,9 +1341,15 @@ $headers = [
     $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
     $writer->save('php://output');
 
-    log_action('exported_receipts', 'filters: ' . json_encode($filters), auth_user()['id']);
+    log_action(
+        'exported_receipts',
+        'filters: ' . json_encode($filters),
+        auth_user()['id']
+    );
+
     exit;
 }
+    
     // ════════════════════════════════════════════════════════════════════════
     // CREATE
     // ════════════════════════════════════════════════════════════════════════

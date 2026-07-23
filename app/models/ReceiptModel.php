@@ -126,56 +126,79 @@ $dataSql = "
 
 
 
-public function searchAll(array $filters = []): array {
-        [$where, $params] = $this->buildWhere($filters);
+public function searchAll(array $filters = []): array
+{
+    [$where, $params] = $this->buildWhere($filters);
 
-        $sql = "
-            SELECT r.id,
-                   c.client_name,
-                   c.id as client_id,
-                   c.phone         AS phone,
-                   b.branch_name,
-                   CASE
-                       WHEN r.level = 1 THEN b.working_days1
-                       WHEN r.level = 2 THEN b.working_days2
-                       WHEN r.level = 3 THEN b.working_days3
-                       ELSE COALESCE(b.working_days2, b.working_days1, b.working_days3)
-                   END AS exercise_days,
-                   ca.captain_name,
-                   p.description   AS plan_name,
-                   p.price         AS plan_price,
-                   r.first_session,
-                   r.last_session,
-                   r.renewal_session,
-                   r.renewal_type,
-                   r.receipt_status,
-                   r.exercise_time,
-                   r.level,
-                   r.receipt_ref,
-                   r.is_refunded,
-                   cr.username     AS creator_name,
-                   r.created_at,
-                   (SELECT COUNT(*) FROM receipt_audit_log al WHERE al.receipt_id = r.id) AS audit_count,
-                   (SELECT COUNT(*) FROM transactions        t  WHERE t.receipt_id  = r.id) AS transaction_count,
-                   (SELECT COALESCE(SUM(CASE WHEN t2.type='payment' THEN t2.amount ELSE 0 END),0)
-                        FROM transactions t2 WHERE t2.receipt_id = r.id) AS gross_paid,
-                   (SELECT COALESCE(SUM(CASE WHEN t2.type='refund' THEN t2.amount ELSE 0 END),0)
-                        FROM transactions t2 WHERE t2.receipt_id = r.id) AS total_refunded
+    $sql = "
+        SELECT r.id,
+               c.client_name,
+               c.id AS client_id,
+               c.phone AS phone,
+               b.branch_name,
+               CASE
+                   WHEN r.level = 1 THEN b.working_days1
+                   WHEN r.level = 2 THEN b.working_days2
+                   WHEN r.level = 3 THEN b.working_days3
+                   ELSE COALESCE(b.working_days2, b.working_days1, b.working_days3)
+               END AS exercise_days,
+               ca.captain_name,
+               p.description AS plan_name,
+               p.price AS plan_price,
+               r.first_session,
+               r.last_session,
+               r.renewal_session,
+               r.renewal_type,
+               r.receipt_status,
+               r.exercise_time,
+               r.level,
+               r.receipt_ref,
+               r.is_refunded,
+               cr.username AS creator_name,
+               r.created_at,
 
-            FROM receipts r
-            LEFT JOIN clients  c  ON c.id  = r.client_id
-            LEFT JOIN users    cr ON cr.id = r.creator_id
-            LEFT JOIN captains ca ON ca.id = r.captain_id
-            LEFT JOIN branches b  ON b.id  = r.branch_id
-            LEFT JOIN prices   p  ON p.id  = r.plan_id
-            {$where}
-            ORDER BY r.id ASC
-        ";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
+               (SELECT COUNT(*)
+                FROM receipt_audit_log al
+                WHERE al.receipt_id = r.id) AS audit_count,
 
+               (SELECT COUNT(*)
+                FROM transactions t
+                WHERE t.receipt_id = r.id) AS transaction_count,
+
+               (SELECT COALESCE(SUM(CASE WHEN t2.type = 'payment' THEN t2.amount ELSE 0 END), 0)
+                FROM transactions t2
+                WHERE t2.receipt_id = r.id) AS gross_paid,
+
+               (SELECT COALESCE(SUM(CASE WHEN t2.type = 'refund' THEN t2.amount ELSE 0 END), 0)
+                FROM transactions t2
+                WHERE t2.receipt_id = r.id) AS total_refunded,
+
+               (
+                   SELECT t2.payment_method
+                   FROM transactions t2
+                   WHERE t2.receipt_id = r.id
+                     AND t2.type = 'payment'
+                   ORDER BY t2.id DESC
+                   LIMIT 1
+               ) AS payment_method
+
+        FROM receipts r
+        LEFT JOIN clients c ON c.id = r.client_id
+        LEFT JOIN users cr ON cr.id = r.creator_id
+        LEFT JOIN captains ca ON ca.id = r.captain_id
+        LEFT JOIN branches b ON b.id = r.branch_id
+        LEFT JOIN prices p ON p.id = r.plan_id
+
+        {$where}
+
+        ORDER BY r.id ASC
+    ";
+
+    $stmt = $this->db->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
     // ── Single receipt ────────────────────────────────────────────────────────
 
