@@ -94,18 +94,19 @@ class TransactionModel {
 
         // exclude transactions linked to receipts that have been refunded
         // (a receipt is considered refunded when it has a transaction with type = 'refund')
-        if (!empty($filters['exclude_refunded_receipts'])) {
-            $clauses[] = '(
-                t.receipt_id IS NULL
-                OR t.receipt_id NOT IN (
-                    SELECT DISTINCT receipt_id
-                    FROM transactions
-                    WHERE type = :refunded_type
-                    AND receipt_id IS NOT NULL
-                )
-            )';
-            $params[':refunded_type'] = 'refund';
-        }
+if (!empty($filters['exclude_refunded_receipts'])) {
+    $clauses[] = '(
+        t.receipt_id IS NULL
+        OR t.receipt_id NOT IN (
+            SELECT DISTINCT receipt_id
+            FROM transactions
+            WHERE type = :refunded_type
+            AND is_admin_adjustment = 0
+            AND receipt_id IS NOT NULL
+        )
+    )';
+    $params[':refunded_type'] = 'refund';
+}
 
         $where = $clauses ? 'WHERE ' . implode(' AND ', $clauses) : '';
         return [$where, $params];
@@ -200,20 +201,20 @@ class TransactionModel {
 
     // ── Create ────────────────────────────────────────────────────────────────
 
-    public function create(array $data): int {
-        // ── IMPORTANT: created_at/updated_at are BOUND params, not literal
-        // SQL functions. Previously this used a hardcoded CURDATE(), which
-        // silently ignored the caller's business-day-adjusted 'created_at'
-        // (and dropped the time-of-day entirely). Always bind it instead.
-        $stmt = $this->db->prepare("
-            INSERT INTO transactions
-                (payment_method, amount, receipt_id, created_by, created_at, updated_at, attachment, notes, type)
-            VALUES
-                (:payment_method, :amount, :receipt_id, :created_by, :created_at, :updated_at, :attachment, :notes, :type)
-        ");
-        $stmt->execute($this->bind($data));
-        return (int) $this->db->lastInsertId();
-    }
+public function create(array $data): int {
+    // ── IMPORTANT: created_at/updated_at are BOUND params, not literal
+    // SQL functions. Previously this used a hardcoded CURDATE(), which
+    // silently ignored the caller's business-day-adjusted 'created_at'
+    // (and dropped the time-of-day entirely). Always bind it instead.
+    $stmt = $this->db->prepare("
+        INSERT INTO transactions
+            (payment_method, amount, receipt_id, created_by, created_at, updated_at, attachment, notes, type, is_admin_adjustment)
+        VALUES
+            (:payment_method, :amount, :receipt_id, :created_by, :created_at, :updated_at, :attachment, :notes, :type, :is_admin_adjustment)
+    ");
+    $stmt->execute($this->bind($data));
+    return (int) $this->db->lastInsertId();
+}
 
     // ── Update ────────────────────────────────────────────────────────────────
 
@@ -245,30 +246,30 @@ class TransactionModel {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private function bind(array $data): array {
-        // created_at: prefer whatever the controller computed via its own
-        // effectiveCreatedAt(); fall back to this model's own business-day
-        // logic if the caller didn't provide one.
-        $createdAt = $data['created_at'] ?: $this->effectiveNow();
+private function bind(array $data): array {
+    // created_at: prefer whatever the controller computed via its own
+    // effectiveCreatedAt(); fall back to this model's own business-day
+    // logic if the caller didn't provide one.
+    $createdAt = $data['created_at'] ?: $this->effectiveNow();
 
-        // updated_at: prefer an explicit value; otherwise fall back to
-        // created_at on insert (so a freshly created row's updated_at
-        // matches its created_at), or to effectiveNow() on update.
-        $updatedAt = $data['updated_at'] ?: $createdAt;
+    // updated_at: prefer an explicit value; otherwise fall back to
+    // created_at on insert (so a freshly created row's updated_at
+    // matches its created_at), or to effectiveNow() on update.
+    $updatedAt = $data['updated_at'] ?: $createdAt;
 
-        return [
-            ':payment_method' => $data['payment_method'] ?? null,
-            ':amount'         => $data['amount']         ?? null,
-            ':receipt_id'     => $data['receipt_id']     ?: null,
-            ':created_by'     => $data['created_by']     ?: null,
-            ':attachment'     => $data['attachment']     ?? null,
-            ':notes'          => $data['notes']          ?? null,
-            ':type'           => $data['type']           ?? 'payment',
-            ':created_at'     => $createdAt,
-            ':updated_at'     => $updatedAt,
-        ];
-    }
-
+    return [
+        ':payment_method'      => $data['payment_method'] ?? null,
+        ':amount'              => $data['amount']         ?? null,
+        ':receipt_id'          => $data['receipt_id']     ?: null,
+        ':created_by'          => $data['created_by']     ?: null,
+        ':attachment'          => $data['attachment']     ?? null,
+        ':notes'               => $data['notes']          ?? null,
+        ':type'                => $data['type']           ?? 'payment',
+        ':is_admin_adjustment' => !empty($data['is_admin_adjustment']) ? 1 : 0,   // ← new
+        ':created_at'          => $createdAt,
+        ':updated_at'          => $updatedAt,
+    ];
+}
     // Same field mapping as create(), minus :created_at — the UPDATE query
     // has no created_at column in its SET clause, so binding it throws
     // HY093. updated_at IS kept.

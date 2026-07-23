@@ -25,6 +25,7 @@ public function findAll(): array {
                    FROM transactions t
                    WHERE t.receipt_id = r.id
                      AND t.type = 'refund'
+                     AND t.is_admin_adjustment = 0
                ) AS has_refund
 
         FROM receipts r
@@ -85,6 +86,7 @@ $dataSql = "
     FROM transactions tr
     WHERE tr.receipt_id = r.id
       AND tr.type = 'refund'
+      AND tr.is_admin_adjustment = 0
 ) AS has_refund,
 
 
@@ -199,6 +201,7 @@ public function searchAll(array $filters = []): array {
     FROM transactions t
     WHERE t.receipt_id = r.id
       AND t.type = 'refund'
+      AND t.is_admin_adjustment = 0
 ) AS has_refund,
 
 
@@ -227,6 +230,7 @@ public function searchAll(array $filters = []): array {
            FROM transactions t
            WHERE t.receipt_id = r.id
              AND t.type = 'refund'
+             AND t.is_admin_adjustment = 0
        ) AS has_refund
 
 
@@ -257,6 +261,7 @@ public function searchAll(array $filters = []): array {
     FROM transactions tr
     WHERE tr.receipt_id = r.id
       AND tr.type = 'refund'
+      AND tr.is_admin_adjustment = 0
 ) AS has_refund,
 
 
@@ -592,8 +597,18 @@ public function create(array $data): int {
         $conditions[] = "r.renewal_type IN (" . implode(',', $placeholders) . ")";
     }
 
+    // ── has_refund filter ────────────────────────────────────────────────
+    // Admin balance-correction rows (is_admin_adjustment = 1) must NOT
+    // count toward "مسترد؟" — an admin editing total_paid downward is a
+    // bookkeeping fix, not a customer refund. See ReceiptController::update()
+    // for where these rows get inserted with is_admin_adjustment = 1.
     if (!empty($filters['has_refund'])) {
-        $conditions[] = "EXISTS (SELECT 1 FROM transactions tr WHERE tr.receipt_id = r.id AND tr.type = 'refund')";
+        $conditions[] = "EXISTS (
+            SELECT 1 FROM transactions tr
+            WHERE tr.receipt_id = r.id
+              AND tr.type = 'refund'
+              AND tr.is_admin_adjustment = 0
+        )";
     }
 
     // ════════════════════════════════════════════════════════════════

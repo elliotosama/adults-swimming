@@ -2254,15 +2254,16 @@ public function edit(): void {
 
         if (abs($diff) >= 0.01) {
             $this->transactions->create([
-                'receipt_id'     => $id,
-                'payment_method' => (string) ($data['payment_method'] ?: ($receipt['payment_method'] ?? 'bank_transfer')),
-                'amount'         => abs($diff),
-                'created_by'     => $user['id'],
-                'type'           => $diff > 0 ? 'payment' : 'refund',
-                'notes'          => 'تسوية إدارية / Admin balance adjustment ('
+                'receipt_id'          => $id,
+                'payment_method'      => (string) ($data['payment_method'] ?: ($receipt['payment_method'] ?? 'bank_transfer')),
+                'amount'              => abs($diff),
+                'created_by'          => $user['id'],
+                'type'                => $diff > 0 ? 'payment' : 'refund',
+                'is_admin_adjustment' => 1,   // ← new
+                'notes'               => 'تسوية إدارية / Admin balance adjustment ('
                     . ($diff > 0 ? '+' : '') . number_format($diff, 2) . ')',
-                'attachment'     => null,
-                'created_at'     => $updatedAt,
+                'attachment'          => null,
+                'created_at'          => $updatedAt,
             ]);
 
             $this->auditLog->log(
