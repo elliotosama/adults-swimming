@@ -1195,13 +1195,13 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
 
 
    
-   public function export(): void
+
+public function export(): void
 {
     auth_require(['admin', 'branch_manager', 'customer_service', 'area_manager']);
 
     require_once ROOT . '/vendor/autoload.php';
 
-    // Clear any buffered output before sending the XLSX
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
@@ -1264,6 +1264,8 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
         'جلسة التجديد',
         'الحالة',
         'ملاحظات',
+        'تم الاسترداد؟',
+        'المبلغ المسترد',
     ];
 
     $sheet->fromArray($headers, null, 'A1');
@@ -1276,12 +1278,13 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
     $rowNum = 2;
 
     foreach ($rows as $r) {
-        $renewalTypeKey = mb_strtolower(trim((string)($r['renewal_type'] ?? '')));
+
+        $renewalTypeKey  = mb_strtolower(trim((string)($r['renewal_type'] ?? '')));
         $paymentMethodKey = strtolower(trim((string)($r['payment_method'] ?? '')));
 
-        $planPrice     = (float)($r['plan_price'] ?? 0);
-        $grossPaid     = (float)($r['gross_paid'] ?? 0);
-        $totalRefunded = (float)($r['total_refunded'] ?? 0);
+        $planPrice      = (float)($r['plan_price'] ?? 0);
+        $grossPaid      = (float)($r['gross_paid'] ?? 0);
+        $totalRefunded  = (float)($r['total_refunded'] ?? 0);
 
         $netPaid   = $grossPaid - $totalRefunded;
         $remaining = max(0, $planPrice - $netPaid);
@@ -1309,6 +1312,8 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
             $r['renewal_session'] ?? '',
             $statusLabels[$r['receipt_status']] ?? $r['receipt_status'],
             $r['notes'] ?? '',
+            !empty($r['is_refunded']) ? 'نعم' : 'لا',
+            round($totalRefunded, 2),
         ], null, "A{$rowNum}");
 
         $rowNum++;
@@ -1345,7 +1350,8 @@ private function buildReceiptRef(int $rawId, string $createdAt = ''): string
     );
 
     exit;
-} 
+}
+
 
     // ════════════════════════════════════════════════════════════════════════
     // CREATE
