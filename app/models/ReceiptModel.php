@@ -167,7 +167,7 @@ public function searchAll(array $filters = []): array {
             LEFT JOIN branches b  ON b.id  = r.branch_id
             LEFT JOIN prices   p  ON p.id  = r.plan_id
             {$where}
-            ORDER BY r.id DESC
+            ORDER BY r.id ASC
         ";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
