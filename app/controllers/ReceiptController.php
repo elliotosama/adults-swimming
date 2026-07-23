@@ -1292,7 +1292,9 @@ $headers = [
             $r['exercise_time']   ?? '',
             $r['level']           ?? '',
             $r['creator_name']    ?? '',
-            $r['created_at']      ?? '',
+            !empty($r['created_at'])
+    ? date('Y-m-d', strtotime($r['created_at']))
+    : '',
             round($netPaid, 2),
             round($totalRefunded, 2),
             round($remaining, 2),
