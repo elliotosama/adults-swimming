@@ -91,8 +91,8 @@ $dataSql = "
 
 
            COALESCE(
-               (SELECT SUM(CASE WHEN t2.type = 'payment' THEN t2.amount
-                                WHEN t2.type = 'refund' THEN -t2.amount
+               (SELECT SUM(CASE WHEN t2.type = 'payment' AND t2.is_admin_adjustment = 0 THEN t2.amount
+                                WHEN t2.type = 'refund'  AND t2.is_admin_adjustment = 0 THEN -t2.amount
                                 ELSE 0 END)
                 FROM transactions t2 WHERE t2.receipt_id = r.id), 0
            ) AS total_paid
@@ -313,8 +313,8 @@ public function searchAll(array $filters = []): array
 
 
                 COALESCE(
-                    SUM(CASE WHEN t.type = 'payment' THEN t.amount
-                             WHEN t.type = 'refund' THEN -t.amount
+                    SUM(CASE WHEN t.type = 'payment' AND t.is_admin_adjustment = 0 THEN t.amount
+                             WHEN t.type = 'refund'  AND t.is_admin_adjustment = 0 THEN -t.amount
                              ELSE 0 END), 0
                 ) AS total_paid,
                 COALESCE(
