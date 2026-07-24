@@ -62,6 +62,11 @@ class TransactionModel {
         $clauses = [];
         $params  = [];
 
+        // Admin balance-correction rows are bookkeeping-only and must not
+        // be surfaced in the customer-facing transaction log / receipt view.
+        // They remain in receipt_audit_log so edits are preserved.
+        $clauses[] = 't.is_admin_adjustment = 0';
+
         // customer_service → only their own transactions
         if (!empty($filters['created_by'])) {
             $clauses[] = 't.created_by = :created_by';
@@ -120,6 +125,7 @@ if (!empty($filters['exclude_refunded_receipts'])) {
                    u.username AS creator_name
             FROM transactions t
             LEFT JOIN users u ON u.id = t.created_by
+            WHERE t.is_admin_adjustment = 0
             ORDER BY t.created_at DESC
         ");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -134,6 +140,7 @@ if (!empty($filters['exclude_refunded_receipts'])) {
             FROM transactions t
             LEFT JOIN users u ON u.id = t.created_by
             WHERE t.receipt_id = ?
+              AND t.is_admin_adjustment = 0
             ORDER BY t.created_at DESC
         ");
         $stmt->execute([$receiptId]);

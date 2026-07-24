@@ -238,8 +238,8 @@ class TransactionController {
                    p.price        AS plan_price,
                    p.description  AS plan_name,
                    (
-                       SELECT COALESCE(SUM(CASE WHEN type='payment' THEN amount ELSE 0 END), 0)
-                            - COALESCE(SUM(CASE WHEN type='refund'  THEN amount ELSE 0 END), 0)
+                       SELECT COALESCE(SUM(CASE WHEN type='payment' AND is_admin_adjustment = 0 THEN amount ELSE 0 END), 0)
+                            - COALESCE(SUM(CASE WHEN type='refund' AND is_admin_adjustment = 0 THEN amount ELSE 0 END), 0)
                        FROM transactions t WHERE t.receipt_id = r.id
                    ) AS net_paid
             FROM receipts r

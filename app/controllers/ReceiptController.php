@@ -3594,7 +3594,7 @@ public function manage(): void {
                        c.phone       AS client_phone,
                        c.age         AS client_age,
                        COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
-                           - COALESCE(SUM(CASE WHEN t.type='refund' AND t.is_admin_adjustment = 0 THEN t.amount ELSE 0 END), 0)
+                           - COALESCE(SUM(CASE WHEN t.type='refund' THEN t.amount ELSE 0 END), 0)
                            AS total_paid
                 FROM receipts r
                 LEFT JOIN prices       p ON p.id = r.plan_id
@@ -3641,7 +3641,7 @@ public function manage(): void {
                            p.description AS plan_name,
                            b.branch_name,
                            COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
-                               - COALESCE(SUM(CASE WHEN t.type='refund' AND t.is_admin_adjustment = 0 THEN t.amount ELSE 0 END), 0)
+                               - COALESCE(SUM(CASE WHEN t.type='refund' THEN t.amount ELSE 0 END), 0)
                                AS total_paid,
                            COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
                                AS gross_paid,
