@@ -982,17 +982,19 @@ private function validate(array $data): array {
         $stmt = $db->prepare("
             SELECT
                 COALESCE(SUM(CASE WHEN type='payment' THEN amount ELSE 0 END), 0) AS gross_paid,
-                COALESCE(SUM(CASE WHEN type='refund' THEN amount ELSE 0 END), 0) AS total_refunded
+                COALESCE(SUM(CASE WHEN type='refund' AND is_admin_adjustment = 0 THEN amount ELSE 0 END), 0) AS total_refunded,
+                COALESCE(SUM(CASE WHEN type='refund' AND is_admin_adjustment = 1 THEN amount ELSE 0 END), 0) AS admin_adjusted_refunds
             FROM transactions WHERE receipt_id = ?
         ");
         $stmt->execute([$receiptId]);
         $tx = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $grossPaid      = (float) $tx['gross_paid'];
-        $totalRefunded  = (float) $tx['total_refunded'];
-        $netPaid        = $grossPaid - $totalRefunded;
-        $remaining      = max(0, $planPrice - $netPaid);
-        $refundRatio    = $planPrice > 0 ? ($totalRefunded / $planPrice) : 0;
+        $grossPaid            = (float) $tx['gross_paid'];
+        $totalRefunded        = (float) $tx['total_refunded'];
+        $adminAdjustedRefunds = (float) $tx['admin_adjusted_refunds'];
+        $netPaid              = $grossPaid - $totalRefunded - $adminAdjustedRefunds;
+        $remaining            = max(0, $planPrice - $netPaid);
+        $refundRatio          = $planPrice > 0 ? ($totalRefunded / $planPrice) : 0;
 
         return compact('grossPaid', 'totalRefunded', 'netPaid', 'remaining', 'refundRatio');
     }
