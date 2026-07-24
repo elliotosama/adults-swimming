@@ -60,6 +60,7 @@
 
     // ── Branch manager: resolve their fixed branch ────────────────
     $currentUser     = auth_user();
+    $isAdmin         = ($currentUser['role'] === 'admin');
     $isBranchManager = ($currentUser['role'] === 'branch_manager');
     $managerBranch   = null;
 
@@ -1027,7 +1028,8 @@
                 <div class="form-field">
                   <label class="form-label">اسم العميل <span class="req">*</span></label>
                   <input type="text" name="client_name" class="form-control ren-client-name"
-                         value="<?= htmlspecialchars($renewClient['client_name'] ?? '') ?>" required>
+                         value="<?= htmlspecialchars($renewClient['client_name'] ?? '') ?>"
+                         <?= !$isAdmin ? 'readonly' : '' ?> required>
                   <div class="inline-error ren-name-error">❌ يجب أن يحتوي الاسم على 3 كلمات على الأقل.</div>
                 </div>
                 <div class="form-field">
@@ -1038,7 +1040,8 @@
                     <input type="hidden" name="full_phone"   class="ren-full-phone"   value="<?= htmlspecialchars($renewClient['phone'] ?? '') ?>">
                     <input type="text" name="phone_local" class="form-control ren-phone-local"
                            inputmode="numeric" maxlength="11"
-                           value="<?= htmlspecialchars($renewClient['phone_local'] ?? '') ?>" required>
+                           value="<?= htmlspecialchars($renewClient['phone_local'] ?? '') ?>"
+                           <?= !$isAdmin ? 'readonly' : '' ?> required>
                   </div>
                   <div class="inline-error ren-phone-error">❌ <span class="ren-phone-error-msg">رقم الهاتف غير صحيح.</span></div>
                 </div>
@@ -1046,17 +1049,20 @@
                   <label class="form-label">البريد الإلكتروني</label>
                   <input type="text" name="client_email" class="form-control ren-client-email"
                          placeholder="example@gmail.com"
-                         value="<?= htmlspecialchars($renewClient['email'] ?? '') ?>">
+                         value="<?= htmlspecialchars($renewClient['email'] ?? '') ?>"
+                         <?= !$isAdmin ? 'readonly' : '' ?>>
                   <div class="inline-error ren-email-error">❌ يجب أن يكون البريد بصيغة name@gmail.com فقط.</div>
                 </div>
                 <div class="form-field">
                   <label class="form-label">العمر</label>
                   <input type="number" name="client_age" class="form-control" min="5" max="99"
-                         value="<?= htmlspecialchars($renewClient['age'] ?? '') ?>">
+                         value="<?= htmlspecialchars($renewClient['age'] ?? '') ?>"
+                         <?= !$isAdmin ? 'readonly' : '' ?>>
                 </div>
                 <div class="form-field">
                   <label class="form-label">الجنس</label>
-                  <select name="client_gender" class="form-control">
+                  <input type="hidden" name="client_gender" value="<?= htmlspecialchars($renewClient['gender'] ?? '') ?>">
+                  <select name="client_gender" class="form-control" <?= !$isAdmin ? 'disabled' : '' ?>>
                     <option value="">— اختر —</option>
                     <option value="male"   <?= ($renewClient['gender'] ?? '') === 'ذكر'   ? 'selected' : '' ?>>ذكر</option>
                     <option value="female" <?= ($renewClient['gender'] ?? '') === 'أنثى' ? 'selected' : '' ?>>أنثى</option>
