@@ -95,6 +95,11 @@ $dataSql = "
                                 WHEN t2.type = 'refund'  AND t2.is_admin_adjustment = 0 THEN -t2.amount
                                 ELSE 0 END)
                 FROM transactions t2 WHERE t2.receipt_id = r.id), 0
+           ) + COALESCE(
+               (SELECT SUM(CASE WHEN t3.type = 'payment' AND t3.is_admin_adjustment = 1 THEN t3.amount
+                                WHEN t3.type = 'refund'  AND t3.is_admin_adjustment = 1 THEN -t3.amount
+                                ELSE 0 END)
+                FROM transactions t3 WHERE t3.receipt_id = r.id), 0
            ) AS total_paid
     FROM receipts r
     LEFT JOIN clients  c  ON c.id  = r.client_id
@@ -315,6 +320,10 @@ public function searchAll(array $filters = []): array
                 COALESCE(
                     SUM(CASE WHEN t.type = 'payment' AND t.is_admin_adjustment = 0 THEN t.amount
                              WHEN t.type = 'refund'  AND t.is_admin_adjustment = 0 THEN -t.amount
+                             ELSE 0 END), 0
+                ) + COALESCE(
+                    SUM(CASE WHEN t.type = 'payment' AND t.is_admin_adjustment = 1 THEN t.amount
+                             WHEN t.type = 'refund'  AND t.is_admin_adjustment = 1 THEN -t.amount
                              ELSE 0 END), 0
                 ) AS total_paid,
                 COALESCE(
