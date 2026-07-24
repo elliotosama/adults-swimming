@@ -54,6 +54,16 @@ class CaptainController {
         exit;
     }
 
+    // Validates a CSRF token posted as $_POST['csrf_token'] against the
+    // session token. Used by state-changing endpoints that aren't routed
+    // through the standard create/update/delete flow.
+    private function validCsrf(): bool {
+        $token = $_POST['csrf_token'] ?? '';
+        return $token !== ''
+            && isset($_SESSION['csrf_token'])
+            && hash_equals($_SESSION['csrf_token'], $token);
+    }
+
     private function parseForm(): array {
         $age = trim($_POST['age'] ?? '');
 
@@ -272,9 +282,11 @@ class CaptainController {
             if ($filters['branch_id'] && !in_array((int) $filters['branch_id'], $managerBranchIds, true)) {
                 $filters['branch_id'] = '';
             }
-            if ($filters['search'] === '') {
-                $filters['managed_branch_ids'] = $managerBranchIds;
-            }
+            // Always scope to the manager's own branches, regardless of
+            // whether a search term is present — previously this only ran
+            // when $filters['search'] was empty, which let a branch_manager
+            // search across every captain in the system.
+            $filters['managed_branch_ids'] = $managerBranchIds;
         }
 
         $captains = $this->captains->findAll($filters);
@@ -746,9 +758,11 @@ class CaptainController {
             if ($filters['branch_id'] && !in_array((int) $filters['branch_id'], $managerBranchIds, true)) {
                 $filters['branch_id'] = '';
             }
-            if ($filters['search'] === '') {
-                $filters['managed_branch_ids'] = $managerBranchIds;
-            }
+            // Always scope to the manager's own branches, regardless of
+            // whether a search term is present — previously this only ran
+            // when $filters['search'] was empty, which let a branch_manager
+            // search across every captain in the system.
+            $filters['managed_branch_ids'] = $managerBranchIds;
         }
 
         echo json_encode($this->captains->findAll($filters));
@@ -758,6 +772,11 @@ class CaptainController {
     public function addToMyBranch(): void {
         auth_require(['branch_manager']);
 
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->validCsrf()) {
+            $this->jsonResponse(['success' => false, 'message' => 'طلب غير صالح.'], 403);
+            return;
+        }
+
         $user = auth_user();
         $id = $_GET['id'] ?? '';
         $captain = $this->captains->findById($id);
@@ -765,9 +784,11 @@ class CaptainController {
 
         if (!$captain) {
             $this->jsonResponse(['success' => false, 'message' => 'الكابتن غير موجود.'], 404);
+            return;
         }
         if (empty($branchIds)) {
             $this->jsonResponse(['success' => false, 'message' => 'حسابك غير مرتبط بأي فرع.'], 403);
+            return;
         }
 
         $this->captains->addBranches($id, $branchIds);
@@ -787,6 +808,11 @@ class CaptainController {
     public function removeFromMyBranch(): void {
         auth_require(['branch_manager']);
 
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->validCsrf()) {
+            $this->jsonResponse(['success' => false, 'message' => 'طلب غير صالح.'], 403);
+            return;
+        }
+
         $user = auth_user();
         $id = $_GET['id'] ?? '';
         $captain = $this->captains->findById($id);
@@ -794,9 +820,11 @@ class CaptainController {
 
         if (!$captain) {
             $this->jsonResponse(['success' => false, 'message' => 'الكابتن غير موجود.'], 404);
+            return;
         }
         if (empty($branchIds)) {
             $this->jsonResponse(['success' => false, 'message' => 'حسابك غير مرتبط بأي فرع.'], 403);
+            return;
         }
 
         $this->captains->removeBranches($id, $branchIds);

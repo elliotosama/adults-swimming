@@ -3,6 +3,8 @@
 $role = $_SESSION['user']['role'] ?? '';
 $isAdmin = $role === 'admin';
 $canEdit = in_array($role, ['admin', 'area_manager'], true);
+$isBranchManager = $role === 'branch_manager';
+$managerBranchIds = $managerBranchIds ?? [];
 ?>
 <?php if (empty($captains)): ?>
     <div class="empty-state">
@@ -93,6 +95,16 @@ $canEdit = in_array($role, ['admin', 'area_manager'], true);
                                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                                         <button type="submit" class="btn btn-sm btn-danger">حذف</button>
                                     </form>
+                                <?php endif; ?>
+                                <?php if ($isBranchManager):
+                                    $captainBranchIds = array_filter(array_map('intval', explode(',', $c['branch_ids_csv'] ?? '')));
+                                    $inMyBranch = !empty(array_intersect($managerBranchIds, $captainBranchIds));
+                                ?>
+                                    <?php if ($inMyBranch): ?>
+                                        <button type="button" class="btn btn-sm btn-secondary js-remove-branch" data-id="<?= $c['id'] ?>">إزالة من فرعي</button>
+                                    <?php else: ?>
+                                        <button type="button" class="btn btn-sm btn-primary js-add-branch" data-id="<?= $c['id'] ?>">إضافة لفرعي</button>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </td>

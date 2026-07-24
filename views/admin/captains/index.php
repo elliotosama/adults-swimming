@@ -110,9 +110,43 @@ require ROOT . '/views/includes/layout_top.php';
     cursor: pointer;
     line-height: 1;
 }
+
+/* ── Responsive layout ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .75rem;
+    }
+    .page-header .btn { width: 100%; text-align: center; }
+
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filter-bar .form-group,
+    .filter-bar__actions { width: 100%; }
+    .filter-bar__actions { display: flex; gap: .5rem; }
+    .filter-bar__actions .btn { flex: 1; }
+
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-wrap table { min-width: 920px; }
+
+    .td-actions { flex-wrap: wrap; gap: 6px; }
+}
+
+@media (max-width: 480px) {
+    .captain-modal-panel {
+        width: 96%;
+        margin-top: 20px;
+        padding: .5rem 1rem 1rem;
+    }
+    .card-lightbox-overlay { padding: 1rem .5rem; }
+    #confirmModal > div { padding: 1.5rem 1rem 1rem; }
+}
 </style>
 
-<div class="page-header" style="flex-direction: row; margin-top: 20px;">
+<div class="page-header" style="margin-top: 20px;">
     <div>
         <h1 class="page-title">
             🧑‍✈️ الكباتن
@@ -204,6 +238,8 @@ require ROOT . '/views/includes/layout_top.php';
     const role     = <?= json_encode($_SESSION['user']['role'] ?? '') ?>;
     const isAdmin  = role === 'admin';
     const canEdit  = ['admin', 'area_manager'].includes(role);
+    const isBranchManager  = role === 'branch_manager';
+    const managerBranchIds = <?= json_encode($managerBranchIds ?? []) ?>;
 
     const form             = document.getElementById('filterForm');
     const wrap             = document.getElementById('captainTableWrap');
@@ -266,11 +302,21 @@ require ROOT . '/views/includes/layout_top.php';
             ? `<button type="button" class="btn btn-sm btn-danger js-delete-captain" data-id="${c.id}" data-name="${esc(c.captain_name)}">حذف</button>`
             : '';
 
+        let branchActionBtn = '';
+        if (isBranchManager) {
+            const captainBranchIds = (c.branch_ids_csv || '').split(',').filter(Boolean).map(Number);
+            const inMyBranch = managerBranchIds.some(id => captainBranchIds.includes(Number(id)));
+            branchActionBtn = inMyBranch
+                ? `<button type="button" class="btn btn-sm btn-secondary js-remove-branch" data-id="${c.id}">إزالة من فرعي</button>`
+                : `<button type="button" class="btn btn-sm btn-primary js-add-branch" data-id="${c.id}">إضافة لفرعي</button>`;
+        }
+
         return `
             <div class="td-actions">
                 <a href="${APP_URL}/admin/captains/show?id=${c.id}" class="btn btn-sm btn-secondary">عرض</a>
                 ${editBtn}
                 ${deleteBtn}
+                ${branchActionBtn}
             </div>`;
     }
 
@@ -489,6 +535,49 @@ require ROOT . '/views/includes/layout_top.php';
                 ? `هل أنت متأكد من حذف الكابتن "${esc(name)}"؟<br>يمكنك إعادة تفعيله لاحقاً.`
                 : 'هل أنت متأكد من حذف هذا الكابتن؟<br>يمكنك إعادة تفعيله لاحقاً.';
             confirmModal.classList.add('open');
+            return;
+        }
+
+        const addBranchBtn = e.target.closest('.js-add-branch');
+        if (addBranchBtn) {
+            e.preventDefault();
+            const csrf = document.getElementById('globalCsrfToken').value;
+            fetch(`${APP_URL}/admin/captains/addToMyBranch?id=${addBranchBtn.dataset.id}`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `csrf_token=${encodeURIComponent(csrf)}`,
+            })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) fetchCaptains();
+            })
+            .catch(() => showToast('حدث خطأ أثناء الاتصال بالخادم.', 'error'));
+            return;
+        }
+
+        const removeBranchBtn = e.target.closest('.js-remove-branch');
+        if (removeBranchBtn) {
+            e.preventDefault();
+            const csrf = document.getElementById('globalCsrfToken').value;
+            fetch(`${APP_URL}/admin/captains/removeFromMyBranch?id=${removeBranchBtn.dataset.id}`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `csrf_token=${encodeURIComponent(csrf)}`,
+            })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) fetchCaptains();
+            })
+            .catch(() => showToast('حدث خطأ أثناء الاتصال بالخادم.', 'error'));
+            return;
         }
     });
 

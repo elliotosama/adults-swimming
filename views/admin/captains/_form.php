@@ -71,6 +71,14 @@ $existingCertificateIsPdf = $existingCertificate && str_ends_with(strtolower($ex
 .card-preview .file-icon { font-size: 1.8rem; }
 .card-preview a { color: var(--accent, #00b4d8); font-weight: 500; }
 .remove-card-check { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: .82rem; color: var(--muted); }
+
+/* ── Responsive layout ─────────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .form-card { padding: 1.25rem 1rem 1rem; }
+    .branch-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
+    .card-preview { flex-wrap: wrap; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: .5rem; }
+}
 </style>
 
 <div class="page-header">
