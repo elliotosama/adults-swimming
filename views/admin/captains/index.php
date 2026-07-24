@@ -553,7 +553,10 @@ require ROOT . '/views/includes/layout_top.php';
             .then(r => r.json())
             .then(data => {
                 showToast(data.message, data.success ? 'success' : 'error');
-                if (data.success) fetchCaptains();
+                if (data.success) {
+                    closeCaptainModal(); // no-op if the show view wasn't open in the modal
+                    fetchCaptains();
+                }
             })
             .catch(() => showToast('حدث خطأ أثناء الاتصال بالخادم.', 'error'));
             return;
@@ -574,7 +577,10 @@ require ROOT . '/views/includes/layout_top.php';
             .then(r => r.json())
             .then(data => {
                 showToast(data.message, data.success ? 'success' : 'error');
-                if (data.success) fetchCaptains();
+                if (data.success) {
+                    closeCaptainModal(); // no-op if the show view wasn't open in the modal
+                    fetchCaptains();
+                }
             })
             .catch(() => showToast('حدث خطأ أثناء الاتصال بالخادم.', 'error'));
             return;

@@ -88,6 +88,34 @@ if (!$ajaxPartial) {
     border-radius: 8px;
     border: 1px solid var(--border);
 }
+
+/* ── Responsive layout ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .75rem;
+    }
+    .page-header .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    .page-header .header-actions .btn { flex: 1 1 auto; text-align: center; }
+
+    .bottom-actions { flex-wrap: wrap; }
+}
+
+@media (max-width: 560px) {
+    .show-card { padding: 1.25rem; }
+
+    .detail-grid { grid-template-columns: 1fr; }
+    .detail-row > .detail-label {
+        border-bottom: none;
+        padding-bottom: 2px;
+    }
+
+    .id-card-preview { flex-wrap: wrap; }
+}
 </style>
 
 <div class="page-header">
@@ -95,7 +123,7 @@ if (!$ajaxPartial) {
         <h1 class="page-title">🧑‍✈️ <?= htmlspecialchars($captain['captain_name']) ?></h1>
         <p class="breadcrumb"><?= htmlspecialchars($breadcrumb) ?></p>
     </div>
-    <div style="display:flex;gap:8px;">
+    <div class="header-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
         <?php if ($canEdit): ?>
             <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $captain['id'] ?>" class="btn btn-warning">✏️ تعديل</a>
         <?php endif; ?>
@@ -104,7 +132,7 @@ if (!$ajaxPartial) {
         <?php endif; ?>
         <?php if ($isBranchManager): ?>
             <button type="button"
-                    class="btn <?= $isInMyBranch ? 'btn-danger js-remove-from-branch' : 'btn-primary js-add-to-branch' ?>"
+                    class="btn <?= $isInMyBranch ? 'btn-danger js-remove-branch' : 'btn-primary js-add-branch' ?>"
                     data-id="<?= htmlspecialchars($captain['id']) ?>">
                 <?= $isInMyBranch ? 'إزالة من فرعي' : 'إضافة لفرعي' ?>
             </button>
@@ -259,7 +287,7 @@ if (!$ajaxPartial) {
 
     </div>
 
-    <div style="display:flex;gap:8px;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);">
+    <div class="bottom-actions" style="display:flex;gap:8px;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);flex-wrap:wrap;">
         <?php if ($canEdit): ?>
             <a href="<?= APP_URL ?>/admin/captains/edit?id=<?= $captain['id'] ?>" class="btn btn-sm btn-warning">✏️ تعديل</a>
         <?php endif; ?>
@@ -268,7 +296,7 @@ if (!$ajaxPartial) {
         <?php endif; ?>
         <?php if ($isBranchManager): ?>
             <button type="button"
-                    class="btn btn-sm <?= $isInMyBranch ? 'btn-danger js-remove-from-branch' : 'btn-primary js-add-to-branch' ?>"
+                    class="btn btn-sm <?= $isInMyBranch ? 'btn-danger js-remove-branch' : 'btn-primary js-add-branch' ?>"
                     data-id="<?= htmlspecialchars($captain['id']) ?>">
                 <?= $isInMyBranch ? 'إزالة من فرعي' : 'إضافة لفرعي' ?>
             </button>
@@ -294,10 +322,19 @@ if (!$ajaxPartial) {
 
 <?php if (!$ajaxPartial): ?>
     <?php if ($isBranchManager): ?>
+        <!--
+            Fallback handler for a direct, non-modal visit to this page.
+            When this view is loaded into the index.php modal instead (the
+            normal flow — "عرض" injects this markup via innerHTML), this
+            <script> block is skipped and never rendered: injected <script>
+            tags don't execute anyway, and index.php's own document-level
+            click listener already handles .js-add-branch / .js-remove-branch
+            (including inside the modal) via the same endpoints below.
+        -->
         <script>
         (function () {
             function updateMyBranch(captainId, action) {
-                const endpoint = action === 'add' ? 'add-to-my-branch' : 'remove-from-my-branch';
+                const endpoint = action === 'add' ? 'addToMyBranch' : 'removeFromMyBranch';
                 const body = 'csrf_token=' + encodeURIComponent(<?= json_encode($_SESSION['csrf_token'] ?? '') ?>);
 
                 fetch(<?= json_encode(APP_URL . '/admin/captains/') ?> + endpoint + '?id=' + encodeURIComponent(captainId), {
@@ -320,14 +357,14 @@ if (!$ajaxPartial) {
             }
 
             document.addEventListener('click', function (event) {
-                const addButton = event.target.closest('.js-add-to-branch');
+                const addButton = event.target.closest('.js-add-branch');
                 if (addButton) {
                     event.preventDefault();
                     updateMyBranch(addButton.dataset.id, 'add');
                     return;
                 }
 
-                const removeButton = event.target.closest('.js-remove-from-branch');
+                const removeButton = event.target.closest('.js-remove-branch');
                 if (removeButton) {
                     event.preventDefault();
                     updateMyBranch(removeButton.dataset.id, 'remove');
