@@ -143,7 +143,7 @@ $receiptNotes = array_values(array_filter(array_map(function ($t) {
     <div class="rm-section-title">💳 الدفع</div>
     <div class="rm-pay-strip">
         <div class="rm-pay-item"><span class="rm-label">قيمة الاشتراك</span><span class="rm-num"><?= number_format($planPrice,0) ?></span></div>
-        <div class="rm-pay-item"><span class="rm-label">إجمالي المدفوع</span><span class="rm-num green"><?= number_format($grossPaid,0) ?></span></div>
+        <div class="rm-pay-item"><span class="rm-label">إجمالي المدفوع</span><span class="rm-num green"><?= number_format($netPaid,0) ?></span></div>
         <?php if ($totalRefunded > 0): ?>
         <div class="rm-pay-item"><span class="rm-label">المسترد للعميل</span><span class="rm-num red"><?= number_format($totalRefunded,0) ?> (<?= $refundPct ?>%)</span></div>
         <div class="rm-pay-item"><span class="rm-label">صافي المتبقي للأكاديمية</span><span class="rm-num yellow"><?= number_format($netPaid,0) ?> (<?= $netKeptPct ?>%)</span></div>
