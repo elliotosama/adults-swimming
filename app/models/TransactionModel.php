@@ -199,7 +199,7 @@ if (!empty($filters['exclude_refunded_receipts'])) {
     // 12:00–2:59:59 AM is attributed to the previous calendar day.
     // ════════════════════════════════════════════════════════════════════════
     private function effectiveNow(): string {
-        $now = new DateTime();
+        $now = new DateTime('now', new DateTimeZone('Africa/Cairo'));
         if ((int) $now->format('H') < 3) {
             $now->modify('-1 day');
         }

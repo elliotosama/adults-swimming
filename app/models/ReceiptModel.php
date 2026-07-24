@@ -396,7 +396,7 @@ public function searchAll(array $filters = []): array
     // calendar day.
     // ════════════════════════════════════════════════════════════════════════
     private function effectiveNow(): string {
-        $now = new DateTime();
+        $now = new DateTime('now', new DateTimeZone('Africa/Cairo'));
         if ((int) $now->format('H') < 3) {
             $now->modify('-1 day');
         }

@@ -5,6 +5,8 @@ define('APP_NAME',    'Swimming Academy');
 define('APP_URL',     'http://localhost:8000');   // ← change to your domain (no trailing slash)
 define('APP_ENV',     'development');        // 'production' in live
 
+date_default_timezone_set('Africa/Cairo');
+
 // Session
 define('SESSION_NAME',     'bhc_session');
 define('SESSION_LIFETIME', 7200);            // 2 hours in seconds
