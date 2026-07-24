@@ -2186,30 +2186,70 @@ public function edit(): void {
             : null;
     }
 
-    // ── Update clients table ───────────────────────────────────────────────
+    // ── Update clients table only when a real client-field change is present ──
+    // This prevents unrelated receipt-level edits (for example created_at)
+    // from creating a bogus "client_name changed" audit row just because the
+    // form submits the client block every time.
+    $clientAuditOld = [];
+    $clientAuditNew = [];
+
     if (!$isRestrictedScheduleEditor && !empty($receipt['client_id'])) {
         $clientFields = [];
         $clientParams = [':id' => $receipt['client_id']];
 
+        $sameClientValue = function ($old, $new): bool {
+            return trim((string) ($old ?? '')) === trim((string) ($new ?? ''));
+        };
+
         if ($data['client_name'] !== '') {
-            $clientFields[]               = 'client_name = :client_name';
-            $clientParams[':client_name'] = $data['client_name'];
+            $oldValue = $oldClient['client_name'] ?? null;
+            $newValue = $data['client_name'];
+            if (!$sameClientValue($oldValue, $newValue)) {
+                $clientFields[]               = 'client_name = :client_name';
+                $clientParams[':client_name'] = $newValue;
+                $clientAuditOld['client_name'] = $oldValue;
+                $clientAuditNew['client_name'] = $newValue;
+            }
         }
         if ($data['phone'] !== '') {
-            $clientFields[]         = 'phone = :phone';
-            $clientParams[':phone'] = $data['phone'];
+            $oldValue = $oldClient['phone'] ?? null;
+            $newValue = $data['phone'];
+            if (!$sameClientValue($oldValue, $newValue)) {
+                $clientFields[]         = 'phone = :phone';
+                $clientParams[':phone'] = $newValue;
+                $clientAuditOld['phone'] = $oldValue;
+                $clientAuditNew['phone'] = $newValue;
+            }
         }
         if ($data['client_email'] !== '') {
-            $clientFields[]         = 'email = :email';
-            $clientParams[':email'] = $data['client_email'];
+            $oldValue = $oldClient['email'] ?? null;
+            $newValue = $data['client_email'];
+            if (!$sameClientValue($oldValue, $newValue)) {
+                $clientFields[]         = 'email = :email';
+                $clientParams[':email'] = $newValue;
+                $clientAuditOld['client_email'] = $oldValue;
+                $clientAuditNew['client_email'] = $newValue;
+            }
         }
         if ($data['client_age'] !== null) {
-            $clientFields[]       = 'age = :age';
-            $clientParams[':age'] = $data['client_age'];
+            $oldValue = isset($oldClient['age']) && $oldClient['age'] !== '' ? (int) $oldClient['age'] : null;
+            $newValue = (int) $data['client_age'];
+            if (!$sameClientValue($oldValue, $newValue)) {
+                $clientFields[]       = 'age = :age';
+                $clientParams[':age'] = $newValue;
+                $clientAuditOld['client_age'] = $oldValue;
+                $clientAuditNew['client_age'] = $newValue;
+            }
         }
         if ($data['client_gender'] !== '') {
-            $clientFields[]          = 'gender = :gender';
-            $clientParams[':gender'] = $data['client_gender'];
+            $oldValue = $oldClient['gender'] ?? null;
+            $newValue = $data['client_gender'];
+            if (!$sameClientValue($oldValue, $newValue)) {
+                $clientFields[]          = 'gender = :gender';
+                $clientParams[':gender'] = $newValue;
+                $clientAuditOld['client_gender'] = $oldValue;
+                $clientAuditNew['client_gender'] = $newValue;
+            }
         }
 
         if ($clientFields) {
@@ -2239,30 +2279,13 @@ public function edit(): void {
         $updatedAt
     );
 
-    // ── Audit: client-level fields (old values fetched from DB above) ──────
-    $oldClientAuditable = [
-        'client_name'   => $oldClient['client_name'] ?? null,
-        'phone'         => $oldClient['phone']        ?? null,
-        'client_email'  => $oldClient['email']        ?? null,
-        'client_age'    => isset($oldClient['age'])   ? (string) $oldClient['age']    : null,
-        'client_gender' => $oldClient['gender']       ?? null,
-    ];
-
-    $newClientAuditable = [
-        'client_name'   => $data['client_name']   ?: null,
-        'phone'         => $data['phone']          ?: null,
-        'client_email'  => $data['client_email']   ?: null,
-        'client_age'    => $data['client_age'] !== null ? (string) $data['client_age'] : null,
-        'client_gender' => $data['client_gender']  ?: null,
-    ];
-
-    if (!$isRestrictedScheduleEditor) {
+    if (!$isRestrictedScheduleEditor && !empty($clientAuditOld)) {
         $this->auditLog->logChanges(
             $id,
             $user['id'],
             $user['role'],
-            $oldClientAuditable,
-            $newClientAuditable,
+            $clientAuditOld,
+            $clientAuditNew,
             $updatedAt
         );
     }
