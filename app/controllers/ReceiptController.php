@@ -982,7 +982,7 @@ private function validate(array $data): array {
         $stmt = $db->prepare("
             SELECT
                 COALESCE(SUM(CASE WHEN type='payment' THEN amount ELSE 0 END), 0) AS gross_paid,
-                COALESCE(SUM(CASE WHEN type='refund' AND is_admin_adjustment = 0 THEN amount ELSE 0 END), 0) AS total_refunded
+                COALESCE(SUM(CASE WHEN type='refund' THEN amount ELSE 0 END), 0) AS total_refunded
             FROM transactions WHERE receipt_id = ?
         ");
         $stmt->execute([$receiptId]);
@@ -2267,12 +2267,13 @@ public function edit(): void {
         );
     }
 
-    // ── Admin-only: reconcile total_paid override with a signed adjustment transaction ──
+    // ── Admin-only: reconcile total_paid override with a normalized adjustment transaction ──
     // "total_paid" on the edit form is not a receipts column — it's a live
-    // display of the effective transaction sum. If admin changes it, insert a
-    // signed payment adjustment for the delta so the transactions table stays
-    // authoritative and bookkeeping-only corrections are not mistaken for real
-    // customer refunds.
+    // display of the effective transaction sum. If admin changes it, insert an
+    // adjustment row whose amount is always positive and whose type is chosen
+    // by the delta sign: payment for increases, refund for decreases. This
+    // keeps the transactions table consistent while still letting the effective
+    // paid total reconcile correctly.
     if ($isAdmin && $data['total_paid'] !== null) {
         $newTotalPaid      = $data['total_paid'];
         $currentPlanPrice  = (float) ($receipt['plan_price'] ?? 0);
@@ -2281,15 +2282,18 @@ public function edit(): void {
         $diff              = round($newTotalPaid - $originalTotalPaid, 2);
 
         if (abs($diff) >= 0.01) {
+            $adjustmentType   = $diff > 0 ? 'payment' : 'refund';
+            $adjustmentAmount = abs($diff);
+
             $this->transactions->create([
                 'receipt_id'          => $id,
                 'payment_method'      => (string) ($data['payment_method'] ?: ($receipt['payment_method'] ?? 'bank_transfer')),
-                'amount'              => $diff,
+                'amount'              => $adjustmentAmount,
                 'created_by'          => $user['id'],
-                'type'                => 'payment',
+                'type'                => $adjustmentType,
                 'is_admin_adjustment' => 1,
                 'notes'               => 'تسوية إدارية / Admin balance adjustment ('
-                    . ($diff > 0 ? '+' : '') . number_format($diff, 2) . ')',
+                    . ($diff > 0 ? '+' : '-') . number_format($adjustmentAmount, 2) . ')',
                 'attachment'          => null,
                 'created_at'          => $updatedAt,
             ]);
@@ -2818,7 +2822,7 @@ public function storeRenewal(): void {
                            b.branch_name,
                            (
                                SELECT COALESCE(SUM(CASE WHEN type='payment' THEN amount ELSE 0 END),0)
-                                    - COALESCE(SUM(CASE WHEN type='refund' AND is_admin_adjustment = 0 THEN amount ELSE 0 END),0)
+                                    - COALESCE(SUM(CASE WHEN type='refund' THEN amount ELSE 0 END),0)
                                FROM transactions t WHERE t.receipt_id = r.id
                            ) AS total_paid
                     FROM receipts r
@@ -3565,7 +3569,7 @@ public function manage(): void {
                        c.phone       AS client_phone,
                        c.age         AS client_age,
                        COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
-                           - COALESCE(SUM(CASE WHEN t.type='refund' AND t.is_admin_adjustment = 0 THEN t.amount ELSE 0 END), 0)
+                           - COALESCE(SUM(CASE WHEN t.type='refund' THEN t.amount ELSE 0 END), 0)
                            AS total_paid
                 FROM receipts r
                 LEFT JOIN prices       p ON p.id = r.plan_id
@@ -3612,11 +3616,11 @@ public function manage(): void {
                            p.description AS plan_name,
                            b.branch_name,
                            COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
-                               - COALESCE(SUM(CASE WHEN t.type='refund' AND t.is_admin_adjustment = 0 THEN t.amount ELSE 0 END), 0)
+                               - COALESCE(SUM(CASE WHEN t.type='refund' THEN t.amount ELSE 0 END), 0)
                                AS total_paid,
                            COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
                                AS gross_paid,
-                           COALESCE(SUM(CASE WHEN t.type='refund' AND t.is_admin_adjustment = 0 THEN t.amount ELSE 0 END), 0)
+                           COALESCE(SUM(CASE WHEN t.type='refund' THEN t.amount ELSE 0 END), 0)
                                AS total_refunded
                     FROM receipts r
                     LEFT JOIN prices       p ON p.id = r.plan_id
@@ -3629,7 +3633,7 @@ public function manage(): void {
                     GROUP BY r.id
                     HAVING (
                         COALESCE(SUM(CASE WHEN t.type='payment' THEN t.amount ELSE 0 END), 0)
-                        - COALESCE(SUM(CASE WHEN t.type='refund' AND t.is_admin_adjustment = 0 THEN t.amount ELSE 0 END), 0)
+                        - COALESCE(SUM(CASE WHEN t.type='refund' THEN t.amount ELSE 0 END), 0)
                     ) < COALESCE(p.price, 0)
                     ORDER BY r.id DESC
                 ");
