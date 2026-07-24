@@ -91,9 +91,9 @@ $canEditPayment  = $isAdmin;
 $canUploadEvidence = $isAdmin || $isBranchManager || $isAreaManager;
 
 /*
- * total_paid  = real sum of all payment transactions (injected by controller)
+ * total_paid  = net paid = gross payments − refunds (injected by controller)
  * total_refunded = real sum of all refund transactions
- * remaining   = max(0, plan_price - total_paid + total_refunded)
+ * remaining   = max(0, plan_price - total_paid)
  *
  * Both are fetched fresh from the DB in edit() — never trust the receipt row's
  * own `amount` or `remaining` columns here.
@@ -101,7 +101,7 @@ $canUploadEvidence = $isAdmin || $isBranchManager || $isAreaManager;
 $planPrice      = (float) ($receipt['plan_price']      ?? 0);
 $totalPaid      = (float) ($receipt['total_paid']      ?? 0);
 $totalRefunded  = (float) ($receipt['total_refunded']  ?? 0);
-$remaining      = max(0, $planPrice - $totalPaid + $totalRefunded);
+$remaining      = max(0, $planPrice - $totalPaid);
 
 // Admin-only: value for the <input type="datetime-local"> created_at field.
 $createdAtValue = '';
@@ -1268,9 +1268,9 @@ select.form-control:disabled {
     }
 
     // ── Remaining auto-compute when plan or (admin-only) paid amount changes ──
-    // remaining = plan_price - total_paid + total_refunded
-    // total_refunded is FIXED for this session (from server).
-    // total_paid is FIXED for non-admins, but live-editable for admin.
+    // remaining = plan_price - total_paid
+    // total_paid is already net paid (gross payments − refunds).
+    // total_refunded is kept only for display/reference, not added back here.
 
     const planPriceDisp = document.getElementById('planPriceDisplay');
     const totalPaidInput= document.getElementById('totalPaidDisplay');
@@ -1291,7 +1291,7 @@ select.form-control:disabled {
         const opt   = planSelect ? planSelect.options[planSelect.selectedIndex] : null;
         const price = opt ? (parseFloat(opt.dataset.price) || 0) : (parseFloat(form.dataset.planPrice) || 0);
         const paid  = currentTotalPaid();
-        const rem   = Math.max(0, price - paid + totalRefunded);
+        const rem   = Math.max(0, price - paid);
 
         if (IS_ADMIN && totalPaidInput && price > 0) {
             totalPaidInput.max = price.toFixed(2);
